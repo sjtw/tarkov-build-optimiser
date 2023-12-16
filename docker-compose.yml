@@ -1,0 +1,14 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_HOST: localhost
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: tarkov-build-optimiser
+    volumes:
+      - ./.docker-volumes:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
