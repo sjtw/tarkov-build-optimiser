@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog/log"
 )
 
 type Env struct {
@@ -27,11 +28,15 @@ func Get() (Env, error) {
 		return Env{}, err
 	}
 
-	return Env{
+	env := Env{
 		PgHost:     os.Getenv("POSTGRES_HOST"),
 		PgPort:     os.Getenv("POSTGRES_PORT"),
 		PgUser:     os.Getenv("POSTGRES_USER"),
 		PgPassword: os.Getenv("POSTGRES_PASSWORD"),
 		PgName:     os.Getenv("POSTGRES_DB"),
-	}, nil
+	}
+
+	log.Info().Interface("env", env).Msg("Environment variables")
+
+	return env, nil
 }

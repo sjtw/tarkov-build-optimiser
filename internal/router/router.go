@@ -20,6 +20,9 @@ func NewRouter(config RouterConfig) *echo.Echo {
 	e.Use(middleware.Recover())
 
 	api := e.Group("/api")
+	api.GET("/", func(c echo.Context) error {
+		return c.String(200, "Hello, World!")
+	})
 	usersGroup := api.Group("/users")
 
 	users_router.Bind(usersGroup)

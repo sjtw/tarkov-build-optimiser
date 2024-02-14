@@ -11,6 +11,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	db, err := db.NewDatabase(db.Config{
 		Host:     env.PgHost,
 		Port:     env.PgPort,

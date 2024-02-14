@@ -1,9 +1,24 @@
-### Setup
-
-```
-go install github.com/pressly/goose/v3/cmd/goose@latest
-```
-
 ### Migrations
 
-https://github.com/pressly/goose
+### Setup
+
+- Install `docker` & `docker-compose`
+- Install tooling:
+
+```
+./scripts/install-deps.sh
+```
+
+### Development
+
+Everything should be handled through `Task`. These can be listed as such & should include meaningful descriptions:
+
+```
+task --list-all
+```
+
+#### Running DB & API Locally
+
+```
+task local:start
+```

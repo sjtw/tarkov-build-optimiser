@@ -1,0 +1,90 @@
+version: '3'
+
+dotenv:
+  - .env
+
+tasks:
+  api:build:
+    desc: Build the api
+    cmds:
+      - go build -o bin/tarkov-build-optimiser-api ./cmd/tarkov-build-optimiser-api
+
+  api:debug:
+    desc: start the api locally in debug mode
+    cmds:
+      - dlv debug --listen=:4000 -log=true --accept-multiclient --api-version=2 ./cmd/tarkov-build-optimiser-api
+
+  api:debug:headless:
+    desc: start the api locally in headless debug mode
+    cmds:
+      - dlv debug --listen=:4000 -log=true --headless=true --accept-multiclient --api-version=2 ./cmd/tarkov-build-optimiser-api
+
+  api:start:
+    desc: start the api locally
+    deps: [api:build, compose:up]
+    cmds:
+      - ./bin/tarkov-build-optimiser-api
+
+  docker:build:
+    desc: Build Docker image
+    cmds:
+      - docker build -t tarkov-build-optimiser .
+
+  clean:
+    desc: Clean the project
+    cmds:
+      - go clean
+      - rm -rf bin
+
+  compose:postgres:up:
+    desc: Start the local database
+    cmds:
+      - docker-compose --env-file .env up -d postgres
+
+  compose:up:
+    desc: Start the local environment
+    cmds:
+      - docker-compose --env-file .env up -d
+
+  compose:restart:
+    desc: Restart the local environment
+    deps: [compose:down, compose:up]
+
+  compose:down:
+    desc: Stop the local environment
+    cmds:
+      - docker-compose --env-file .env down
+
+  lint:
+    desc: Run linter
+    cmds:
+      - golangci-lint run
+
+  migrate:create:
+    desc: Create a new migration
+    cmds:
+      - goose -dir=./migrations create {{.CLI_ARGS}} go
+
+  migrate:build:
+    desc: Build the migrations
+    cmds:
+      - go build -o bin/migrate ./cmd/migrations/*.go
+
+  migrate:down:
+    desc: Rollback migrations
+    deps: [compose:postgres:up, migrate:build]
+    cmds:
+      - ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" down
+  migrate:up:
+    desc: Apply migrations
+    deps: [compose:postgres:up, migrate:build]
+    cmds:
+      - ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" up
+  start:
+    desc: Start full local environment
+    deps: [compose:start, api:start]
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test ./...

@@ -1,1 +1,7 @@
-.docker-volumes
+# Ignore directories
+.docker-volumes/
+bin/
+
+# Ignore files
+*.log
+*.tmp
