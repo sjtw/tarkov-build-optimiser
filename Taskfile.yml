@@ -90,3 +90,39 @@ tasks:
     desc: Run tests
     cmds:
       - go test ./...
+
+  tarkovdev:get-schema:
+    desc: Retrieve the latest schema from the tarkov.dev API
+    cmds:
+      - graphql-inspector introspect https://api.tarkov.dev/api/graphql --write ./internal/tarkovdev/schemas/schema.graphql
+
+  tarkovdev:regenerate:
+    desc: Regenerate the tarkovdev client
+    cmds:
+      - go run github.com/Khan/genqlient
+
+  tarkovdev:
+    desc: Sync the tarkovdev schema and regenerate the client
+    deps: [tarkovdev:get-schema, tarkovdev:regenerate]
+
+  init:go-only:
+    desc: Initialise the project for development (without nodejs/tarkovdev schema dependencies)
+    deps: [compose:up, migrate:up, tarkovdev]
+
+  init:
+    desc: Initialise the project for development
+    deps: [init:go-only]
+
+  deps:install:go:
+    desc: Install go dependencies
+    cmds:
+      - ./scripts/install-go-deps.sh
+
+  deps:install:node:
+    desc: Install node dependencies
+    cmds:
+      - ./scripts/install-node-deps.sh
+
+  deps:install:
+    desc: Install all dependencies
+    deps: [deps:install:go, deps:install:node]

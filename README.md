@@ -7,6 +7,14 @@
 ./scripts/install-deps.sh
 ```
 
+Optional:
+
+- Install nodejs (if you need to update tarkovdev schema)
+
+```
+./scripts/install-node-deps.sh
+```
+
 ## Development
 
 ### Tasks

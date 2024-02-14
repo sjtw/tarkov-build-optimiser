@@ -1,0 +1,7 @@
+# Default genqlient config; for full documentation see:
+# https://github.com/Khan/genqlient/blob/main/docs/genqlient.yaml
+schema: ./internal/tarkovdev/schemas/schema.graphql
+operations:
+  - ./internal/tarkovdev/schemas/queries.graphql
+generated: ./internal/tarkovdev/generated-queries.go
+package: tarkovdev
