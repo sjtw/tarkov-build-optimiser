@@ -1,4 +1,4 @@
-### Setup
+## Setup
 
 - Install `docker` & `docker-compose`
 - Install tooling:
@@ -7,7 +7,7 @@
 ./scripts/install-deps.sh
 ```
 
-### Development
+## Development
 
 ### Tasks
 
