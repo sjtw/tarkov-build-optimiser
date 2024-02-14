@@ -1,4 +1,1 @@
-{
-  "go.goroot": "/home/simon/.gvm/gos/go1.21", // Replace with your gvm Go root path
-  "go.gopath": "/home/simon/.gvm/pkgsets/go1.21/global" // Replace with your GOPATH, if you have a specific one
-}
+{}

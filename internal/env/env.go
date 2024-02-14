@@ -21,7 +21,7 @@ func Get() (Env, error) {
 		return Env{}, err
 	}
 
-	envFilePath := filepath.Join(projectRoot, "../.env")
+	envFilePath := filepath.Join(projectRoot, "/.env")
 	err = godotenv.Load(envFilePath)
 	if err != nil {
 		return Env{}, err
