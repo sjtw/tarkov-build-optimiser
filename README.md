@@ -1,5 +1,3 @@
-### Migrations
-
 ### Setup
 
 - Install `docker` & `docker-compose`
@@ -11,14 +9,23 @@
 
 ### Development
 
-Everything should be handled through `Task`. These can be listed as such & should include meaningful descriptions:
+### Tasks
+
+building/running/starting dev infrastructure/etc can all be handled using `Task`. See the task list;
 
 ```
 task --list-all
 ```
 
-#### Running DB & API Locally
+#### Running Locally
 
 ```
-task local:start
+task start:local
+```
+
+#### Migrations
+
+```
+task migrate:up
+task migrate:down
 ```
