@@ -105,14 +105,6 @@ tasks:
     desc: Sync the tarkovdev schema and regenerate the client
     deps: [tarkovdev:get-schema, tarkovdev:regenerate]
 
-  init:go-only:
-    desc: Initialise the project for development (without nodejs/tarkovdev schema dependencies)
-    deps: [compose:up, migrate:up, tarkovdev]
-
-  init:
-    desc: Initialise the project for development
-    deps: [init:go-only]
-
   deps:install:go:
     desc: Install go dependencies
     cmds:
@@ -123,6 +115,10 @@ tasks:
     cmds:
       - ./scripts/install-node-deps.sh
 
-  deps:install:
-    desc: Install all dependencies
-    deps: [deps:install:go, deps:install:node]
+  init:go-only:
+    desc: Initialise the project for development (without nodejs/tarkovdev schema dependencies)
+    deps: [deps:install:go, compose:up, migrate:up]
+
+  init:
+    desc: Initialise the project for development
+    deps: [deps:install:go, deps:install:node, compose:up, migrate:up]
