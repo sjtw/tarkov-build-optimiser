@@ -9,8 +9,6 @@ A tool for calculating optimal weapon builds in Escape from Tarkov.
 3. provide cost effective alternatives
 4. UI maybe
 
-## Development
-
 ## Prerequisites
 
 Install
@@ -20,6 +18,8 @@ Install
 - `go`
 
 Optionally, install `nodejs`
+
+## Development
 
 ### Tasks
 
