@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -19,7 +20,10 @@ var (
 
 func main() {
 	fmt.Println("start")
-	flags.Parse(os.Args[1:])
+	err := flags.Parse(os.Args[1:])
+	if err != nil {
+		return
+	}
 	args := flags.Args()
 
 	fmt.Println("args parsed")
@@ -30,9 +34,9 @@ func main() {
 		return
 	}
 
-	dbstring, command := args[1], args[2]
+	dbString, command := args[1], args[2]
 
-	db, err := goose.OpenDBWithDriver("postgres", dbstring)
+	db, err := goose.OpenDBWithDriver("postgres", dbString)
 	if err != nil {
 		log.Fatalf("goose: failed to open DB: %v\n", err)
 	}
@@ -45,12 +49,12 @@ func main() {
 
 	fmt.Println("applying migrations")
 
-	arguments := []string{}
+	var arguments []string
 	if len(args) > 3 {
 		arguments = append(arguments, args[3:]...)
 	}
 
-	if err := goose.Run(command, db, *dir, arguments...); err != nil {
+	if err := goose.RunContext(context.Background(), command, db, *dir, arguments...); err != nil {
 		log.Fatalf("goose %v: %v", command, err)
 	}
 }

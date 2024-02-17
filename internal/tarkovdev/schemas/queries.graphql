@@ -1,6 +1,107 @@
-query GetItems {
-  items {
-    id
+# query GetItems {
+#   items {
+#     id
+#     name
+#   }
+# }
+
+query GetWeaponMods {
+  items(categoryNames: [WeaponMod]) {
     name
+    id
+    ergonomicsModifier
+    recoilModifier
+    properties {
+      ... on ItemPropertiesWeaponMod {
+        __typename
+        ergonomics
+        recoilModifier
+        slots {
+          id
+          name
+          filters {
+            allowedItems {
+              id
+              name
+            }
+          }
+        }
+      }
+      ... on ItemPropertiesScope {
+        __typename
+        ergonomics
+        recoilModifier
+        slots {
+          id
+          name
+          filters {
+            allowedItems {
+              id
+              name
+            }
+          }
+        }
+      }
+      ... on ItemPropertiesBarrel {
+        __typename
+        ergonomics
+        recoilModifier
+        slots {
+          id
+          name
+          filters {
+            allowedItems {
+              id
+              name
+            }
+          }
+        }
+      }
+      ... on ItemPropertiesMagazine {
+        __typename
+        ergonomics
+        recoilModifier
+        slots {
+          id
+          name
+          filters {
+            allowedItems {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+query GetWeapons {
+  items(categoryNames: [Weapon]) {
+    __typename
+    name
+    id
+    ergonomicsModifier
+    recoilModifier
+    types
+    properties {
+      ... on ItemPropertiesWeapon {
+        __typename
+        recoilVertical
+        recoilHorizontal
+        ergonomics
+        defaultErgonomics
+        slots {
+          id
+          name
+          filters {
+            allowedItems {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
   }
 }

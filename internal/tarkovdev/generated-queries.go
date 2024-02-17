@@ -4,58 +4,2099 @@ package tarkovdev
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/Khan/genqlient/graphql"
 )
 
-// GetItemsItemsItem includes the requested fields of the GraphQL type Item.
-type GetItemsItemsItem struct {
+// GetWeaponModsItemsItem includes the requested fields of the GraphQL type Item.
+type GetWeaponModsItemsItem struct {
+	Name               string                           `json:"name"`
+	Id                 string                           `json:"id"`
+	ErgonomicsModifier float64                          `json:"ergonomicsModifier"`
+	RecoilModifier     float64                          `json:"recoilModifier"`
+	Properties         GetWeaponModsItemsItemProperties `json:"-"`
+}
+
+// GetName returns GetWeaponModsItemsItem.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItem) GetName() string { return v.Name }
+
+// GetId returns GetWeaponModsItemsItem.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItem) GetId() string { return v.Id }
+
+// GetErgonomicsModifier returns GetWeaponModsItemsItem.ErgonomicsModifier, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItem) GetErgonomicsModifier() float64 { return v.ErgonomicsModifier }
+
+// GetRecoilModifier returns GetWeaponModsItemsItem.RecoilModifier, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItem) GetRecoilModifier() float64 { return v.RecoilModifier }
+
+// GetProperties returns GetWeaponModsItemsItem.Properties, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItem) GetProperties() GetWeaponModsItemsItemProperties {
+	return v.Properties
+}
+
+func (v *GetWeaponModsItemsItem) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetWeaponModsItemsItem
+		Properties json.RawMessage `json:"properties"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetWeaponModsItemsItem = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Properties
+		src := firstPass.Properties
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalGetWeaponModsItemsItemProperties(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal GetWeaponModsItemsItem.Properties: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGetWeaponModsItemsItem struct {
+	Name string `json:"name"`
+
+	Id string `json:"id"`
+
+	ErgonomicsModifier float64 `json:"ergonomicsModifier"`
+
+	RecoilModifier float64 `json:"recoilModifier"`
+
+	Properties json.RawMessage `json:"properties"`
+}
+
+func (v *GetWeaponModsItemsItem) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetWeaponModsItemsItem) __premarshalJSON() (*__premarshalGetWeaponModsItemsItem, error) {
+	var retval __premarshalGetWeaponModsItemsItem
+
+	retval.Name = v.Name
+	retval.Id = v.Id
+	retval.ErgonomicsModifier = v.ErgonomicsModifier
+	retval.RecoilModifier = v.RecoilModifier
+	{
+
+		dst := &retval.Properties
+		src := v.Properties
+		var err error
+		*dst, err = __marshalGetWeaponModsItemsItemProperties(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetWeaponModsItemsItem.Properties: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// GetWeaponModsItemsItemProperties includes the requested fields of the GraphQL interface ItemProperties.
+//
+// GetWeaponModsItemsItemProperties is implemented by the following types:
+// GetWeaponModsItemsItemPropertiesItemPropertiesAmmo
+// GetWeaponModsItemsItemPropertiesItemPropertiesArmor
+// GetWeaponModsItemsItemPropertiesItemPropertiesArmorAttachment
+// GetWeaponModsItemsItemPropertiesItemPropertiesBackpack
+// GetWeaponModsItemsItemPropertiesItemPropertiesBarrel
+// GetWeaponModsItemsItemPropertiesItemPropertiesChestRig
+// GetWeaponModsItemsItemPropertiesItemPropertiesContainer
+// GetWeaponModsItemsItemPropertiesItemPropertiesFoodDrink
+// GetWeaponModsItemsItemPropertiesItemPropertiesGlasses
+// GetWeaponModsItemsItemPropertiesItemPropertiesGrenade
+// GetWeaponModsItemsItemPropertiesItemPropertiesHeadphone
+// GetWeaponModsItemsItemPropertiesItemPropertiesHeadwear
+// GetWeaponModsItemsItemPropertiesItemPropertiesHelmet
+// GetWeaponModsItemsItemPropertiesItemPropertiesKey
+// GetWeaponModsItemsItemPropertiesItemPropertiesMagazine
+// GetWeaponModsItemsItemPropertiesItemPropertiesMedKit
+// GetWeaponModsItemsItemPropertiesItemPropertiesMedicalItem
+// GetWeaponModsItemsItemPropertiesItemPropertiesMelee
+// GetWeaponModsItemsItemPropertiesItemPropertiesNightVision
+// GetWeaponModsItemsItemPropertiesItemPropertiesPainkiller
+// GetWeaponModsItemsItemPropertiesItemPropertiesPreset
+// GetWeaponModsItemsItemPropertiesItemPropertiesResource
+// GetWeaponModsItemsItemPropertiesItemPropertiesScope
+// GetWeaponModsItemsItemPropertiesItemPropertiesStim
+// GetWeaponModsItemsItemPropertiesItemPropertiesSurgicalKit
+// GetWeaponModsItemsItemPropertiesItemPropertiesWeapon
+// GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod
+type GetWeaponModsItemsItemProperties interface {
+	implementsGraphQLInterfaceGetWeaponModsItemsItemProperties()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+}
+
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesAmmo) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesArmor) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesArmorAttachment) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBackpack) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBarrel) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesChestRig) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesContainer) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesFoodDrink) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesGlasses) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesGrenade) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesHeadphone) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesHeadwear) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesHelmet) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesKey) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMagazine) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMedKit) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMedicalItem) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMelee) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesNightVision) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesPainkiller) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesPreset) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesResource) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesScope) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesStim) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesSurgicalKit) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeapon) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod) implementsGraphQLInterfaceGetWeaponModsItemsItemProperties() {
+}
+
+func __unmarshalGetWeaponModsItemsItemProperties(b []byte, v *GetWeaponModsItemsItemProperties) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "ItemPropertiesAmmo":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesAmmo)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesArmor":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesArmor)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesArmorAttachment":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesArmorAttachment)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesBackpack":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesBackpack)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesBarrel":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesBarrel)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesChestRig":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesChestRig)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesContainer":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesContainer)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesFoodDrink":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesFoodDrink)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesGlasses":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesGlasses)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesGrenade":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesGrenade)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesHeadphone":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesHeadphone)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesHeadwear":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesHeadwear)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesHelmet":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesHelmet)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesKey":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesKey)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesMagazine":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesMagazine)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesMedKit":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesMedKit)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesMedicalItem":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesMedicalItem)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesMelee":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesMelee)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesNightVision":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesNightVision)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesPainkiller":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesPainkiller)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesPreset":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesPreset)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesResource":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesResource)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesScope":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesScope)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesStim":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesStim)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesSurgicalKit":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesSurgicalKit)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesWeapon":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesWeapon)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesWeaponMod":
+		*v = new(GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing ItemProperties.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for GetWeaponModsItemsItemProperties: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalGetWeaponModsItemsItemProperties(v *GetWeaponModsItemsItemProperties) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesAmmo:
+		typename = "ItemPropertiesAmmo"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesAmmo
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesArmor:
+		typename = "ItemPropertiesArmor"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesArmor
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesArmorAttachment:
+		typename = "ItemPropertiesArmorAttachment"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesArmorAttachment
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesBackpack:
+		typename = "ItemPropertiesBackpack"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesBackpack
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesBarrel:
+		typename = "ItemPropertiesBarrel"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesBarrel
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesChestRig:
+		typename = "ItemPropertiesChestRig"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesChestRig
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesContainer:
+		typename = "ItemPropertiesContainer"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesContainer
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesFoodDrink:
+		typename = "ItemPropertiesFoodDrink"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesFoodDrink
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesGlasses:
+		typename = "ItemPropertiesGlasses"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesGlasses
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesGrenade:
+		typename = "ItemPropertiesGrenade"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesGrenade
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesHeadphone:
+		typename = "ItemPropertiesHeadphone"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesHeadphone
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesHeadwear:
+		typename = "ItemPropertiesHeadwear"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesHeadwear
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesHelmet:
+		typename = "ItemPropertiesHelmet"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesHelmet
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesKey:
+		typename = "ItemPropertiesKey"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesKey
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesMagazine:
+		typename = "ItemPropertiesMagazine"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesMagazine
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesMedKit:
+		typename = "ItemPropertiesMedKit"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesMedKit
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesMedicalItem:
+		typename = "ItemPropertiesMedicalItem"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesMedicalItem
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesMelee:
+		typename = "ItemPropertiesMelee"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesMelee
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesNightVision:
+		typename = "ItemPropertiesNightVision"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesNightVision
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesPainkiller:
+		typename = "ItemPropertiesPainkiller"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesPainkiller
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesPreset:
+		typename = "ItemPropertiesPreset"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesPreset
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesResource:
+		typename = "ItemPropertiesResource"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesResource
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesScope:
+		typename = "ItemPropertiesScope"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesScope
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesStim:
+		typename = "ItemPropertiesStim"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesStim
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesSurgicalKit:
+		typename = "ItemPropertiesSurgicalKit"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesSurgicalKit
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesWeapon:
+		typename = "ItemPropertiesWeapon"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesWeapon
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod:
+		typename = "ItemPropertiesWeaponMod"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for GetWeaponModsItemsItemProperties: "%T"`, v)
+	}
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesAmmo includes the requested fields of the GraphQL type ItemPropertiesAmmo.
+type GetWeaponModsItemsItemPropertiesItemPropertiesAmmo struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesAmmo.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesAmmo) GetTypename() string { return v.Typename }
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesArmor includes the requested fields of the GraphQL type ItemPropertiesArmor.
+type GetWeaponModsItemsItemPropertiesItemPropertiesArmor struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesArmor.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesArmor) GetTypename() string { return v.Typename }
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesArmorAttachment includes the requested fields of the GraphQL type ItemPropertiesArmorAttachment.
+type GetWeaponModsItemsItemPropertiesItemPropertiesArmorAttachment struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesArmorAttachment.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesArmorAttachment) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesBackpack includes the requested fields of the GraphQL type ItemPropertiesBackpack.
+type GetWeaponModsItemsItemPropertiesItemPropertiesBackpack struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesBackpack.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBackpack) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesBarrel includes the requested fields of the GraphQL type ItemPropertiesBarrel.
+type GetWeaponModsItemsItemPropertiesItemPropertiesBarrel struct {
+	Typename       string                                                              `json:"__typename"`
+	Ergonomics     float64                                                             `json:"ergonomics"`
+	RecoilModifier float64                                                             `json:"recoilModifier"`
+	Slots          []GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlot `json:"slots"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesBarrel.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBarrel) GetTypename() string {
+	return v.Typename
+}
+
+// GetErgonomics returns GetWeaponModsItemsItemPropertiesItemPropertiesBarrel.Ergonomics, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBarrel) GetErgonomics() float64 {
+	return v.Ergonomics
+}
+
+// GetRecoilModifier returns GetWeaponModsItemsItemPropertiesItemPropertiesBarrel.RecoilModifier, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBarrel) GetRecoilModifier() float64 {
+	return v.RecoilModifier
+}
+
+// GetSlots returns GetWeaponModsItemsItemPropertiesItemPropertiesBarrel.Slots, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBarrel) GetSlots() []GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlot {
+	return v.Slots
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlot includes the requested fields of the GraphQL type ItemSlot.
+type GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlot struct {
+	Id      string                                                                              `json:"id"`
+	Name    string                                                                              `json:"name"`
+	Filters GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFilters `json:"filters"`
+}
+
+// GetId returns GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlot.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlot) GetId() string {
+	return v.Id
+}
+
+// GetName returns GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlot.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlot) GetName() string {
+	return v.Name
+}
+
+// GetFilters returns GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlot.Filters, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlot) GetFilters() GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFilters {
+	return v.Filters
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFilters includes the requested fields of the GraphQL type ItemFilters.
+type GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFilters struct {
+	AllowedItems []GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFiltersAllowedItemsItem `json:"allowedItems"`
+}
+
+// GetAllowedItems returns GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFilters.AllowedItems, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFilters) GetAllowedItems() []GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFiltersAllowedItemsItem {
+	return v.AllowedItems
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFiltersAllowedItemsItem includes the requested fields of the GraphQL type Item.
+type GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFiltersAllowedItemsItem struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
 }
 
-// GetId returns GetItemsItemsItem.Id, and is useful for accessing the field via an interface.
-func (v *GetItemsItemsItem) GetId() string { return v.Id }
-
-// GetName returns GetItemsItemsItem.Name, and is useful for accessing the field via an interface.
-func (v *GetItemsItemsItem) GetName() string { return v.Name }
-
-// GetItemsResponse is returned by GetItems on success.
-type GetItemsResponse struct {
-	Items []GetItemsItemsItem `json:"items"`
+// GetId returns GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFiltersAllowedItemsItem.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFiltersAllowedItemsItem) GetId() string {
+	return v.Id
 }
 
-// GetItems returns GetItemsResponse.Items, and is useful for accessing the field via an interface.
-func (v *GetItemsResponse) GetItems() []GetItemsItemsItem { return v.Items }
+// GetName returns GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFiltersAllowedItemsItem.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesBarrelSlotsItemSlotFiltersItemFiltersAllowedItemsItem) GetName() string {
+	return v.Name
+}
 
-// The query or mutation executed by GetItems.
-const GetItems_Operation = `
-query GetItems {
-	items {
-		id
+// GetWeaponModsItemsItemPropertiesItemPropertiesChestRig includes the requested fields of the GraphQL type ItemPropertiesChestRig.
+type GetWeaponModsItemsItemPropertiesItemPropertiesChestRig struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesChestRig.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesChestRig) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesContainer includes the requested fields of the GraphQL type ItemPropertiesContainer.
+type GetWeaponModsItemsItemPropertiesItemPropertiesContainer struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesContainer.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesContainer) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesFoodDrink includes the requested fields of the GraphQL type ItemPropertiesFoodDrink.
+type GetWeaponModsItemsItemPropertiesItemPropertiesFoodDrink struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesFoodDrink.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesFoodDrink) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesGlasses includes the requested fields of the GraphQL type ItemPropertiesGlasses.
+type GetWeaponModsItemsItemPropertiesItemPropertiesGlasses struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesGlasses.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesGlasses) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesGrenade includes the requested fields of the GraphQL type ItemPropertiesGrenade.
+type GetWeaponModsItemsItemPropertiesItemPropertiesGrenade struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesGrenade.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesGrenade) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesHeadphone includes the requested fields of the GraphQL type ItemPropertiesHeadphone.
+type GetWeaponModsItemsItemPropertiesItemPropertiesHeadphone struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesHeadphone.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesHeadphone) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesHeadwear includes the requested fields of the GraphQL type ItemPropertiesHeadwear.
+type GetWeaponModsItemsItemPropertiesItemPropertiesHeadwear struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesHeadwear.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesHeadwear) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesHelmet includes the requested fields of the GraphQL type ItemPropertiesHelmet.
+type GetWeaponModsItemsItemPropertiesItemPropertiesHelmet struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesHelmet.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesHelmet) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesKey includes the requested fields of the GraphQL type ItemPropertiesKey.
+type GetWeaponModsItemsItemPropertiesItemPropertiesKey struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesKey.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesKey) GetTypename() string { return v.Typename }
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesMagazine includes the requested fields of the GraphQL type ItemPropertiesMagazine.
+type GetWeaponModsItemsItemPropertiesItemPropertiesMagazine struct {
+	Typename       string                                                                `json:"__typename"`
+	Ergonomics     float64                                                               `json:"ergonomics"`
+	RecoilModifier float64                                                               `json:"recoilModifier"`
+	Slots          []GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlot `json:"slots"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesMagazine.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMagazine) GetTypename() string {
+	return v.Typename
+}
+
+// GetErgonomics returns GetWeaponModsItemsItemPropertiesItemPropertiesMagazine.Ergonomics, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMagazine) GetErgonomics() float64 {
+	return v.Ergonomics
+}
+
+// GetRecoilModifier returns GetWeaponModsItemsItemPropertiesItemPropertiesMagazine.RecoilModifier, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMagazine) GetRecoilModifier() float64 {
+	return v.RecoilModifier
+}
+
+// GetSlots returns GetWeaponModsItemsItemPropertiesItemPropertiesMagazine.Slots, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMagazine) GetSlots() []GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlot {
+	return v.Slots
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlot includes the requested fields of the GraphQL type ItemSlot.
+type GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlot struct {
+	Id      string                                                                                `json:"id"`
+	Name    string                                                                                `json:"name"`
+	Filters GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFilters `json:"filters"`
+}
+
+// GetId returns GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlot.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlot) GetId() string {
+	return v.Id
+}
+
+// GetName returns GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlot.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlot) GetName() string {
+	return v.Name
+}
+
+// GetFilters returns GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlot.Filters, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlot) GetFilters() GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFilters {
+	return v.Filters
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFilters includes the requested fields of the GraphQL type ItemFilters.
+type GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFilters struct {
+	AllowedItems []GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFiltersAllowedItemsItem `json:"allowedItems"`
+}
+
+// GetAllowedItems returns GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFilters.AllowedItems, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFilters) GetAllowedItems() []GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFiltersAllowedItemsItem {
+	return v.AllowedItems
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFiltersAllowedItemsItem includes the requested fields of the GraphQL type Item.
+type GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFiltersAllowedItemsItem struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFiltersAllowedItemsItem.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFiltersAllowedItemsItem) GetId() string {
+	return v.Id
+}
+
+// GetName returns GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFiltersAllowedItemsItem.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMagazineSlotsItemSlotFiltersItemFiltersAllowedItemsItem) GetName() string {
+	return v.Name
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesMedKit includes the requested fields of the GraphQL type ItemPropertiesMedKit.
+type GetWeaponModsItemsItemPropertiesItemPropertiesMedKit struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesMedKit.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMedKit) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesMedicalItem includes the requested fields of the GraphQL type ItemPropertiesMedicalItem.
+type GetWeaponModsItemsItemPropertiesItemPropertiesMedicalItem struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesMedicalItem.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMedicalItem) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesMelee includes the requested fields of the GraphQL type ItemPropertiesMelee.
+type GetWeaponModsItemsItemPropertiesItemPropertiesMelee struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesMelee.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesMelee) GetTypename() string { return v.Typename }
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesNightVision includes the requested fields of the GraphQL type ItemPropertiesNightVision.
+type GetWeaponModsItemsItemPropertiesItemPropertiesNightVision struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesNightVision.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesNightVision) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesPainkiller includes the requested fields of the GraphQL type ItemPropertiesPainkiller.
+type GetWeaponModsItemsItemPropertiesItemPropertiesPainkiller struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesPainkiller.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesPainkiller) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesPreset includes the requested fields of the GraphQL type ItemPropertiesPreset.
+type GetWeaponModsItemsItemPropertiesItemPropertiesPreset struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesPreset.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesPreset) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesResource includes the requested fields of the GraphQL type ItemPropertiesResource.
+type GetWeaponModsItemsItemPropertiesItemPropertiesResource struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesResource.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesResource) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesScope includes the requested fields of the GraphQL type ItemPropertiesScope.
+type GetWeaponModsItemsItemPropertiesItemPropertiesScope struct {
+	Typename       string                                                             `json:"__typename"`
+	Ergonomics     float64                                                            `json:"ergonomics"`
+	RecoilModifier float64                                                            `json:"recoilModifier"`
+	Slots          []GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlot `json:"slots"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesScope.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesScope) GetTypename() string { return v.Typename }
+
+// GetErgonomics returns GetWeaponModsItemsItemPropertiesItemPropertiesScope.Ergonomics, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesScope) GetErgonomics() float64 {
+	return v.Ergonomics
+}
+
+// GetRecoilModifier returns GetWeaponModsItemsItemPropertiesItemPropertiesScope.RecoilModifier, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesScope) GetRecoilModifier() float64 {
+	return v.RecoilModifier
+}
+
+// GetSlots returns GetWeaponModsItemsItemPropertiesItemPropertiesScope.Slots, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesScope) GetSlots() []GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlot {
+	return v.Slots
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlot includes the requested fields of the GraphQL type ItemSlot.
+type GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlot struct {
+	Id      string                                                                             `json:"id"`
+	Name    string                                                                             `json:"name"`
+	Filters GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFilters `json:"filters"`
+}
+
+// GetId returns GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlot.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlot) GetId() string {
+	return v.Id
+}
+
+// GetName returns GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlot.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlot) GetName() string {
+	return v.Name
+}
+
+// GetFilters returns GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlot.Filters, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlot) GetFilters() GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFilters {
+	return v.Filters
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFilters includes the requested fields of the GraphQL type ItemFilters.
+type GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFilters struct {
+	AllowedItems []GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFiltersAllowedItemsItem `json:"allowedItems"`
+}
+
+// GetAllowedItems returns GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFilters.AllowedItems, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFilters) GetAllowedItems() []GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFiltersAllowedItemsItem {
+	return v.AllowedItems
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFiltersAllowedItemsItem includes the requested fields of the GraphQL type Item.
+type GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFiltersAllowedItemsItem struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFiltersAllowedItemsItem.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFiltersAllowedItemsItem) GetId() string {
+	return v.Id
+}
+
+// GetName returns GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFiltersAllowedItemsItem.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesScopeSlotsItemSlotFiltersItemFiltersAllowedItemsItem) GetName() string {
+	return v.Name
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesStim includes the requested fields of the GraphQL type ItemPropertiesStim.
+type GetWeaponModsItemsItemPropertiesItemPropertiesStim struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesStim.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesStim) GetTypename() string { return v.Typename }
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesSurgicalKit includes the requested fields of the GraphQL type ItemPropertiesSurgicalKit.
+type GetWeaponModsItemsItemPropertiesItemPropertiesSurgicalKit struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesSurgicalKit.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesSurgicalKit) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesWeapon includes the requested fields of the GraphQL type ItemPropertiesWeapon.
+type GetWeaponModsItemsItemPropertiesItemPropertiesWeapon struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesWeapon.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeapon) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod includes the requested fields of the GraphQL type ItemPropertiesWeaponMod.
+type GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod struct {
+	Typename       string                                                                 `json:"__typename"`
+	Ergonomics     float64                                                                `json:"ergonomics"`
+	RecoilModifier float64                                                                `json:"recoilModifier"`
+	Slots          []GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlot `json:"slots"`
+}
+
+// GetTypename returns GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod) GetTypename() string {
+	return v.Typename
+}
+
+// GetErgonomics returns GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod.Ergonomics, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod) GetErgonomics() float64 {
+	return v.Ergonomics
+}
+
+// GetRecoilModifier returns GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod.RecoilModifier, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod) GetRecoilModifier() float64 {
+	return v.RecoilModifier
+}
+
+// GetSlots returns GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod.Slots, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponMod) GetSlots() []GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlot {
+	return v.Slots
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlot includes the requested fields of the GraphQL type ItemSlot.
+type GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlot struct {
+	Id      string                                                                                 `json:"id"`
+	Name    string                                                                                 `json:"name"`
+	Filters GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFilters `json:"filters"`
+}
+
+// GetId returns GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlot.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlot) GetId() string {
+	return v.Id
+}
+
+// GetName returns GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlot.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlot) GetName() string {
+	return v.Name
+}
+
+// GetFilters returns GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlot.Filters, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlot) GetFilters() GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFilters {
+	return v.Filters
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFilters includes the requested fields of the GraphQL type ItemFilters.
+type GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFilters struct {
+	AllowedItems []GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFiltersAllowedItemsItem `json:"allowedItems"`
+}
+
+// GetAllowedItems returns GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFilters.AllowedItems, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFilters) GetAllowedItems() []GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFiltersAllowedItemsItem {
+	return v.AllowedItems
+}
+
+// GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFiltersAllowedItemsItem includes the requested fields of the GraphQL type Item.
+type GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFiltersAllowedItemsItem struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFiltersAllowedItemsItem.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFiltersAllowedItemsItem) GetId() string {
+	return v.Id
+}
+
+// GetName returns GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFiltersAllowedItemsItem.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemPropertiesItemPropertiesWeaponModSlotsItemSlotFiltersItemFiltersAllowedItemsItem) GetName() string {
+	return v.Name
+}
+
+// GetWeaponModsResponse is returned by GetWeaponMods on success.
+type GetWeaponModsResponse struct {
+	Items []GetWeaponModsItemsItem `json:"items"`
+}
+
+// GetItems returns GetWeaponModsResponse.Items, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsResponse) GetItems() []GetWeaponModsItemsItem { return v.Items }
+
+// GetWeaponsItemsItem includes the requested fields of the GraphQL type Item.
+type GetWeaponsItemsItem struct {
+	Typename           string                        `json:"__typename"`
+	Name               string                        `json:"name"`
+	Id                 string                        `json:"id"`
+	ErgonomicsModifier float64                       `json:"ergonomicsModifier"`
+	RecoilModifier     float64                       `json:"recoilModifier"`
+	Types              []ItemType                    `json:"types"`
+	Properties         GetWeaponsItemsItemProperties `json:"-"`
+}
+
+// GetTypename returns GetWeaponsItemsItem.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItem) GetTypename() string { return v.Typename }
+
+// GetName returns GetWeaponsItemsItem.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItem) GetName() string { return v.Name }
+
+// GetId returns GetWeaponsItemsItem.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItem) GetId() string { return v.Id }
+
+// GetErgonomicsModifier returns GetWeaponsItemsItem.ErgonomicsModifier, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItem) GetErgonomicsModifier() float64 { return v.ErgonomicsModifier }
+
+// GetRecoilModifier returns GetWeaponsItemsItem.RecoilModifier, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItem) GetRecoilModifier() float64 { return v.RecoilModifier }
+
+// GetTypes returns GetWeaponsItemsItem.Types, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItem) GetTypes() []ItemType { return v.Types }
+
+// GetProperties returns GetWeaponsItemsItem.Properties, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItem) GetProperties() GetWeaponsItemsItemProperties { return v.Properties }
+
+func (v *GetWeaponsItemsItem) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetWeaponsItemsItem
+		Properties json.RawMessage `json:"properties"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetWeaponsItemsItem = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Properties
+		src := firstPass.Properties
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalGetWeaponsItemsItemProperties(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal GetWeaponsItemsItem.Properties: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGetWeaponsItemsItem struct {
+	Typename string `json:"__typename"`
+
+	Name string `json:"name"`
+
+	Id string `json:"id"`
+
+	ErgonomicsModifier float64 `json:"ergonomicsModifier"`
+
+	RecoilModifier float64 `json:"recoilModifier"`
+
+	Types []ItemType `json:"types"`
+
+	Properties json.RawMessage `json:"properties"`
+}
+
+func (v *GetWeaponsItemsItem) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetWeaponsItemsItem) __premarshalJSON() (*__premarshalGetWeaponsItemsItem, error) {
+	var retval __premarshalGetWeaponsItemsItem
+
+	retval.Typename = v.Typename
+	retval.Name = v.Name
+	retval.Id = v.Id
+	retval.ErgonomicsModifier = v.ErgonomicsModifier
+	retval.RecoilModifier = v.RecoilModifier
+	retval.Types = v.Types
+	{
+
+		dst := &retval.Properties
+		src := v.Properties
+		var err error
+		*dst, err = __marshalGetWeaponsItemsItemProperties(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetWeaponsItemsItem.Properties: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// GetWeaponsItemsItemProperties includes the requested fields of the GraphQL interface ItemProperties.
+//
+// GetWeaponsItemsItemProperties is implemented by the following types:
+// GetWeaponsItemsItemPropertiesItemPropertiesAmmo
+// GetWeaponsItemsItemPropertiesItemPropertiesArmor
+// GetWeaponsItemsItemPropertiesItemPropertiesArmorAttachment
+// GetWeaponsItemsItemPropertiesItemPropertiesBackpack
+// GetWeaponsItemsItemPropertiesItemPropertiesBarrel
+// GetWeaponsItemsItemPropertiesItemPropertiesChestRig
+// GetWeaponsItemsItemPropertiesItemPropertiesContainer
+// GetWeaponsItemsItemPropertiesItemPropertiesFoodDrink
+// GetWeaponsItemsItemPropertiesItemPropertiesGlasses
+// GetWeaponsItemsItemPropertiesItemPropertiesGrenade
+// GetWeaponsItemsItemPropertiesItemPropertiesHeadphone
+// GetWeaponsItemsItemPropertiesItemPropertiesHeadwear
+// GetWeaponsItemsItemPropertiesItemPropertiesHelmet
+// GetWeaponsItemsItemPropertiesItemPropertiesKey
+// GetWeaponsItemsItemPropertiesItemPropertiesMagazine
+// GetWeaponsItemsItemPropertiesItemPropertiesMedKit
+// GetWeaponsItemsItemPropertiesItemPropertiesMedicalItem
+// GetWeaponsItemsItemPropertiesItemPropertiesMelee
+// GetWeaponsItemsItemPropertiesItemPropertiesNightVision
+// GetWeaponsItemsItemPropertiesItemPropertiesPainkiller
+// GetWeaponsItemsItemPropertiesItemPropertiesPreset
+// GetWeaponsItemsItemPropertiesItemPropertiesResource
+// GetWeaponsItemsItemPropertiesItemPropertiesScope
+// GetWeaponsItemsItemPropertiesItemPropertiesStim
+// GetWeaponsItemsItemPropertiesItemPropertiesSurgicalKit
+// GetWeaponsItemsItemPropertiesItemPropertiesWeapon
+// GetWeaponsItemsItemPropertiesItemPropertiesWeaponMod
+type GetWeaponsItemsItemProperties interface {
+	implementsGraphQLInterfaceGetWeaponsItemsItemProperties()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+}
+
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesAmmo) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesArmor) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesArmorAttachment) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesBackpack) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesBarrel) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesChestRig) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesContainer) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesFoodDrink) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesGlasses) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesGrenade) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesHeadphone) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesHeadwear) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesHelmet) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesKey) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesMagazine) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesMedKit) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesMedicalItem) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesMelee) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesNightVision) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesPainkiller) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesPreset) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesResource) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesScope) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesStim) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesSurgicalKit) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeapon) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeaponMod) implementsGraphQLInterfaceGetWeaponsItemsItemProperties() {
+}
+
+func __unmarshalGetWeaponsItemsItemProperties(b []byte, v *GetWeaponsItemsItemProperties) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "ItemPropertiesAmmo":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesAmmo)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesArmor":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesArmor)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesArmorAttachment":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesArmorAttachment)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesBackpack":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesBackpack)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesBarrel":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesBarrel)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesChestRig":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesChestRig)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesContainer":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesContainer)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesFoodDrink":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesFoodDrink)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesGlasses":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesGlasses)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesGrenade":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesGrenade)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesHeadphone":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesHeadphone)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesHeadwear":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesHeadwear)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesHelmet":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesHelmet)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesKey":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesKey)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesMagazine":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesMagazine)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesMedKit":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesMedKit)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesMedicalItem":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesMedicalItem)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesMelee":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesMelee)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesNightVision":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesNightVision)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesPainkiller":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesPainkiller)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesPreset":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesPreset)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesResource":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesResource)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesScope":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesScope)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesStim":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesStim)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesSurgicalKit":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesSurgicalKit)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesWeapon":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesWeapon)
+		return json.Unmarshal(b, *v)
+	case "ItemPropertiesWeaponMod":
+		*v = new(GetWeaponsItemsItemPropertiesItemPropertiesWeaponMod)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing ItemProperties.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for GetWeaponsItemsItemProperties: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalGetWeaponsItemsItemProperties(v *GetWeaponsItemsItemProperties) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *GetWeaponsItemsItemPropertiesItemPropertiesAmmo:
+		typename = "ItemPropertiesAmmo"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesAmmo
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesArmor:
+		typename = "ItemPropertiesArmor"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesArmor
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesArmorAttachment:
+		typename = "ItemPropertiesArmorAttachment"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesArmorAttachment
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesBackpack:
+		typename = "ItemPropertiesBackpack"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesBackpack
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesBarrel:
+		typename = "ItemPropertiesBarrel"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesBarrel
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesChestRig:
+		typename = "ItemPropertiesChestRig"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesChestRig
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesContainer:
+		typename = "ItemPropertiesContainer"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesContainer
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesFoodDrink:
+		typename = "ItemPropertiesFoodDrink"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesFoodDrink
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesGlasses:
+		typename = "ItemPropertiesGlasses"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesGlasses
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesGrenade:
+		typename = "ItemPropertiesGrenade"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesGrenade
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesHeadphone:
+		typename = "ItemPropertiesHeadphone"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesHeadphone
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesHeadwear:
+		typename = "ItemPropertiesHeadwear"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesHeadwear
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesHelmet:
+		typename = "ItemPropertiesHelmet"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesHelmet
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesKey:
+		typename = "ItemPropertiesKey"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesKey
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesMagazine:
+		typename = "ItemPropertiesMagazine"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesMagazine
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesMedKit:
+		typename = "ItemPropertiesMedKit"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesMedKit
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesMedicalItem:
+		typename = "ItemPropertiesMedicalItem"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesMedicalItem
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesMelee:
+		typename = "ItemPropertiesMelee"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesMelee
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesNightVision:
+		typename = "ItemPropertiesNightVision"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesNightVision
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesPainkiller:
+		typename = "ItemPropertiesPainkiller"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesPainkiller
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesPreset:
+		typename = "ItemPropertiesPreset"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesPreset
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesResource:
+		typename = "ItemPropertiesResource"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesResource
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesScope:
+		typename = "ItemPropertiesScope"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesScope
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesStim:
+		typename = "ItemPropertiesStim"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesStim
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesSurgicalKit:
+		typename = "ItemPropertiesSurgicalKit"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesSurgicalKit
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesWeapon:
+		typename = "ItemPropertiesWeapon"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesWeapon
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetWeaponsItemsItemPropertiesItemPropertiesWeaponMod:
+		typename = "ItemPropertiesWeaponMod"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetWeaponsItemsItemPropertiesItemPropertiesWeaponMod
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for GetWeaponsItemsItemProperties: "%T"`, v)
+	}
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesAmmo includes the requested fields of the GraphQL type ItemPropertiesAmmo.
+type GetWeaponsItemsItemPropertiesItemPropertiesAmmo struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesAmmo.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesAmmo) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesArmor includes the requested fields of the GraphQL type ItemPropertiesArmor.
+type GetWeaponsItemsItemPropertiesItemPropertiesArmor struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesArmor.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesArmor) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesArmorAttachment includes the requested fields of the GraphQL type ItemPropertiesArmorAttachment.
+type GetWeaponsItemsItemPropertiesItemPropertiesArmorAttachment struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesArmorAttachment.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesArmorAttachment) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesBackpack includes the requested fields of the GraphQL type ItemPropertiesBackpack.
+type GetWeaponsItemsItemPropertiesItemPropertiesBackpack struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesBackpack.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesBackpack) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesBarrel includes the requested fields of the GraphQL type ItemPropertiesBarrel.
+type GetWeaponsItemsItemPropertiesItemPropertiesBarrel struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesBarrel.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesBarrel) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesChestRig includes the requested fields of the GraphQL type ItemPropertiesChestRig.
+type GetWeaponsItemsItemPropertiesItemPropertiesChestRig struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesChestRig.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesChestRig) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesContainer includes the requested fields of the GraphQL type ItemPropertiesContainer.
+type GetWeaponsItemsItemPropertiesItemPropertiesContainer struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesContainer.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesContainer) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesFoodDrink includes the requested fields of the GraphQL type ItemPropertiesFoodDrink.
+type GetWeaponsItemsItemPropertiesItemPropertiesFoodDrink struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesFoodDrink.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesFoodDrink) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesGlasses includes the requested fields of the GraphQL type ItemPropertiesGlasses.
+type GetWeaponsItemsItemPropertiesItemPropertiesGlasses struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesGlasses.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesGlasses) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesGrenade includes the requested fields of the GraphQL type ItemPropertiesGrenade.
+type GetWeaponsItemsItemPropertiesItemPropertiesGrenade struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesGrenade.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesGrenade) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesHeadphone includes the requested fields of the GraphQL type ItemPropertiesHeadphone.
+type GetWeaponsItemsItemPropertiesItemPropertiesHeadphone struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesHeadphone.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesHeadphone) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesHeadwear includes the requested fields of the GraphQL type ItemPropertiesHeadwear.
+type GetWeaponsItemsItemPropertiesItemPropertiesHeadwear struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesHeadwear.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesHeadwear) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesHelmet includes the requested fields of the GraphQL type ItemPropertiesHelmet.
+type GetWeaponsItemsItemPropertiesItemPropertiesHelmet struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesHelmet.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesHelmet) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesKey includes the requested fields of the GraphQL type ItemPropertiesKey.
+type GetWeaponsItemsItemPropertiesItemPropertiesKey struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesKey.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesKey) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesMagazine includes the requested fields of the GraphQL type ItemPropertiesMagazine.
+type GetWeaponsItemsItemPropertiesItemPropertiesMagazine struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesMagazine.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesMagazine) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesMedKit includes the requested fields of the GraphQL type ItemPropertiesMedKit.
+type GetWeaponsItemsItemPropertiesItemPropertiesMedKit struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesMedKit.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesMedKit) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesMedicalItem includes the requested fields of the GraphQL type ItemPropertiesMedicalItem.
+type GetWeaponsItemsItemPropertiesItemPropertiesMedicalItem struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesMedicalItem.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesMedicalItem) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesMelee includes the requested fields of the GraphQL type ItemPropertiesMelee.
+type GetWeaponsItemsItemPropertiesItemPropertiesMelee struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesMelee.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesMelee) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesNightVision includes the requested fields of the GraphQL type ItemPropertiesNightVision.
+type GetWeaponsItemsItemPropertiesItemPropertiesNightVision struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesNightVision.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesNightVision) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesPainkiller includes the requested fields of the GraphQL type ItemPropertiesPainkiller.
+type GetWeaponsItemsItemPropertiesItemPropertiesPainkiller struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesPainkiller.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesPainkiller) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesPreset includes the requested fields of the GraphQL type ItemPropertiesPreset.
+type GetWeaponsItemsItemPropertiesItemPropertiesPreset struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesPreset.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesPreset) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesResource includes the requested fields of the GraphQL type ItemPropertiesResource.
+type GetWeaponsItemsItemPropertiesItemPropertiesResource struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesResource.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesResource) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesScope includes the requested fields of the GraphQL type ItemPropertiesScope.
+type GetWeaponsItemsItemPropertiesItemPropertiesScope struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesScope.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesScope) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesStim includes the requested fields of the GraphQL type ItemPropertiesStim.
+type GetWeaponsItemsItemPropertiesItemPropertiesStim struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesStim.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesStim) GetTypename() string { return v.Typename }
+
+// GetWeaponsItemsItemPropertiesItemPropertiesSurgicalKit includes the requested fields of the GraphQL type ItemPropertiesSurgicalKit.
+type GetWeaponsItemsItemPropertiesItemPropertiesSurgicalKit struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesSurgicalKit.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesSurgicalKit) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesWeapon includes the requested fields of the GraphQL type ItemPropertiesWeapon.
+type GetWeaponsItemsItemPropertiesItemPropertiesWeapon struct {
+	Typename          string                                                           `json:"__typename"`
+	RecoilVertical    int                                                              `json:"recoilVertical"`
+	RecoilHorizontal  int                                                              `json:"recoilHorizontal"`
+	Ergonomics        float64                                                          `json:"ergonomics"`
+	DefaultErgonomics float64                                                          `json:"defaultErgonomics"`
+	Slots             []GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlot `json:"slots"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesWeapon.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeapon) GetTypename() string { return v.Typename }
+
+// GetRecoilVertical returns GetWeaponsItemsItemPropertiesItemPropertiesWeapon.RecoilVertical, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeapon) GetRecoilVertical() int {
+	return v.RecoilVertical
+}
+
+// GetRecoilHorizontal returns GetWeaponsItemsItemPropertiesItemPropertiesWeapon.RecoilHorizontal, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeapon) GetRecoilHorizontal() int {
+	return v.RecoilHorizontal
+}
+
+// GetErgonomics returns GetWeaponsItemsItemPropertiesItemPropertiesWeapon.Ergonomics, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeapon) GetErgonomics() float64 {
+	return v.Ergonomics
+}
+
+// GetDefaultErgonomics returns GetWeaponsItemsItemPropertiesItemPropertiesWeapon.DefaultErgonomics, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeapon) GetDefaultErgonomics() float64 {
+	return v.DefaultErgonomics
+}
+
+// GetSlots returns GetWeaponsItemsItemPropertiesItemPropertiesWeapon.Slots, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeapon) GetSlots() []GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlot {
+	return v.Slots
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesWeaponMod includes the requested fields of the GraphQL type ItemPropertiesWeaponMod.
+type GetWeaponsItemsItemPropertiesItemPropertiesWeaponMod struct {
+	Typename string `json:"__typename"`
+}
+
+// GetTypename returns GetWeaponsItemsItemPropertiesItemPropertiesWeaponMod.Typename, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeaponMod) GetTypename() string {
+	return v.Typename
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlot includes the requested fields of the GraphQL type ItemSlot.
+type GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlot struct {
+	Id      string                                                                           `json:"id"`
+	Name    string                                                                           `json:"name"`
+	Filters GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFilters `json:"filters"`
+}
+
+// GetId returns GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlot.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlot) GetId() string { return v.Id }
+
+// GetName returns GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlot.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlot) GetName() string {
+	return v.Name
+}
+
+// GetFilters returns GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlot.Filters, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlot) GetFilters() GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFilters {
+	return v.Filters
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFilters includes the requested fields of the GraphQL type ItemFilters.
+type GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFilters struct {
+	AllowedItems []GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFiltersAllowedItemsItem `json:"allowedItems"`
+}
+
+// GetAllowedItems returns GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFilters.AllowedItems, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFilters) GetAllowedItems() []GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFiltersAllowedItemsItem {
+	return v.AllowedItems
+}
+
+// GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFiltersAllowedItemsItem includes the requested fields of the GraphQL type Item.
+type GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFiltersAllowedItemsItem struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFiltersAllowedItemsItem.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFiltersAllowedItemsItem) GetId() string {
+	return v.Id
+}
+
+// GetName returns GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFiltersAllowedItemsItem.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemPropertiesItemPropertiesWeaponSlotsItemSlotFiltersItemFiltersAllowedItemsItem) GetName() string {
+	return v.Name
+}
+
+// GetWeaponsResponse is returned by GetWeapons on success.
+type GetWeaponsResponse struct {
+	Items []GetWeaponsItemsItem `json:"items"`
+}
+
+// GetItems returns GetWeaponsResponse.Items, and is useful for accessing the field via an interface.
+func (v *GetWeaponsResponse) GetItems() []GetWeaponsItemsItem { return v.Items }
+
+type ItemType string
+
+const (
+	ItemTypeAmmo       ItemType = "ammo"
+	ItemTypeAmmobox    ItemType = "ammoBox"
+	ItemTypeAny        ItemType = "any"
+	ItemTypeArmor      ItemType = "armor"
+	ItemTypeArmorplate ItemType = "armorPlate"
+	ItemTypeBackpack   ItemType = "backpack"
+	ItemTypeBarter     ItemType = "barter"
+	ItemTypeContainer  ItemType = "container"
+	ItemTypeGlasses    ItemType = "glasses"
+	ItemTypeGrenade    ItemType = "grenade"
+	ItemTypeGun        ItemType = "gun"
+	ItemTypeHeadphones ItemType = "headphones"
+	ItemTypeHelmet     ItemType = "helmet"
+	ItemTypeInjectors  ItemType = "injectors"
+	ItemTypeKeys       ItemType = "keys"
+	ItemTypeMarkedonly ItemType = "markedOnly"
+	ItemTypeMeds       ItemType = "meds"
+	ItemTypeMods       ItemType = "mods"
+	ItemTypeNoflea     ItemType = "noFlea"
+	ItemTypePistolgrip ItemType = "pistolGrip"
+	ItemTypePreset     ItemType = "preset"
+	ItemTypeProvisions ItemType = "provisions"
+	ItemTypeRig        ItemType = "rig"
+	ItemTypeSuppressor ItemType = "suppressor"
+	ItemTypeWearable   ItemType = "wearable"
+)
+
+// The query or mutation executed by GetWeaponMods.
+const GetWeaponMods_Operation = `
+query GetWeaponMods {
+	items(categoryNames: [WeaponMod]) {
 		name
+		id
+		ergonomicsModifier
+		recoilModifier
+		properties {
+			__typename
+			... on ItemPropertiesWeaponMod {
+				__typename
+				ergonomics
+				recoilModifier
+				slots {
+					id
+					name
+					filters {
+						allowedItems {
+							id
+							name
+						}
+					}
+				}
+			}
+			... on ItemPropertiesScope {
+				__typename
+				ergonomics
+				recoilModifier
+				slots {
+					id
+					name
+					filters {
+						allowedItems {
+							id
+							name
+						}
+					}
+				}
+			}
+			... on ItemPropertiesBarrel {
+				__typename
+				ergonomics
+				recoilModifier
+				slots {
+					id
+					name
+					filters {
+						allowedItems {
+							id
+							name
+						}
+					}
+				}
+			}
+			... on ItemPropertiesMagazine {
+				__typename
+				ergonomics
+				recoilModifier
+				slots {
+					id
+					name
+					filters {
+						allowedItems {
+							id
+							name
+						}
+					}
+				}
+			}
+		}
 	}
 }
 `
 
-func GetItems(
-	ctx context.Context,
-	client graphql.Client,
-) (*GetItemsResponse, error) {
-	req := &graphql.Request{
-		OpName: "GetItems",
-		Query:  GetItems_Operation,
+func GetWeaponMods(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*GetWeaponModsResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "GetWeaponMods",
+		Query:  GetWeaponMods_Operation,
 	}
-	var err error
+	var err_ error
 
-	var data GetItemsResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ GetWeaponModsResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
+}
+
+// The query or mutation executed by GetWeapons.
+const GetWeapons_Operation = `
+query GetWeapons {
+	items(categoryNames: [Weapon]) {
+		__typename
+		name
+		id
+		ergonomicsModifier
+		recoilModifier
+		types
+		properties {
+			__typename
+			... on ItemPropertiesWeapon {
+				__typename
+				recoilVertical
+				recoilHorizontal
+				ergonomics
+				defaultErgonomics
+				slots {
+					id
+					name
+					filters {
+						allowedItems {
+							id
+							name
+						}
+					}
+				}
+			}
+		}
+	}
+}
+`
+
+func GetWeapons(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*GetWeaponsResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "GetWeapons",
+		Query:  GetWeapons_Operation,
+	}
+	var err_ error
+
+	var data_ GetWeaponsResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
 }

@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/rs/zerolog/log"
+
 	_ "github.com/lib/pq"
 )
 
@@ -16,7 +18,7 @@ type DatabaseConfig struct {
 }
 
 type Database struct {
-	conn *sql.DB
+	Conn *sql.DB
 }
 
 type Config struct {
@@ -28,17 +30,25 @@ type Config struct {
 }
 
 func NewDatabase(config Config) (*Database, error) {
-	connStr := "postgresql://%s:%s@%s/%s?sslmode=disable"
-	db, err := sql.Open("postgres", fmt.Sprintf(connStr, config.User, config.Password, config.Host, config.Port, config.Name))
+	connStrTemplate := "postgresql://%s:%s@%s:%s/%s?sslmode=disable"
+	connStr := fmt.Sprintf(connStrTemplate, config.User, config.Password, config.Host, config.Port, config.Name)
+	log.Info().Msgf("Connecting to database: %s", connStr)
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
+	log.Info().Msg("Connected to database")
+
+	db.SetMaxIdleConns(10)
+	db.SetMaxOpenConns(10)
+
 	return &Database{
-		conn: db,
+		Conn: db,
 	}, nil
 }
 
 func (d *Database) Close() error {
-	return d.conn.Close()
+	log.Info().Msg("Closing database connection")
+	return d.Conn.Close()
 }

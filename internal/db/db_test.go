@@ -1,19 +1,17 @@
 package db
 
 import (
-	"database/sql"
 	"testing"
 )
 
-func TestDatabase(t *testing.T) {
-	// BEGIN: TestDatabase
-	db := &Database{
-		conn: &sql.DB{},
+func TestBuildOptimiserDbConn(t *testing.T) {
+	db, err := CreateBuildOptimiserDBClient()
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	err := db.conn.Ping()
+	err = db.Conn.Ping()
 	if err != nil {
 		t.Errorf("Failed to connect to the database: %v", err)
 	}
-	// END: TestDatabase
 }

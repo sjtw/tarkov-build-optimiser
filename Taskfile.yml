@@ -39,12 +39,12 @@ tasks:
   compose:postgres:up:
     desc: Start the local database
     cmds:
-      - docker-compose --env-file .env up -d postgres
+      - docker compose --env-file .env up -d postgres
 
   compose:up:
     desc: Start the local environment
     cmds:
-      - docker-compose --env-file .env up -d
+      - docker compose --env-file .env up -d
 
   compose:restart:
     desc: Restart the local environment
@@ -53,7 +53,36 @@ tasks:
   compose:down:
     desc: Stop the local environment
     cmds:
-      - docker-compose --env-file .env down
+      - docker compose --env-file .env down
+
+  importer:start:use-cache:
+    desc: Start the importer - retrieve cached data instead of fetching from the tarkovdev API
+    deps: [importer:build]
+    cmds:
+      - ./bin/tarkov-dev-importer --use-cache
+
+  importer:start:cache-only:
+    desc: Start the importer - only cache the data as json
+    deps: [importer:build]
+    cmd: ./bin/tarkov-dev-importer --cache-only
+
+  importer:build:
+    desc: Build the importer
+    cmd: go build -o bin/tarkov-dev-importer ./cmd/tarkov-dev-importer
+
+  importer:start:
+    desc: Start the importer
+    deps: [importer:build]
+    cmd: ./bin/tarkov-dev-importer
+
+  evaluator:build:
+    desc: Build the weapon evaluator
+    cmd: go build -o bin/weapon-evaluator ./cmd/weapon-evaluator
+
+  evaluator:start:
+    desc: Evaluate best ergo & recoil builds for all weapons & mods in db
+    deps: [evaluator:build]
+    cmd: ./bin/weapon-evaluator
 
   lint:
     desc: Run linter
@@ -79,8 +108,7 @@ tasks:
   migrate:up:
     desc: Apply migrations
     deps: [compose:postgres:up, migrate:build]
-    cmds:
-      - ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" up
+    cmd: ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" up
 
   start:local:
     desc: Start full local environment
@@ -93,8 +121,7 @@ tasks:
 
   tarkovdev:get-schema:
     desc: Retrieve the latest schema from the tarkov.dev API
-    cmds:
-      - graphql-inspector introspect https://api.tarkov.dev/api/graphql --write ./internal/tarkovdev/schemas/schema.graphql
+    cmd: graphql-inspector introspect https://api.tarkov.dev/api/graphql --write ./internal/tarkovdev/schemas/schema.graphql
 
   tarkovdev:regenerate:
     desc: Regenerate the tarkovdev client
@@ -122,3 +149,8 @@ tasks:
   init:
     desc: Initialise the project for development
     deps: [deps:install:go, deps:install:node, compose:up, migrate:up]
+
+  env:
+    desc: Print the environment variables
+    cmds:
+      - echo $PATH

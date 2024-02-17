@@ -23,13 +23,11 @@ Optionally, install `nodejs`
 
 ### Tasks
 
-building/running/starting dev infrastructure/etc can all be handled using `Task`. See the task list;
+building/running/starting dev infrastructure/etc. can all be handled using `Task`. See the task list;
 
 ```
 task --list-all
 ```
-
-`
 
 Node.js can be used for updating the tarkovdev schema. If you need to do this, you can set up a local dev environment with:
 
@@ -58,7 +56,7 @@ task migrate:up
 task migrate:down
 ```
 
-#### Synching tarkov.dev GraphQL API schema
+#### Syncing tarkov.dev GraphQL API schema
 
 retrieve latest schema & regenerate the api client package in `internal/tarkovdev`
 

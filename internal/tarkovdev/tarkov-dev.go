@@ -2,16 +2,22 @@ package tarkovdev
 
 import (
 	"net/http"
+
+	"github.com/Khan/genqlient/graphql"
 )
 
-type TarkovDevClient struct {
+type Api struct {
 	baseURL string
-	client  *http.Client
+	http    *http.Client
+	Client  graphql.Client
 }
 
-func New() *TarkovDevClient {
-	return &TarkovDevClient{
+func New() *Api {
+	client := graphql.NewClient("https://api.tarkov.dev/graphql", http.DefaultClient)
+
+	return &Api{
 		baseURL: "https://api.tarkov-dev.com/graphql",
-		client:  http.DefaultClient,
+		http:    http.DefaultClient,
+		Client:  client,
 	}
 }

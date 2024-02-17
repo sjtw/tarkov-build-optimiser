@@ -1,3 +1,4 @@
+# noinspection SpellCheckingInspection
 type Achievement {
   description: String
   hidden: Boolean!
@@ -87,7 +88,7 @@ type BossSpawn {
 
 """
 The chances of spawning in a given location are 
-very rough estimates and may be incaccurate
+very rough estimates and may be inaccurate
 """
 type BossSpawnLocation {
   chance: Float!

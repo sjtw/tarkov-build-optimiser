@@ -3,6 +3,7 @@ package env
 import (
 	"os"
 	"path/filepath"
+	"tarkov-build-optimiser/internal/helpers"
 
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
@@ -17,12 +18,12 @@ type Env struct {
 }
 
 func Get() (Env, error) {
-	projectRoot, err := os.Getwd()
+	projectRoot, err := helpers.GetProjectRoot()
 	if err != nil {
 		return Env{}, err
 	}
+	envFilePath := filepath.Join(projectRoot, ".env")
 
-	envFilePath := filepath.Join(projectRoot, "/.env")
 	err = godotenv.Load(envFilePath)
 	if err != nil {
 		return Env{}, err
