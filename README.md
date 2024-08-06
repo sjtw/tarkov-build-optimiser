@@ -4,20 +4,23 @@ A tool for calculating optimal weapon builds in Escape from Tarkov.
 
 ## Goals
 
-1. calculate an optimum weapon build
-2. do step 1. but restricted by trader availability
-3. provide cost effective alternatives
-4. UI maybe
+- [x] calculate an optimum weapon build
+- [ ] do step 1. but restricted by trader availability
+- [ ] provide cost effective alternatives
+- [ ] UI maybe
 
 ## Prerequisites
 
-Install
+Required
 
 - `docker`
-- `docker-compose
+- `docker-compose`
 - `go`
 
-Optionally, install `nodejs`
+Optional
+
+Only used for updating the tarkovdev graphql schema.
+- `nodejs`
 
 ## Development
 
@@ -43,34 +46,56 @@ task init:go-only
 
 This will install all required dependencies, set up a postgres docker container for development & apply all migrations.
 
-#### Running Locally
-
-```
-task start:local
-```
-
 #### Migrations
-
+If you just want to run the migrations manually you can use the following. If it's your first time setting up the project, `task init` should've handled this for you.
 ```
 task migrate:up
 task migrate:down
 ```
 
+#### Importer
+
+The importer pulls all weapons and weapon mods from tarkov.dev & stores them in the `tarkov-build-optimiser` database.
+
+```
+task importer:start
+```
+
+The importer by default populates a json file cache of weapons & mods. To save hammering tarkov.dev each time you need to repopulate the database, you can repopulate it from the file cache using:
+
+```
+task importer:start:use-cache
+```
+
+If you only want to cache the results from tarkov.dev, without repopulating the db:
+```
+task importer:start:cache-only
+```
+
+#### Evaluator
+
+Once the importer is finished, you should be able to run the evaluator. This creates up to two weapon builds for each weapon, with one prioritising ergonomics, the other prioritising recoil.
+
+```
+task evaluator:start
+```
+
+This can take a while as it exhaustively optimises each fork in the weapon builds tree. Once finished the `optimum_builds` table should be populated with the best builds for each individual weapon in the game.
+
 #### Syncing tarkov.dev GraphQL API schema
 
-retrieve latest schema & regenerate the api client package in `internal/tarkovdev`
-
+The GraphQL queries used by the project are can be found in `internal/tarkovdev/schemas/queries.graphql`, the rest of the GraphQl client code is auto-generated. We use `graphql-inspector` to generate `schema.graphql` through an introspection query to tarkov.dev, then `genqlient` to generate golang functions & types for each of these queries in `generated-queries.go`. This can be done using:
 ```
 task tarkovdev
 ```
 
-retrieve schema only
+If you only need to rebuild the `schema.graphql`;
 
 ```
 task tarkovdev:get-schema
 ```
 
-regenerate api client package only
+Or to only regenerate `generated-queries.go`;
 
 ```
 task tarkovdev:regenerate
