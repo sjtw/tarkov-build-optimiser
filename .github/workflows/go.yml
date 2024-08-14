@@ -20,9 +20,14 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.22'
+    - name: Build migrations
+      run: go build -v cmd/migrations
+      
+    - name: Build tarkov-dev-importer
+      run: go build -v cmd/tarkov-dev-importer
 
-    - name: Build
-      run: go build -v ./...
+    - name: Build weapon-evaluator
+      run: go build -v cmd/weapon-evaluator
 
     - name: Test
       run: go test -v ./...
