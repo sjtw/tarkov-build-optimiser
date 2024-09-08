@@ -1,16 +1,10 @@
-# query GetItems {
-#   items {
-#     id
-#     name
-#   }
-# }
-
 query GetWeaponMods {
   items(categoryNames: [WeaponMod]) {
     name
     id
     ergonomicsModifier
     recoilModifier
+    types
     properties {
       ... on ItemPropertiesWeaponMod {
         __typename
@@ -77,7 +71,7 @@ query GetWeaponMods {
 }
 
 query GetWeapons {
-  items(categoryNames: [Weapon]) {
+  items(categoryNames: [Weapon], types: gun) {
     __typename
     name
     id

@@ -1,10 +1,14 @@
-# noinspection SpellCheckingInspection
 type Achievement {
+  adjustedPlayersCompletedPercent: Float
   description: String
   hidden: Boolean!
   id: ID!
   name: String!
+  normalizedRarity: String
+  normalizedSide: String
   playersCompletedPercent: Float!
+  rarity: String
+  side: String
 }
 
 type Ammo {
@@ -50,6 +54,7 @@ type AttributeThreshold {
 }
 
 type Barter {
+  buyLimit: Int
   id: ID!
   level: Int!
   requiredItems: [ContainedItem]!
@@ -88,7 +93,7 @@ type BossSpawn {
 
 """
 The chances of spawning in a given location are 
-very rough estimates and may be inaccurate
+very rough estimates and may be incaccurate
 """
 type BossSpawnLocation {
   chance: Float!
@@ -119,6 +124,7 @@ type Craft {
 
 type FleaMarket implements Vendor {
   enabled: Boolean!
+  foundInRaidRequired: Boolean
   minPlayerLevel: Int!
   name: String!
   normalizedName: String!
@@ -131,6 +137,12 @@ type FleaMarketReputationLevel {
   maxRep: Float!
   minRep: Float!
   offers: Int!
+  offersSpecialEditions: Int!
+}
+
+enum GameMode {
+  pve
+  regular
 }
 
 type GameProperty {
@@ -139,6 +151,11 @@ type GameProperty {
   numericValue: Float
   objectValue: String
   stringValue: String
+}
+
+type GoonReport {
+  map: Map
+  timestamp: String
 }
 
 enum HandbookCategoryName {
@@ -462,10 +479,12 @@ enum ItemCategoryName {
   Meds
   Money
   Mount
+  Multitools
   MuzzleDevice
   NightVision
   Other
   PistolGrip
+  PlantingKits
   PortContainer
   PortableRangeFinder
   RadioTransmitter
@@ -526,11 +545,13 @@ type ItemPropertiesAmmo {
   caliber: String
   damage: Int
   durabilityBurnFactor: Float
+  failureToFeedChance: Float
   fragmentationChance: Float
   heatFactor: Float
   heavyBleedModifier: Float
   initialSpeed: Float
   lightBleedModifier: Float
+  misfireChance: Float
   penetrationChance: Float
   penetrationPower: Int
   penetrationPowerDeviation: Float
@@ -565,12 +586,13 @@ type ItemPropertiesArmorAttachment {
   class: Int
   durability: Int
   ergoPenalty: Float
-  headZones: [String]
+  headZones: [String] @deprecated(reason: "Use zones instead.")
   material: ArmorMaterial
   repairCost: Int
   slots: [ItemSlot]
   speedPenalty: Float
   turnPenalty: Float
+  zones: [String]
 }
 
 type ItemPropertiesBackpack {
@@ -826,6 +848,7 @@ enum ItemSourceName {
   peacekeeper
   prapor
   ragman
+  ref
   skier
   therapist
 }
@@ -886,6 +909,7 @@ enum LanguageCode {
   ko
   pl
   pt
+  ro
   ru
   sk
   tr
@@ -924,6 +948,8 @@ type Map {
   id: ID!
   locks: [Lock]
   lootContainers: [LootContainerPosition]
+  maxPlayerLevel: Int
+  minPlayerLevel: Int
   name: String!
   nameId: String
   normalizedName: String!
@@ -933,6 +959,7 @@ type Map {
   stationaryWeapons: [StationaryWeaponPosition]
   switches: [MapSwitch]
   tarkovDataId: ID
+  transits: [MapTransit]
   wiki: String
 }
 
@@ -985,9 +1012,27 @@ type MapSwitchOperation {
 
 union MapSwitchTarget = MapExtract | MapSwitch
 
+type MapTransit {
+  bottom: Float
+  conditions: String
+  description: String
+  id: ID!
+  map: Map
+  outline: [MapPosition]
+  position: MapPosition
+  top: Float
+}
+
 type MapWithPosition {
   map: Map
   positions: [MapPosition]
+}
+
+type Mastering {
+  id: ID!
+  level2: Int
+  level3: Int
+  weapons: [Item]!
 }
 
 type MobInfo {
@@ -1027,35 +1072,38 @@ type PriceRequirement {
 
 type Query {
   achievements(lang: LanguageCode, limit: Int, offset: Int): [Achievement]!
-  ammo(lang: LanguageCode, limit: Int, offset: Int): [Ammo]
+  ammo(gameMode: GameMode, lang: LanguageCode, limit: Int, offset: Int): [Ammo]
   armorMaterials(lang: LanguageCode): [ArmorMaterial]!
-  barters(lang: LanguageCode, limit: Int, offset: Int): [Barter]
-  bosses(lang: LanguageCode, limit: Int, name: [String!], offset: Int): [MobInfo]
-  crafts(lang: LanguageCode, limit: Int, offset: Int): [Craft]
-  fleaMarket(lang: LanguageCode): FleaMarket!
+  barters(gameMode: GameMode, lang: LanguageCode, limit: Int, offset: Int): [Barter]
+  bosses(gameMode: GameMode, lang: LanguageCode, limit: Int, name: [String!], offset: Int): [MobInfo]
+  crafts(gameMode: GameMode, lang: LanguageCode, limit: Int, offset: Int): [Craft]
+  fleaMarket(gameMode: GameMode, lang: LanguageCode): FleaMarket!
+  goonReports(gameMode: GameMode, lang: LanguageCode, limit: Int, ofset: Int): [GoonReport]!
   handbookCategories(lang: LanguageCode, limit: Int, offset: Int): [ItemCategory]!
   hideoutModules: [HideoutModule] @deprecated(reason: "Use hideoutStations instead.")
-  hideoutStations(lang: LanguageCode, limit: Int, offset: Int): [HideoutStation]!
-  historicalItemPrices(days: Int, id: ID!, lang: LanguageCode, limit: Int, offset: Int): [historicalPricePoint]!
-  item(id: ID, lang: LanguageCode, normalizedName: String): Item
+  hideoutStations(gameMode: GameMode, lang: LanguageCode, limit: Int, offset: Int): [HideoutStation]!
+  historicalItemPrices(days: Int, gameMode: GameMode, id: ID!, lang: LanguageCode, limit: Int, offset: Int): [historicalPricePoint]!
+  item(gameMode: GameMode, id: ID, lang: LanguageCode, normalizedName: String): Item
   itemByNormalizedName(normalizedName: String!): Item @deprecated(reason: "Use item instead.")
   itemCategories(lang: LanguageCode, limit: Int, offset: Int): [ItemCategory]!
-  items(bsgCategory: String, bsgCategoryId: String, bsgCategoryIds: [String], categoryNames: [ItemCategoryName], handbookCategoryNames: [HandbookCategoryName], ids: [ID], lang: LanguageCode, limit: Int, name: String, names: [String], offset: Int, type: ItemType, types: [ItemType]): [Item]!
+  items(bsgCategory: String, bsgCategoryId: String, bsgCategoryIds: [String], categoryNames: [ItemCategoryName], gameMode: GameMode, handbookCategoryNames: [HandbookCategoryName], ids: [ID], lang: LanguageCode, limit: Int, name: String, names: [String], offset: Int, type: ItemType, types: [ItemType]): [Item]!
   itemsByBsgCategoryId(bsgCategoryId: String!): [Item]! @deprecated(reason: "Use items instead.")
   itemsByIDs(ids: [ID]!): [Item] @deprecated(reason: "Use items instead.")
   itemsByName(name: String!): [Item]! @deprecated(reason: "Use items instead.")
   itemsByType(type: ItemType!): [Item]! @deprecated(reason: "Use items instead.")
   lootContainers(lang: LanguageCode, limit: Int, offset: Int): [LootContainer]
-  maps(enemies: [String!], lang: LanguageCode, limit: Int, name: [String!], offset: Int): [Map]!
+  maps(enemies: [String!], gameMode: GameMode, lang: LanguageCode, limit: Int, name: [String!], offset: Int): [Map]!
+  mastering(lang: LanguageCode): [Mastering]!
   playerLevels: [PlayerLevel]!
   questItems(lang: LanguageCode): [QuestItem]
   quests: [Quest] @deprecated(reason: "Use tasks instead.")
+  skills(lang: LanguageCode): [Skill]!
   stationaryWeapons(lang: LanguageCode, limit: Int, offset: Int): [StationaryWeapon]
   status: ServerStatus!
-  task(id: ID!, lang: LanguageCode): Task
-  tasks(faction: String, lang: LanguageCode, limit: Int, offset: Int): [Task]!
+  task(gameMode: GameMode, id: ID!, lang: LanguageCode): Task
+  tasks(faction: String, gameMode: GameMode, lang: LanguageCode, limit: Int, offset: Int): [Task]!
   traderResetTimes: [TraderResetTime] @deprecated(reason: "Use traders instead.")
-  traders(lang: LanguageCode, limit: Int, offset: Int): [Trader]!
+  traders(gameMode: GameMode, lang: LanguageCode, limit: Int, offset: Int): [Trader]!
 }
 
 """Quest has been replaced with Task."""
@@ -1128,6 +1176,7 @@ type RequirementSkill {
   id: ID
   level: Int!
   name: String!
+  skill: Skill!
 }
 
 type RequirementTask {
@@ -1157,9 +1206,15 @@ type ServerStatus {
   messages: [StatusMessage]
 }
 
+type Skill {
+  id: ID
+  name: String
+}
+
 type SkillLevel {
   level: Float!
   name: String!
+  skill: Skill!
 }
 
 type StationaryWeapon {
@@ -1200,6 +1255,7 @@ type StimEffect {
   delay: Int!
   duration: Int!
   percent: Boolean!
+  skill: Skill
   skillName: String
   type: String!
   value: Float!
@@ -1300,7 +1356,7 @@ type TaskObjectiveItem implements TaskObjective {
   dogTagLevel: Int
   foundInRaid: Boolean!
   id: ID
-  item: Item!
+  item: Item! @deprecated(reason: "Use items instead.")
   items: [Item]!
   maps: [Map]!
   maxDurability: Int
@@ -1465,6 +1521,7 @@ type Trader {
 }
 
 type TraderCashOffer {
+  buyLimit: Int
   currency: String
   currencyItem: Item
   item: Item!
@@ -1497,11 +1554,13 @@ enum TraderName {
   peacekeeper
   prapor
   ragman
+  ref
   skier
   therapist
 }
 
 type TraderOffer implements Vendor {
+  buyLimit: Int
   minTraderLevel: Int
   name: String!
   normalizedName: String!

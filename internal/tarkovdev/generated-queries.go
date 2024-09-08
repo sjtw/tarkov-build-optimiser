@@ -2048,7 +2048,7 @@ func GetWeaponMods(
 // The query or mutation executed by GetWeapons.
 const GetWeapons_Operation = `
 query GetWeapons {
-	items(categoryNames: [Weapon]) {
+	items(categoryNames: [Weapon], types: gun) {
 		__typename
 		name
 		id
