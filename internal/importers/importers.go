@@ -13,7 +13,7 @@ import (
 
 func updateWeaponFileCache(weaponsCache *cache.JSONFileCache, weapons []models.Weapon) error {
 	for i := 0; i < len(weapons); i++ {
-		log.Info().Msgf("Storing weapon %d in file cache", weapons[i].ID)
+		log.Info().Msgf("Storing weapon %s in file cache", weapons[i].ID)
 		err := weaponsCache.Store(weapons[i].ID, weapons[i])
 		if err != nil {
 			return err
