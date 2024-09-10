@@ -12,8 +12,8 @@ type Item struct {
 	RecoilModifier     int         `json:"recoil_modifier" bson:"recoil_modifier"`
 	ErgonomicsModifier int         `json:"ergonomics_modifier" bson:"ergonomics_modifier"`
 	Slots              []*ItemSlot `json:"slots" bson:"slots"`
+	Type               string      `json:"type" bson:"type"`
 	parentSlot         *ItemSlot
-	Type               string `json:"type" bson:"type"`
 }
 
 func ConstructItem(id string, name string) *Item {

@@ -10,12 +10,255 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+// GetItemPricesItemsItem includes the requested fields of the GraphQL type Item.
+type GetItemPricesItemsItem struct {
+	Typename string                                  `json:"__typename"`
+	Name     string                                  `json:"name"`
+	Id       string                                  `json:"id"`
+	BuyFor   []GetItemPricesItemsItemBuyForItemPrice `json:"buyFor"`
+}
+
+// GetTypename returns GetItemPricesItemsItem.Typename, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItem) GetTypename() string { return v.Typename }
+
+// GetName returns GetItemPricesItemsItem.Name, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItem) GetName() string { return v.Name }
+
+// GetId returns GetItemPricesItemsItem.Id, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItem) GetId() string { return v.Id }
+
+// GetBuyFor returns GetItemPricesItemsItem.BuyFor, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItem) GetBuyFor() []GetItemPricesItemsItemBuyForItemPrice { return v.BuyFor }
+
+// GetItemPricesItemsItemBuyForItemPrice includes the requested fields of the GraphQL type ItemPrice.
+type GetItemPricesItemsItemBuyForItemPrice struct {
+	Currency string                                      `json:"currency"`
+	PriceRUB int                                         `json:"priceRUB"`
+	Vendor   GetItemPricesItemsItemBuyForItemPriceVendor `json:"-"`
+}
+
+// GetCurrency returns GetItemPricesItemsItemBuyForItemPrice.Currency, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItemBuyForItemPrice) GetCurrency() string { return v.Currency }
+
+// GetPriceRUB returns GetItemPricesItemsItemBuyForItemPrice.PriceRUB, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItemBuyForItemPrice) GetPriceRUB() int { return v.PriceRUB }
+
+// GetVendor returns GetItemPricesItemsItemBuyForItemPrice.Vendor, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItemBuyForItemPrice) GetVendor() GetItemPricesItemsItemBuyForItemPriceVendor {
+	return v.Vendor
+}
+
+func (v *GetItemPricesItemsItemBuyForItemPrice) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetItemPricesItemsItemBuyForItemPrice
+		Vendor json.RawMessage `json:"vendor"`
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetItemPricesItemsItemBuyForItemPrice = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	{
+		dst := &v.Vendor
+		src := firstPass.Vendor
+		if len(src) != 0 && string(src) != "null" {
+			err = __unmarshalGetItemPricesItemsItemBuyForItemPriceVendor(
+				src, dst)
+			if err != nil {
+				return fmt.Errorf(
+					"unable to unmarshal GetItemPricesItemsItemBuyForItemPrice.Vendor: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+type __premarshalGetItemPricesItemsItemBuyForItemPrice struct {
+	Currency string `json:"currency"`
+
+	PriceRUB int `json:"priceRUB"`
+
+	Vendor json.RawMessage `json:"vendor"`
+}
+
+func (v *GetItemPricesItemsItemBuyForItemPrice) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetItemPricesItemsItemBuyForItemPrice) __premarshalJSON() (*__premarshalGetItemPricesItemsItemBuyForItemPrice, error) {
+	var retval __premarshalGetItemPricesItemsItemBuyForItemPrice
+
+	retval.Currency = v.Currency
+	retval.PriceRUB = v.PriceRUB
+	{
+
+		dst := &retval.Vendor
+		src := v.Vendor
+		var err error
+		*dst, err = __marshalGetItemPricesItemsItemBuyForItemPriceVendor(
+			&src)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"unable to marshal GetItemPricesItemsItemBuyForItemPrice.Vendor: %w", err)
+		}
+	}
+	return &retval, nil
+}
+
+// GetItemPricesItemsItemBuyForItemPriceVendor includes the requested fields of the GraphQL interface Vendor.
+//
+// GetItemPricesItemsItemBuyForItemPriceVendor is implemented by the following types:
+// GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket
+// GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer
+type GetItemPricesItemsItemBuyForItemPriceVendor interface {
+	implementsGraphQLInterfaceGetItemPricesItemsItemBuyForItemPriceVendor()
+	// GetTypename returns the receiver's concrete GraphQL type-name (see interface doc for possible values).
+	GetTypename() string
+	// GetName returns the interface-field "name" from its implementation.
+	GetName() string
+	// GetNormalizedName returns the interface-field "normalizedName" from its implementation.
+	GetNormalizedName() string
+}
+
+func (v *GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket) implementsGraphQLInterfaceGetItemPricesItemsItemBuyForItemPriceVendor() {
+}
+func (v *GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer) implementsGraphQLInterfaceGetItemPricesItemsItemBuyForItemPriceVendor() {
+}
+
+func __unmarshalGetItemPricesItemsItemBuyForItemPriceVendor(b []byte, v *GetItemPricesItemsItemBuyForItemPriceVendor) error {
+	if string(b) == "null" {
+		return nil
+	}
+
+	var tn struct {
+		TypeName string `json:"__typename"`
+	}
+	err := json.Unmarshal(b, &tn)
+	if err != nil {
+		return err
+	}
+
+	switch tn.TypeName {
+	case "FleaMarket":
+		*v = new(GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket)
+		return json.Unmarshal(b, *v)
+	case "TraderOffer":
+		*v = new(GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer)
+		return json.Unmarshal(b, *v)
+	case "":
+		return fmt.Errorf(
+			"response was missing Vendor.__typename")
+	default:
+		return fmt.Errorf(
+			`unexpected concrete type for GetItemPricesItemsItemBuyForItemPriceVendor: "%v"`, tn.TypeName)
+	}
+}
+
+func __marshalGetItemPricesItemsItemBuyForItemPriceVendor(v *GetItemPricesItemsItemBuyForItemPriceVendor) ([]byte, error) {
+
+	var typename string
+	switch v := (*v).(type) {
+	case *GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket:
+		typename = "FleaMarket"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket
+		}{typename, v}
+		return json.Marshal(result)
+	case *GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer:
+		typename = "TraderOffer"
+
+		result := struct {
+			TypeName string `json:"__typename"`
+			*GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer
+		}{typename, v}
+		return json.Marshal(result)
+	case nil:
+		return []byte("null"), nil
+	default:
+		return nil, fmt.Errorf(
+			`unexpected concrete type for GetItemPricesItemsItemBuyForItemPriceVendor: "%T"`, v)
+	}
+}
+
+// GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket includes the requested fields of the GraphQL type FleaMarket.
+type GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket struct {
+	Typename       string `json:"__typename"`
+	Name           string `json:"name"`
+	NormalizedName string `json:"normalizedName"`
+}
+
+// GetTypename returns GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket.Typename, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket) GetTypename() string {
+	return v.Typename
+}
+
+// GetName returns GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket.Name, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket) GetName() string { return v.Name }
+
+// GetNormalizedName returns GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket.NormalizedName, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket) GetNormalizedName() string {
+	return v.NormalizedName
+}
+
+// GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer includes the requested fields of the GraphQL type TraderOffer.
+type GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer struct {
+	Typename       string `json:"__typename"`
+	Name           string `json:"name"`
+	NormalizedName string `json:"normalizedName"`
+	MinTraderLevel int    `json:"minTraderLevel"`
+	BuyLimit       int    `json:"buyLimit"`
+}
+
+// GetTypename returns GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer.Typename, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer) GetTypename() string {
+	return v.Typename
+}
+
+// GetName returns GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer.Name, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer) GetName() string { return v.Name }
+
+// GetNormalizedName returns GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer.NormalizedName, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer) GetNormalizedName() string {
+	return v.NormalizedName
+}
+
+// GetMinTraderLevel returns GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer.MinTraderLevel, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer) GetMinTraderLevel() int {
+	return v.MinTraderLevel
+}
+
+// GetBuyLimit returns GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer.BuyLimit, and is useful for accessing the field via an interface.
+func (v *GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer) GetBuyLimit() int { return v.BuyLimit }
+
+// GetItemPricesResponse is returned by GetItemPrices on success.
+type GetItemPricesResponse struct {
+	Items []GetItemPricesItemsItem `json:"items"`
+}
+
+// GetItems returns GetItemPricesResponse.Items, and is useful for accessing the field via an interface.
+func (v *GetItemPricesResponse) GetItems() []GetItemPricesItemsItem { return v.Items }
+
 // GetWeaponModsItemsItem includes the requested fields of the GraphQL type Item.
 type GetWeaponModsItemsItem struct {
 	Name               string                           `json:"name"`
 	Id                 string                           `json:"id"`
 	ErgonomicsModifier float64                          `json:"ergonomicsModifier"`
 	RecoilModifier     float64                          `json:"recoilModifier"`
+	Types              []ItemType                       `json:"types"`
 	Properties         GetWeaponModsItemsItemProperties `json:"-"`
 }
 
@@ -30,6 +273,9 @@ func (v *GetWeaponModsItemsItem) GetErgonomicsModifier() float64 { return v.Ergo
 
 // GetRecoilModifier returns GetWeaponModsItemsItem.RecoilModifier, and is useful for accessing the field via an interface.
 func (v *GetWeaponModsItemsItem) GetRecoilModifier() float64 { return v.RecoilModifier }
+
+// GetTypes returns GetWeaponModsItemsItem.Types, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItem) GetTypes() []ItemType { return v.Types }
 
 // GetProperties returns GetWeaponModsItemsItem.Properties, and is useful for accessing the field via an interface.
 func (v *GetWeaponModsItemsItem) GetProperties() GetWeaponModsItemsItemProperties {
@@ -78,6 +324,8 @@ type __premarshalGetWeaponModsItemsItem struct {
 
 	RecoilModifier float64 `json:"recoilModifier"`
 
+	Types []ItemType `json:"types"`
+
 	Properties json.RawMessage `json:"properties"`
 }
 
@@ -96,6 +344,7 @@ func (v *GetWeaponModsItemsItem) __premarshalJSON() (*__premarshalGetWeaponModsI
 	retval.Id = v.Id
 	retval.ErgonomicsModifier = v.ErgonomicsModifier
 	retval.RecoilModifier = v.RecoilModifier
+	retval.Types = v.Types
 	{
 
 		dst := &retval.Properties
@@ -1948,6 +2197,54 @@ const (
 	ItemTypeWearable   ItemType = "wearable"
 )
 
+// The query or mutation executed by GetItemPrices.
+const GetItemPrices_Operation = `
+query GetItemPrices {
+	items(categoryNames: [Weapon,WeaponMod]) {
+		__typename
+		name
+		id
+		buyFor {
+			currency
+			priceRUB
+			vendor {
+				__typename
+				name
+				normalizedName
+				... on TraderOffer {
+					minTraderLevel
+					buyLimit
+					normalizedName
+					name
+				}
+			}
+		}
+	}
+}
+`
+
+func GetItemPrices(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*GetItemPricesResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "GetItemPrices",
+		Query:  GetItemPrices_Operation,
+	}
+	var err_ error
+
+	var data_ GetItemPricesResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
 // The query or mutation executed by GetWeaponMods.
 const GetWeaponMods_Operation = `
 query GetWeaponMods {
@@ -1956,6 +2253,7 @@ query GetWeaponMods {
 		id
 		ergonomicsModifier
 		recoilModifier
+		types
 		properties {
 			__typename
 			... on ItemPropertiesWeaponMod {

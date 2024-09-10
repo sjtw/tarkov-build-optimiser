@@ -8,14 +8,14 @@ import (
 )
 
 type ItemSlot struct {
-	ID                 string  `json:"id", bson:"id"`
-	Name               string  `json:"name", bson:"name"`
+	ID                 string  `json:"id" bson:"id"`
+	Name               string  `json:"name" bson:"name"`
 	AllowedItems       []*Item `json:"-"`
-	BestRecoilItem     *Item   `json:"best_recoil_item", bson:"best_recoil_item"`
-	BestRecoilModifier int     `json:"best_recoil_modifier", bson:"best_recoil_modifier"`
-	BestErgoModifier   int     `json:"best_ergo_modifier", bson:"best_ergo_modifier"`
-	BestErgoItem       *Item   `json:"best_ergo_item", bson:"best_ergo_item"`
-	parentItem         *Item   `json:"-"`
+	BestRecoilItem     *Item   `json:"best_recoil_item" bson:"best_recoil_item"`
+	BestRecoilModifier int     `json:"best_recoil_modifier" bson:"best_recoil_modifier"`
+	BestErgoModifier   int     `json:"best_ergo_modifier" bson:"best_ergo_modifier"`
+	BestErgoItem       *Item   `json:"best_ergo_item" bson:"best_ergo_item"`
+	parentItem         *Item
 	// IDs of items which would potentially create a circular reference
 	// we don't want to add these to the possibility tree for obvious reasons,
 	// but we may still want to know what they are

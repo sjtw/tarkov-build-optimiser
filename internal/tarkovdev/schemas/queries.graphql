@@ -99,3 +99,25 @@ query GetWeapons {
     }
   }
 }
+
+query GetItemPrices {
+  items(categoryNames: [Weapon, WeaponMod]) {
+    __typename
+    name
+    id
+    buyFor {
+      currency
+      priceRUB
+      vendor {
+        name
+        normalizedName
+        ... on TraderOffer {
+          minTraderLevel
+          buyLimit
+          normalizedName
+          name
+        }
+      }
+    }
+  }
+}
