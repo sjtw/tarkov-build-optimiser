@@ -155,6 +155,7 @@ func Purge(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
 	_, err = db.Exec(`DELETE FROM slots;`)
 	if err != nil {
 		return err
@@ -166,6 +167,11 @@ func Purge(db *sql.DB) error {
 	}
 
 	_, err = db.Exec(`DELETE FROM weapon_mods;`)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(`DELETE FROM trader_offers;`)
 	if err != nil {
 		return err
 	}

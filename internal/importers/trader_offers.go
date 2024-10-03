@@ -5,10 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rs/zerolog/log"
-	"os"
 	"tarkov-build-optimiser/internal/cache"
+	"tarkov-build-optimiser/internal/cli"
 	"tarkov-build-optimiser/internal/db"
-	"tarkov-build-optimiser/internal/helpers"
 	"tarkov-build-optimiser/internal/models"
 	"tarkov-build-optimiser/internal/tarkovdev"
 )
@@ -23,7 +22,7 @@ type TraderItemOffer struct {
 
 func ImportTraderOffers(db *db.Database, api *tarkovdev.Api) error {
 	traderOfferCache := cache.NewJSONFileCache("./file-caches/trader-offers-cache.json")
-	if helpers.ContainsStr(os.Args, "--purge-cache") {
+	if cli.GetFlags().PurgeCache {
 		fmt.Println("--purge-cache provided - purging trader offers file cache")
 		err := traderOfferCache.Purge()
 		if err != nil {
@@ -33,7 +32,7 @@ func ImportTraderOffers(db *db.Database, api *tarkovdev.Api) error {
 
 	var offers []models.TraderOffer
 
-	if helpers.ContainsStr(os.Args, "--use-cache") {
+	if cli.GetFlags().UseCache {
 		log.Info().Msg("--use-cache provided - pulling trader offers from file cache.")
 		data, err := getTraderOffersFromCache(traderOfferCache)
 		if err != nil {
@@ -61,7 +60,7 @@ func ImportTraderOffers(db *db.Database, api *tarkovdev.Api) error {
 		log.Info().Msgf("Added all %d trader offers to file cache.", len(offers))
 	}
 
-	if helpers.ContainsStr(os.Args, "--cache-only") {
+	if cli.GetFlags().CacheOnly {
 		log.Info().Msg("--cache-only was provided - Not persisting trader offers in db.")
 		return nil
 	}
@@ -133,7 +132,6 @@ func getTraderOffersFromTarkovDev(api *tarkovdev.Api) ([]models.TraderOffer, err
 }
 
 func getTraderOffersFromCache(cache *cache.JSONFileCache) ([]models.TraderOffer, error) {
-	fmt.Println("--use-cache provided - using trader offer file cache")
 	all, err := cache.All()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get trader offer from cache")

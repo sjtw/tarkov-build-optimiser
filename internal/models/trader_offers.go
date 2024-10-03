@@ -22,12 +22,7 @@ func UpsertTraderOffer(tx *sql.Tx, offer TraderOffer) error {
 			min_trader_level,
 		   	price_rub
 		)
-		values ($1, $2, $3, $4, $5) on conflict (item_id) do update set
-			name = $2,
-			trader = $2,
-			min_trader_level = $3,
-			price_rub = $4
-		;`
+		values ($1, $2, $3, $4, $5)`
 	_, err := tx.Exec(query, offer.ID, offer.Name, offer.Trader, offer.MinTraderLevel, offer.PriceRub)
 	if err != nil {
 		return err
@@ -39,7 +34,7 @@ func UpsertManyTraderOffers(tx *sql.Tx, offers []TraderOffer) error {
 	for i := 0; i < len(offers); i++ {
 		err := UpsertTraderOffer(tx, offers[i])
 		if err != nil {
-			log.Error().Err(err).Msgf("Failed to upsert mod: %v", offers[i])
+			log.Error().Err(err).Msgf("Failed to upsert trader offer: %v", offers[i])
 			return err
 		}
 		log.Info().Msgf("Upserted mod: ID: %s, Name: %s", offers[i].ID, offers[i].Name)

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rs/zerolog/log"
-	"os"
 	"tarkov-build-optimiser/internal/cache"
+	"tarkov-build-optimiser/internal/cli"
 	"tarkov-build-optimiser/internal/db"
 	"tarkov-build-optimiser/internal/helpers"
 	"tarkov-build-optimiser/internal/models"
@@ -14,10 +14,8 @@ import (
 )
 
 func ImportWeapons(db *db.Database, api *tarkovdev.Api) error {
-	useCache := helpers.ContainsStr(os.Args, "--use-cache")
-
 	weaponsCache := cache.NewJSONFileCache("./file-caches/weapons-cache.json")
-	if helpers.ContainsStr(os.Args, "--purge-cache") {
+	if cli.GetFlags().PurgeCache {
 		fmt.Println("--purge-cache provided - purging weapons file cache")
 		err := weaponsCache.Purge()
 		if err != nil {
@@ -26,7 +24,7 @@ func ImportWeapons(db *db.Database, api *tarkovdev.Api) error {
 	}
 
 	var weapons []models.Weapon
-	if useCache {
+	if cli.GetFlags().UseCache {
 		log.Info().Msg("--use-cache provided - pulling weapons from file cache.")
 		data, err := getWeaponsFromCache(weaponsCache)
 		if err != nil {
@@ -54,7 +52,7 @@ func ImportWeapons(db *db.Database, api *tarkovdev.Api) error {
 		log.Info().Msgf("Added weapon %d to file cache.", len(weapons))
 	}
 
-	if helpers.ContainsStr(os.Args, "--cache-only") {
+	if cli.GetFlags().CacheOnly {
 		log.Info().Msg("--cache-only was provided - Not persisting weapons in db.")
 		return nil
 	}
@@ -83,7 +81,6 @@ func ImportWeapons(db *db.Database, api *tarkovdev.Api) error {
 }
 
 func getWeaponsFromCache(cache *cache.JSONFileCache) ([]models.Weapon, error) {
-	fmt.Println("--use-cache provided - using weapons file cache")
 	all, err := cache.All()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get weapons from cache")

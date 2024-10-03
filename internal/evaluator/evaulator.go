@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/rs/zerolog/log"
+	"tarkov-build-optimiser/internal/models"
 )
 
 func findBestRecoilTree(item *Item) (int, *Item) {
@@ -31,9 +32,7 @@ func findBestRecoilTree(item *Item) (int, *Item) {
 		for j := 0; j < len(item.Slots[i].AllowedItems); j++ {
 			childSum, highestItem := findBestRecoilTree(item.Slots[i].AllowedItems[j])
 
-			sumWithChildSum := sum + childSum
-
-			if sumWithChildSum < item.Slots[i].BestRecoilModifier {
+			if childSum < item.Slots[i].BestRecoilModifier {
 				item.Slots[i].BestRecoilModifier = childSum
 				item.Slots[i].BestRecoilItem = highestItem
 			}
@@ -138,4 +137,29 @@ func upsertOptimumBuild(db *sql.DB, itemId string, buildType string, sum int, bu
 	}
 
 	return nil
+}
+
+func CreateWeaponPossibilityTree(db *sql.DB, id string) (*Item, error) {
+	w, err := models.GetWeaponById(db, id)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to get weapon %s", id)
+		return nil, err
+	}
+	weapon := &Item{
+		ID:                 id,
+		Name:               w.Name,
+		RecoilModifier:     w.RecoilModifier,
+		ErgonomicsModifier: w.ErgonomicsModifier,
+		Slots:              []*ItemSlot{},
+		parentSlot:         nil,
+		Type:               "weapon",
+	}
+
+	err = weapon.PopulateSlots(db)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to populate slots for weapon %s", w.ID)
+		return nil, err
+	}
+
+	return weapon, nil
 }
