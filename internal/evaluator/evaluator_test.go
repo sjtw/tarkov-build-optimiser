@@ -1,7 +1,6 @@
 package evaluator
 
 import (
-	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"tarkov-build-optimiser/internal/db"
@@ -10,6 +9,10 @@ import (
 
 func TestCalculateOptimumRecoil(t *testing.T) {
 	dbClient, err := db.CreateBuildOptimiserDBClient()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to connect to DB")
+		t.Fatal()
+	}
 	id := "5a0ec13bfcdbcb00165aa685"
 	weapon, err := CreateWeaponPossibilityTree(dbClient.Conn, id)
 	if err != nil {
@@ -51,12 +54,12 @@ func TestFindBestRecoilTree(t *testing.T) {
 	item3.RecoilModifier = -3
 	item3.ErgonomicsModifier = 3
 
-	childSlot := ConstructSlot("child-slot1", "Child Slot1")
-	childItem := ConstructItem("child-item1", "Child Item1")
-	childItem.RecoilModifier = -4
-	childItem.ErgonomicsModifier = 4
-	childSlot.AddChildItem(childItem)
-	item1.AddChildSlot(childSlot)
+	item1ChildSlot := ConstructSlot("child-slot1", "Child Slot1")
+	item1ChildSlotItem := ConstructItem("child-item1", "Child Item1")
+	item1ChildSlotItem.RecoilModifier = -4
+	item1ChildSlotItem.ErgonomicsModifier = 4
+	item1ChildSlot.AddChildItem(item1ChildSlotItem)
+	item1.AddChildSlot(item1ChildSlot)
 
 	slot1 := ConstructSlot("slot1", "Slot1")
 	slot1.AddChildItem(item1)
@@ -69,6 +72,23 @@ func TestFindBestRecoilTree(t *testing.T) {
 	weapon.AddChildSlot(slot2)
 
 	sum, build := findBestRecoilTree(weapon)
-	fmt.Println(sum)
-	fmt.Println(build)
+
+	assert.Equal(t, sum, -18)
+
+	assert.Len(t, build.Slots, 2)
+	assert.NotNil(t, build.Slots[0])
+
+	assert.Equal(t, build.Slots[0].BestRecoilModifier, -5)
+
+	assert.NotNil(t, build.Slots[0].BestRecoilItem)
+	assert.Equal(t, build.Slots[0].BestRecoilItem.ID, item1.ID)
+	assert.Len(t, build.Slots[0].BestRecoilItem.Slots, 1)
+	assert.Equal(t, build.Slots[0].BestRecoilItem.Slots[0].ID, item1ChildSlot.ID)
+	assert.Equal(t, build.Slots[0].BestRecoilItem.Slots[0].BestRecoilItem.ID, item1ChildSlotItem.ID)
+	assert.Equal(t, build.Slots[0].BestRecoilItem.Slots[0].BestRecoilModifier, item1ChildSlotItem.RecoilModifier)
+
+	assert.NotNil(t, build.Slots[1])
+	assert.Equal(t, build.Slots[1].BestRecoilModifier, -3)
+	assert.Equal(t, build.Slots[1].BestRecoilItem.ID, item3.ID)
+	assert.Len(t, build.Slots[1].BestRecoilItem.Slots, 0)
 }
