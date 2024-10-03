@@ -120,6 +120,7 @@ func getTraderOffersFromTarkovDev(api *tarkovdev.Api) ([]models.TraderOffer, err
 			switch trader := offers[j].Vendor.(type) {
 			case *tarkovdev.GetItemPricesItemsItemBuyForItemPriceVendorTraderOffer:
 				newItem.MinTraderLevel = trader.MinTraderLevel
+				newItem.Trader = trader.Name
 			case *tarkovdev.GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket:
 				break
 			}
@@ -148,14 +149,14 @@ func getTraderOffersFromCache(cache *cache.JSONFileCache) ([]models.TraderOffer,
 	traderOffers := make([]models.TraderOffer, 0, len(keys))
 	for i := 0; i < len(keys); i++ {
 		key := keys[i]
-		mod := models.TraderOffer{}
-		err := all.Get(key, &mod)
+		offer := models.TraderOffer{}
+		err := all.Get(key, &offer)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to get trader offer %s from cache", key)
 			return nil, err
 		}
 
-		traderOffers = append(traderOffers, mod)
+		traderOffers = append(traderOffers, offer)
 	}
 
 	return traderOffers, nil
@@ -168,7 +169,7 @@ func updateTraderOffercache(traderOfferCache *cache.JSONFileCache, traderOffers 
 			log.Error().Err(err).Msgf("Failed to store trader offer %v in file cache", traderOffers[i])
 			return err
 		}
-		log.Info().Msgf("Mod stored in file cache: %v", traderOffers[i])
+		log.Info().Msgf("Trader offer stored in file cache: %v", traderOffers[i])
 	}
 	return nil
 }
