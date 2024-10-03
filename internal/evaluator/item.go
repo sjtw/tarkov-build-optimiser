@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"database/sql"
+	"encoding/json"
 	"github.com/rs/zerolog/log"
 	"tarkov-build-optimiser/internal/models"
 )
@@ -89,6 +90,60 @@ func (item *Item) PopulateSlots(db *sql.DB) error {
 			log.Error().Err(err).Msgf("Failed to populate slot %s", s.ID)
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (item *Item) GetBestRecoilSum() int {
+	sum := item.RecoilModifier
+	for i := 0; i < len(item.Slots); i++ {
+		sum += item.Slots[i].BestRecoilModifier
+	}
+
+	return sum
+}
+
+func (item *Item) GetBestErgoSum() int {
+	sum := item.ErgonomicsModifier
+	for i := 0; i < len(item.Slots); i++ {
+		sum += item.Slots[i].BestErgoModifier
+	}
+
+	return sum
+}
+
+func (item *Item) Save(db *sql.DB) error {
+	b, err := json.Marshal(item)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to marshal build")
+		return err
+	}
+
+	query := `INSERT INTO optimum_builds (
+			item_id,
+			build,
+			build_type,
+            modifier_sum,
+            name
+		)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (item_id, build_type) DO UPDATE SET
+			build = $2,
+			modifier_sum = $4,
+			name = $5
+		;`
+
+	recoilSum := item.GetBestRecoilSum()
+	_, err = db.Exec(query, item.ID, b, "recoil", recoilSum, item.Name)
+	if err != nil {
+		return err
+	}
+
+	ergoSum := item.GetBestErgoSum()
+	_, err = db.Exec(query, item.ID, b, "ergonomics", ergoSum, item.Name)
+	if err != nil {
+		return err
 	}
 
 	return nil

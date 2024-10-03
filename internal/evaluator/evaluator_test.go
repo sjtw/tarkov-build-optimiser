@@ -71,8 +71,8 @@ func TestFindBestRecoilTree(t *testing.T) {
 	weapon.AddChildSlot(slot1)
 	weapon.AddChildSlot(slot2)
 
-	sum, build := findBestRecoilTree(weapon)
-
+	build := findBestRecoilTree(weapon)
+	sum := build.GetBestRecoilSum()
 	assert.Equal(t, sum, -18)
 
 	assert.Len(t, build.Slots, 2)
@@ -91,4 +91,60 @@ func TestFindBestRecoilTree(t *testing.T) {
 	assert.Equal(t, build.Slots[1].BestRecoilModifier, -3)
 	assert.Equal(t, build.Slots[1].BestRecoilItem.ID, item3.ID)
 	assert.Len(t, build.Slots[1].BestRecoilItem.Slots, 0)
+}
+
+func TestFindBestErgoTree(t *testing.T) {
+	weapon := ConstructItem("test-item", "Test Item")
+	weapon.RecoilModifier = -10
+	weapon.ErgonomicsModifier = 10
+
+	item1 := ConstructItem("item1", "Item1")
+	item1.RecoilModifier = -1
+	item1.ErgonomicsModifier = 1
+
+	item2 := ConstructItem("item2", "Item2")
+	item2.RecoilModifier = -2
+	item2.ErgonomicsModifier = 2
+
+	item3 := ConstructItem("item3", "Item3")
+	item3.RecoilModifier = -3
+	item3.ErgonomicsModifier = 3
+
+	item1ChildSlot := ConstructSlot("child-slot1", "Child Slot1")
+	item1ChildSlotItem := ConstructItem("child-item1", "Child Item1")
+	item1ChildSlotItem.RecoilModifier = -4
+	item1ChildSlotItem.ErgonomicsModifier = 4
+	item1ChildSlot.AddChildItem(item1ChildSlotItem)
+	item1.AddChildSlot(item1ChildSlot)
+
+	slot1 := ConstructSlot("slot1", "Slot1")
+	slot1.AddChildItem(item1)
+	slot1.AddChildItem(item2)
+
+	slot2 := ConstructSlot("slot2", "Slot2")
+	slot2.AddChildItem(item3)
+
+	weapon.AddChildSlot(slot1)
+	weapon.AddChildSlot(slot2)
+
+	build := findBestErgoTree(weapon)
+	sum := build.GetBestErgoSum()
+	assert.Equal(t, sum, 18)
+
+	assert.Len(t, build.Slots, 2)
+	assert.NotNil(t, build.Slots[0])
+
+	assert.Equal(t, build.Slots[0].BestErgoModifier, 5)
+
+	assert.NotNil(t, build.Slots[0].BestErgoItem)
+	assert.Equal(t, build.Slots[0].BestErgoItem.ID, item1.ID)
+	assert.Len(t, build.Slots[0].BestErgoItem.Slots, 1)
+	assert.Equal(t, build.Slots[0].BestErgoItem.Slots[0].ID, item1ChildSlot.ID)
+	assert.Equal(t, build.Slots[0].BestErgoItem.Slots[0].BestErgoItem.ID, item1ChildSlotItem.ID)
+	assert.Equal(t, build.Slots[0].BestErgoItem.Slots[0].BestErgoModifier, item1ChildSlotItem.ErgonomicsModifier)
+
+	assert.NotNil(t, build.Slots[1])
+	assert.Equal(t, build.Slots[1].BestErgoModifier, 3)
+	assert.Equal(t, build.Slots[1].BestErgoItem.ID, item3.ID)
+	assert.Len(t, build.Slots[1].BestErgoItem.Slots, 0)
 }
