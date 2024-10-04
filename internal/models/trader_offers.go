@@ -41,3 +41,25 @@ func UpsertManyTraderOffers(tx *sql.Tx, offers []TraderOffer) error {
 	}
 	return nil
 }
+
+func GetTraderOffersByItemID(db *sql.DB, itemID string) ([]TraderOffer, error) {
+	query := `select item_id, name, trader, min_trader_level, price_rub from trader_offers where item_id = $1`
+
+	rows, err := db.Query(query, itemID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	offers := make([]TraderOffer, 0)
+	for rows.Next() {
+		offer := &TraderOffer{}
+		err := rows.Scan(&offer.ID, &offer.Name, &offer.Trader, &offer.MinTraderLevel, &offer.PriceRub)
+		if err != nil {
+			return nil, err
+		}
+		offers = append(offers, *offer)
+	}
+
+	return offers, nil
+}

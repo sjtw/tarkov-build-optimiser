@@ -21,13 +21,13 @@ func constructFlags() Flags {
 
 func GetFlags() Flags {
 	flags := constructFlags()
-	if HasFlag("purge-cache") {
+	if HasFlag("--purge-cache") {
 		flags.PurgeCache = true
 	}
-	if HasFlag("use-cache") {
+	if HasFlag("--use-cache") {
 		flags.UseCache = true
 	}
-	if HasFlag("cache-only") {
+	if HasFlag("--cache-only") {
 		flags.CacheOnly = true
 	}
 

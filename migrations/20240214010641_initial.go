@@ -73,7 +73,12 @@ func upInitial(ctx context.Context, tx *sql.Tx) error {
 			build_type varchar,
 			modifier_sum integer,
 			name varchar,
-			unique (item_id, build_type)
+			jaeger_level int,
+			prapor_level int,
+			peacekeeper_level int,
+			mechanic_level int,
+			skier_level int
+-- 			unique (item_id, build_type, jaeger_level, prapor_level, peacekeeper_level, mechanic_level, skier_level)
 		);`)
 	if err != nil {
 		_ = tx.Rollback()

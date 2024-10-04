@@ -4,6 +4,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"tarkov-build-optimiser/internal/db"
+	"tarkov-build-optimiser/internal/models"
 	"testing"
 )
 
@@ -14,7 +15,7 @@ func TestCalculateOptimumRecoil(t *testing.T) {
 		t.Fatal()
 	}
 	id := "5a0ec13bfcdbcb00165aa685"
-	weapon, err := CreateWeaponPossibilityTree(dbClient.Conn, id)
+	weapon, err := createWeaponPossibilityTree(dbClient.Conn, id)
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Failed to create possibility tree for weapon id: %s", id)
 	}
@@ -31,10 +32,28 @@ func TestCreateWeaponPossibilityTree(t *testing.T) {
 	}
 
 	id := "5a0ec13bfcdbcb00165aa685"
-	weapon, err := CreateWeaponPossibilityTree(dbClient.Conn, id)
+	weapon, err := createWeaponPossibilityTree(dbClient.Conn, id)
 	assert.NoError(t, err)
 
 	assert.IsType(t, &Item{}, weapon)
+}
+
+type MockTraderOfferGetter struct {
+}
+
+func CreateMockTraderOfferGetter() TraderOfferGetter {
+	return &MockTraderOfferGetter{}
+}
+
+func (to *MockTraderOfferGetter) Get(itemID string) ([]models.TraderOffer, error) {
+	offers := []models.TraderOffer{
+		{ID: "test-item", Name: "1", Trader: "Prapor", MinTraderLevel: 1, PriceRub: 1},
+		{ID: "item1", Name: "1", Trader: "Prapor", MinTraderLevel: 1, PriceRub: 1},
+		{ID: "item2", Name: "1", Trader: "Prapor", MinTraderLevel: 1, PriceRub: 1},
+		{ID: "item3", Name: "1", Trader: "Prapor", MinTraderLevel: 1, PriceRub: 1},
+		{ID: "child-item1", Name: "1", Trader: "Prapor", MinTraderLevel: 1, PriceRub: 1},
+	}
+	return offers, nil
 }
 
 func TestFindBestRecoilTree(t *testing.T) {
@@ -71,26 +90,40 @@ func TestFindBestRecoilTree(t *testing.T) {
 	weapon.AddChildSlot(slot1)
 	weapon.AddChildSlot(slot2)
 
-	build := findBestRecoilTree(weapon)
-	sum := build.GetBestRecoilSum()
-	assert.Equal(t, sum, -18)
+	constraints := EvaluationConstraints{
+		TraderLevels: []TraderLevel{
+			{Name: "Jaeger", Level: 5},
+			{Name: "Prapor", Level: 5},
+			{Name: "Peacekeeper", Level: 5},
+			{Name: "Mechanic", Level: 5},
+			{Name: "Skier", Level: 5},
+		},
+	}
+
+	offerGetter := CreateMockTraderOfferGetter()
+
+	build, err := evaluate(offerGetter, weapon, "recoil", constraints)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, build.RecoilSum, -18)
 
 	assert.Len(t, build.Slots, 2)
 	assert.NotNil(t, build.Slots[0])
 
-	assert.Equal(t, build.Slots[0].BestRecoilModifier, -5)
+	assert.Equal(t, build.Slots[0].Item.RecoilSum, -5)
 
-	assert.NotNil(t, build.Slots[0].BestRecoilItem)
-	assert.Equal(t, build.Slots[0].BestRecoilItem.ID, item1.ID)
-	assert.Len(t, build.Slots[0].BestRecoilItem.Slots, 1)
-	assert.Equal(t, build.Slots[0].BestRecoilItem.Slots[0].ID, item1ChildSlot.ID)
-	assert.Equal(t, build.Slots[0].BestRecoilItem.Slots[0].BestRecoilItem.ID, item1ChildSlotItem.ID)
-	assert.Equal(t, build.Slots[0].BestRecoilItem.Slots[0].BestRecoilModifier, item1ChildSlotItem.RecoilModifier)
+	assert.NotNil(t, build.Slots[0].Item)
+	assert.Equal(t, build.Slots[0].Item.ID, item1.ID)
+	assert.Len(t, build.Slots[0].Item.Slots, 1)
+	assert.Equal(t, build.Slots[0].Item.Slots[0].ID, item1ChildSlot.ID)
+	assert.Equal(t, build.Slots[0].Item.Slots[0].Item.ID, item1ChildSlotItem.ID)
+	assert.Equal(t, build.Slots[0].Item.Slots[0].Item.RecoilSum, item1ChildSlotItem.RecoilModifier)
 
 	assert.NotNil(t, build.Slots[1])
-	assert.Equal(t, build.Slots[1].BestRecoilModifier, -3)
-	assert.Equal(t, build.Slots[1].BestRecoilItem.ID, item3.ID)
-	assert.Len(t, build.Slots[1].BestRecoilItem.Slots, 0)
+	assert.Equal(t, build.Slots[1].Item.RecoilSum, -3)
+	assert.Equal(t, build.Slots[1].Item.ID, item3.ID)
+	assert.Len(t, build.Slots[1].Item.Slots, 0)
 }
 
 func TestFindBestErgoTree(t *testing.T) {
@@ -127,24 +160,38 @@ func TestFindBestErgoTree(t *testing.T) {
 	weapon.AddChildSlot(slot1)
 	weapon.AddChildSlot(slot2)
 
-	build := findBestErgoTree(weapon)
-	sum := build.GetBestErgoSum()
-	assert.Equal(t, sum, 18)
+	offerGetter := CreateMockTraderOfferGetter()
+
+	constraints := EvaluationConstraints{
+		TraderLevels: []TraderLevel{
+			{Name: "Jaeger", Level: 5},
+			{Name: "Prapor", Level: 5},
+			{Name: "Peacekeeper", Level: 5},
+			{Name: "Mechanic", Level: 5},
+			{Name: "Skier", Level: 5},
+		},
+	}
+
+	build, err := evaluate(offerGetter, weapon, "ergonomics", constraints)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, 18, build.ErgonomicsSum)
 
 	assert.Len(t, build.Slots, 2)
 	assert.NotNil(t, build.Slots[0])
 
-	assert.Equal(t, build.Slots[0].BestErgoModifier, 5)
+	assert.Equal(t, build.Slots[0].Item.ErgonomicsSum, 5)
 
-	assert.NotNil(t, build.Slots[0].BestErgoItem)
-	assert.Equal(t, build.Slots[0].BestErgoItem.ID, item1.ID)
-	assert.Len(t, build.Slots[0].BestErgoItem.Slots, 1)
-	assert.Equal(t, build.Slots[0].BestErgoItem.Slots[0].ID, item1ChildSlot.ID)
-	assert.Equal(t, build.Slots[0].BestErgoItem.Slots[0].BestErgoItem.ID, item1ChildSlotItem.ID)
-	assert.Equal(t, build.Slots[0].BestErgoItem.Slots[0].BestErgoModifier, item1ChildSlotItem.ErgonomicsModifier)
+	assert.NotNil(t, build.Slots[0].Item)
+	assert.Equal(t, build.Slots[0].Item.ID, item1.ID)
+	assert.Len(t, build.Slots[0].Item.Slots, 1)
+	assert.Equal(t, build.Slots[0].Item.Slots[0].ID, item1ChildSlot.ID)
+	assert.Equal(t, build.Slots[0].Item.Slots[0].Item.ID, item1ChildSlotItem.ID)
+	assert.Equal(t, build.Slots[0].Item.Slots[0].Item.ErgonomicsSum, item1ChildSlotItem.ErgonomicsModifier)
 
 	assert.NotNil(t, build.Slots[1])
-	assert.Equal(t, build.Slots[1].BestErgoModifier, 3)
-	assert.Equal(t, build.Slots[1].BestErgoItem.ID, item3.ID)
-	assert.Len(t, build.Slots[1].BestErgoItem.Slots, 0)
+	assert.Equal(t, build.Slots[1].Item.ErgonomicsSum, 3)
+	assert.Equal(t, build.Slots[1].Item.ID, item3.ID)
+	assert.Len(t, build.Slots[1].Item.Slots, 0)
 }
