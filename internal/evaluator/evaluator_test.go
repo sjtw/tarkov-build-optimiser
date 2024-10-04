@@ -26,7 +26,7 @@ func CreateMockTraderOfferGetter() TraderOfferGetter {
 	return &MockTraderOfferGetter{}
 }
 
-func (to *MockTraderOfferGetter) Get(itemID string) ([]models.TraderOffer, error) {
+func (to *MockTraderOfferGetter) Get(_ string) ([]models.TraderOffer, error) {
 	offers := []models.TraderOffer{
 		{ID: "test-item", Name: "1", Trader: "Prapor", MinTraderLevel: 1, PriceRub: 1},
 		{ID: "item1", Name: "1", Trader: "Prapor", MinTraderLevel: 1, PriceRub: 1},
@@ -39,7 +39,7 @@ func (to *MockTraderOfferGetter) Get(itemID string) ([]models.TraderOffer, error
 
 type MockBuildSaver struct{}
 
-func (saver *MockBuildSaver) Save(itemId string, buildType string, itemType string, sum int, build *models.ItemEvaluationResult, name string, constraints models.EvaluationConstraints) error {
+func (saver *MockBuildSaver) Save(_ string, _ string, _ string, _ int, _ *models.ItemEvaluationResult, _ string, _ models.EvaluationConstraints) error {
 	return nil
 }
 

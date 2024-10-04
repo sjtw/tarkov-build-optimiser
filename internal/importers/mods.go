@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"tarkov-build-optimiser/internal/cache"
-	cli "tarkov-build-optimiser/internal/cli"
+	"tarkov-build-optimiser/internal/cli"
 	"tarkov-build-optimiser/internal/db"
 	"tarkov-build-optimiser/internal/models"
 	"tarkov-build-optimiser/internal/tarkovdev"
