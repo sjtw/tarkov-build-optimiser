@@ -1,1 +1,1 @@
-{"weapon1":{"Id":"weapon1","Loaded":false,"Name":"M4A1","Slots":null},"weapon2":{"Id":"weapon2","Name":"Glock","Slots":null,"Loaded":false}}
+{"weapon1":{"ergonomics_modifier":0,"item_id":"weapon1","name":"M4A1","recoil_modifier":0,"slots":null},"weapon2":{"item_id":"weapon2","name":"Glock","ergonomics_modifier":0,"recoil_modifier":0,"slots":null}}
