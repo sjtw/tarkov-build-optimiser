@@ -1,7 +1,10 @@
 package main
 
 import (
+	"database/sql"
 	"github.com/rs/zerolog/log"
+	"runtime"
+	"sync"
 	"tarkov-build-optimiser/internal/db"
 	"tarkov-build-optimiser/internal/evaluator"
 	"tarkov-build-optimiser/internal/models"
@@ -20,23 +23,65 @@ func main() {
 	}
 
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
+
+	tasks := make([]Task, 0)
+
 	for i := 0; i < len(weaponIds); i++ {
-		log.Info().Msgf("Building weapon %s", weaponIds[i])
+		log.Info().Msgf("Creating task variations for weapon %s", weaponIds[i])
 
 		traderLevelVariations := evaluator.GenerateTraderLevelVariations(evaluator.TraderNames)
 
 		for j := 0; j < len(traderLevelVariations); j++ {
-			log.Info().Msgf("Trader level constraints: %v", traderLevelVariations[j])
 			constraints := evaluator.EvaluationConstraints{
 				TraderLevels: traderLevelVariations[j],
 			}
 
-			err := evaluator.GenerateOptimumWeaponBuilds(dbClient.Conn, weaponIds[i], constraints)
-			if err != nil {
-				log.Fatal().Err(err).Msgf("Failed to generate weapon builds for %s", weaponIds[i])
+			task := Task{
+				Constraints: constraints,
+				WeaponID:    weaponIds[i],
 			}
+			log.Info().Msgf("Scheduling evaluation task: %v", task)
+			tasks = append(tasks, task)
 		}
 
 	}
+
+	log.Info().Msgf("Scheduled %d evaluation tasks", len(tasks))
+
+	var wg sync.WaitGroup
+	workerCount := runtime.NumCPU() * 2
+	taskChannel := make(chan Task, len(tasks))
+
+	for i := 0; i < workerCount; i++ {
+		log.Info().Msgf("Creating worker %d", i)
+		wg.Add(1)
+		go worker(dbClient.Conn, taskChannel, &wg)
+	}
+
+	log.Info().Msgf("Queuing tasks")
+	for i := 0; i < len(tasks); i++ {
+		taskChannel <- tasks[i]
+	}
+	log.Info().Msgf("Queued %d tasks", len(taskChannel))
+
+	close(taskChannel)
+	wg.Wait()
 	log.Info().Msg("Evaluator done.")
+}
+
+type Task struct {
+	Constraints evaluator.EvaluationConstraints
+	WeaponID    string
+}
+
+func worker(db *sql.DB, tasks <-chan Task, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for task := range tasks {
+		log.Info().Msgf("Processing evaluation task: %v", task)
+		err := evaluator.GenerateOptimumWeaponBuilds(db, task.WeaponID, task.Constraints)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to generate weapon builds for %s", task.WeaponID)
+		}
+	}
 }
