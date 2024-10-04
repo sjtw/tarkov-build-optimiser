@@ -15,25 +15,16 @@ func GenerateOptimumWeaponBuilds(db *sql.DB, weaponId string, constraints models
 
 	traderOfferGetter := CreatePgTraderOfferGetter(db)
 	buildSaver := CreatePgBuildSaver(db)
-	evaluator := CreateEvaluator(traderOfferGetter, buildSaver)
+	subtreeGetter := CreatePgSubtreeGetter(db)
+	evaluator := CreateEvaluator(traderOfferGetter, buildSaver, subtreeGetter)
 
-	bestRecoilItem, err := evaluator.evaluate(weapon, "recoil", constraints)
+	_, err = evaluator.evaluate(weapon, "recoil", constraints)
 	if err != nil {
-		return err
-	}
-	err = models.UpsertOptimumBuild(db, weaponId, "recoil", "weapon", bestRecoilItem.RecoilSum, bestRecoilItem, bestRecoilItem.Name, constraints)
-	if err != nil {
-		log.Fatal().Err(err).Msgf("Failed to upsert optimum recoil build")
 		return err
 	}
 
-	bestErgoItem, err := evaluator.evaluate(weapon, "ergonomics", constraints)
+	_, err = evaluator.evaluate(weapon, "ergonomics", constraints)
 	if err != nil {
-		return err
-	}
-	err = models.UpsertOptimumBuild(db, weaponId, "ergo", "weapon", bestErgoItem.ErgonomicsSum, bestErgoItem, bestErgoItem.Name, constraints)
-	if err != nil {
-		log.Fatal().Err(err).Msgf("Failed to upsert optimum ergo build")
 		return err
 	}
 
@@ -68,12 +59,14 @@ func createWeaponPossibilityTree(db *sql.DB, id string) (*Item, error) {
 type Evaluator struct {
 	traderOfferGetter TraderOfferGetter
 	buildSaver        BuildSaver
+	subtreeGetter     SubtreeGetter
 }
 
-func CreateEvaluator(traderOfferGetter TraderOfferGetter, buildSaver BuildSaver) *Evaluator {
+func CreateEvaluator(traderOfferGetter TraderOfferGetter, buildSaver BuildSaver, subtreeGetter SubtreeGetter) *Evaluator {
 	return &Evaluator{
 		traderOfferGetter: traderOfferGetter,
 		buildSaver:        buildSaver,
+		subtreeGetter:     subtreeGetter,
 	}
 }
 
@@ -87,6 +80,12 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		Slots:              make([]*models.SlotEvaluationResult, len(item.Slots)),
 		ErgonomicsSum:      item.ErgonomicsModifier,
 		RecoilSum:          item.RecoilModifier,
+	}
+
+	if item.Type == "weapon" {
+		outItem.IsSubtree = false
+	} else {
+		outItem.IsSubtree = true
 	}
 
 	if item.Slots == nil {
@@ -118,9 +117,21 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 				break
 			}
 
-			highestItem, err := e.evaluate(ai, evaluationType, constraints)
+			var highestItem *models.ItemEvaluationResult
+			highestItem, err = e.subtreeGetter.Get(ai.ID, evaluationType, constraints)
 			if err != nil {
+				log.Error().Err(err).Msgf("Failed to get subtree for evaluation. item: %s", ai.ID)
 				return nil, err
+			}
+
+			if highestItem == nil {
+				log.Info().Msgf("Item subtree not yet evaluated. item: %s", ai.ID)
+				highestItem, err = e.evaluate(ai, evaluationType, constraints)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				log.Info().Msgf("Item subtree already evaluated. item: %s", ai.ID)
 			}
 
 			recoilSum := highestItem.RecoilSum
@@ -148,14 +159,7 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		outItem.ErgonomicsSum += slotErgo
 	}
 
-	var sum int
-	if evaluationType == "ergonomics" {
-		sum = outItem.ErgonomicsSum
-	} else {
-		sum = outItem.RecoilSum
-	}
-
-	err := e.buildSaver.Save(outItem.ID, evaluationType, item.Type, sum, outItem, item.Name, constraints)
+	err := e.buildSaver.Save(outItem, constraints, outItem.IsSubtree)
 	if err != nil {
 		return nil, err
 	}

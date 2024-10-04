@@ -71,15 +71,16 @@ func upInitial(ctx context.Context, tx *sql.Tx) error {
 			item_id varchar,
 			build jsonb,
 			build_type varchar,
-			item_type varchar,
-			modifier_sum integer,
+			is_subtree boolean,
+			recoil_sum integer,
+			ergonomics_sum integer,
 			name varchar,
 			jaeger_level int,
 			prapor_level int,
 			peacekeeper_level int,
 			mechanic_level int,
 			skier_level int,
-			unique (item_id, build_type, item_type, jaeger_level, prapor_level, peacekeeper_level, mechanic_level, skier_level)
+			unique (item_id, build_type, is_subtree, jaeger_level, prapor_level, peacekeeper_level, mechanic_level, skier_level)
 		);`)
 	if err != nil {
 		_ = tx.Rollback()

@@ -49,7 +49,7 @@ func main() {
 	log.Info().Msgf("Scheduled %d evaluation tasks", len(tasks))
 
 	var wg sync.WaitGroup
-	workerCount := runtime.NumCPU() * 2
+	workerCount := runtime.NumCPU() * 3
 	taskChannel := make(chan Task, len(tasks))
 
 	for i := 0; i < workerCount; i++ {

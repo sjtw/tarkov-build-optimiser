@@ -39,34 +39,27 @@ func (to *MockTraderOfferGetter) Get(_ string) ([]models.TraderOffer, error) {
 }
 
 type SaveArgs struct {
-	ItemID      string
-	BuildType   string
-	ItemType    string
-	Sum         int
 	Build       *models.ItemEvaluationResult
-	Name        string
 	Constraints models.EvaluationConstraints
+	IsSubtree   bool
 }
 
+// MockBuildSaver allows inspection of arguments in calls to the savers Save method
 type MockBuildSaver struct {
 	SaveCallCount int        // Tracks how many times Save was called
 	SaveArgs      []SaveArgs // Stores the arguments passed to Save
 	mu            sync.Mutex
 }
 
-func (saver *MockBuildSaver) Save(itemId string, buildType string, itemType string, sum int, build *models.ItemEvaluationResult, name string, constraints models.EvaluationConstraints) error {
+func (saver *MockBuildSaver) Save(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints, isSubtree bool) error {
 	saver.mu.Lock()
 	defer saver.mu.Unlock()
 
 	saver.SaveCallCount++
 	saver.SaveArgs = append(saver.SaveArgs, SaveArgs{
-		ItemID:      itemId,
-		BuildType:   buildType,
-		ItemType:    itemType,
-		Sum:         sum,
 		Build:       build,
-		Name:        name,
 		Constraints: constraints,
+		IsSubtree:   isSubtree,
 	})
 
 	return nil
@@ -78,6 +71,16 @@ func CreateMockBuildSaver() *MockBuildSaver {
 		SaveArgs:      []SaveArgs{},
 		mu:            sync.Mutex{},
 	}
+}
+
+type MockSubtreeGetter struct{}
+
+func (sg *MockSubtreeGetter) Get(_ string, _ string, _ models.EvaluationConstraints) (*models.ItemEvaluationResult, error) {
+	return nil, nil
+}
+
+func CreateMockSubtreeGetter() SubtreeGetter {
+	return &MockSubtreeGetter{}
 }
 
 func TestFindBestRecoilTree(t *testing.T) {
@@ -117,8 +120,9 @@ func TestFindBestRecoilTree(t *testing.T) {
 	constraints := createMockConstraints()
 	offerGetter := CreateMockTraderOfferGetter()
 	buildSaver := CreateMockBuildSaver()
+	subtreeGetter := CreateMockSubtreeGetter()
 
-	evaluator := CreateEvaluator(offerGetter, buildSaver)
+	evaluator := CreateEvaluator(offerGetter, buildSaver, subtreeGetter)
 	build, err := evaluator.evaluate(weapon, "recoil", constraints)
 	if err != nil {
 		t.Fatal(err)
@@ -142,26 +146,28 @@ func TestFindBestRecoilTree(t *testing.T) {
 	assert.Equal(t, item3.ID, build.Slots[1].Item.ID)
 	assert.Len(t, build.Slots[1].Item.Slots, 0)
 
+	// after each possible subtree is evaluated these are saved by buildSaver
+	// assert they are ordered correctly & contain the expected states
 	assert.Equal(t, 5, len(buildSaver.SaveArgs))
 
-	assert.Equal(t, item1ChildSlotItem.ID, buildSaver.SaveArgs[0].ItemID)
-	assert.Equal(t, -4, buildSaver.SaveArgs[0].Sum)
-	assert.Equal(t, "recoil", buildSaver.SaveArgs[0].BuildType)
-	assert.Equal(t, item1ChildSlotItem.Name, buildSaver.SaveArgs[0].Name)
+	assert.Equal(t, item1ChildSlotItem.ID, buildSaver.SaveArgs[0].Build.ID)
+	assert.Equal(t, -4, buildSaver.SaveArgs[0].Build.RecoilSum)
+	assert.Equal(t, "recoil", buildSaver.SaveArgs[0].Build.EvaluationType)
+	assert.Equal(t, item1ChildSlotItem.Name, buildSaver.SaveArgs[0].Build.Name)
 	assert.Equal(t, constraints, buildSaver.SaveArgs[0].Constraints)
 	assert.Equal(t, constraints, buildSaver.SaveArgs[0].Constraints)
 
-	assert.Equal(t, item1.ID, buildSaver.SaveArgs[1].ItemID)
-	assert.Equal(t, item1ChildSlotItem.RecoilModifier+item1.RecoilModifier, buildSaver.SaveArgs[1].Sum)
-	assert.Equal(t, "recoil", buildSaver.SaveArgs[1].BuildType)
-	assert.Equal(t, item1.Name, buildSaver.SaveArgs[1].Name)
+	assert.Equal(t, item1.ID, buildSaver.SaveArgs[1].Build.ID)
+	assert.Equal(t, item1ChildSlotItem.RecoilModifier+item1.RecoilModifier, buildSaver.SaveArgs[1].Build.RecoilSum)
+	assert.Equal(t, "recoil", buildSaver.SaveArgs[1].Build.EvaluationType)
+	assert.Equal(t, item1.Name, buildSaver.SaveArgs[1].Build.Name)
 	assert.Equal(t, constraints, buildSaver.SaveArgs[1].Constraints)
 	assert.Equal(t, constraints, buildSaver.SaveArgs[1].Constraints)
 
-	assert.Equal(t, item2.ID, buildSaver.SaveArgs[2].ItemID)
-	assert.Equal(t, item2.RecoilModifier, buildSaver.SaveArgs[2].Sum)
-	assert.Equal(t, "recoil", buildSaver.SaveArgs[2].BuildType)
-	assert.Equal(t, item2.Name, buildSaver.SaveArgs[2].Name)
+	assert.Equal(t, item2.ID, buildSaver.SaveArgs[2].Build.ID)
+	assert.Equal(t, item2.RecoilModifier, buildSaver.SaveArgs[2].Build.RecoilSum)
+	assert.Equal(t, "recoil", buildSaver.SaveArgs[2].Build.EvaluationType)
+	assert.Equal(t, item2.Name, buildSaver.SaveArgs[2].Build.Name)
 	assert.Equal(t, constraints, buildSaver.SaveArgs[2].Constraints)
 	assert.Equal(t, constraints, buildSaver.SaveArgs[2].Constraints)
 
@@ -204,7 +210,8 @@ func TestFindBestErgoTree(t *testing.T) {
 	constraints := createMockConstraints()
 	offerGetter := CreateMockTraderOfferGetter()
 	buildSaver := CreateMockBuildSaver()
-	evaluator := CreateEvaluator(offerGetter, buildSaver)
+	subtreeGetter := CreateMockSubtreeGetter()
+	evaluator := CreateEvaluator(offerGetter, buildSaver, subtreeGetter)
 
 	build, err := evaluator.evaluate(weapon, "recoil", constraints)
 
