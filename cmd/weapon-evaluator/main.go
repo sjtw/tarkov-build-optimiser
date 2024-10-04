@@ -22,10 +22,21 @@ func main() {
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
 	for i := 0; i < len(weaponIds); i++ {
 		log.Info().Msgf("Building weapon %s", weaponIds[i])
-		err := evaluator.GenerateOptimumWeaponBuilds(dbClient.Conn, weaponIds[i])
-		if err != nil {
-			log.Fatal().Err(err).Msgf("Failed to generate weapon builds for %s", weaponIds[i])
+
+		traderLevelVariations := evaluator.GenerateTraderLevelVariations(evaluator.TraderNames)
+
+		for j := 0; j < len(traderLevelVariations); j++ {
+			log.Info().Msgf("Trader level constraints: %v", traderLevelVariations[j])
+			constraints := evaluator.EvaluationConstraints{
+				TraderLevels: traderLevelVariations[j],
+			}
+
+			err := evaluator.GenerateOptimumWeaponBuilds(dbClient.Conn, weaponIds[i], constraints)
+			if err != nil {
+				log.Fatal().Err(err).Msgf("Failed to generate weapon builds for %s", weaponIds[i])
+			}
 		}
+
 	}
 	log.Info().Msg("Evaluator done.")
 }

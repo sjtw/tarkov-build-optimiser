@@ -7,7 +7,7 @@ import (
 	"tarkov-build-optimiser/internal/models"
 )
 
-func GenerateOptimumWeaponBuilds(db *sql.DB, weaponId string) error {
+func GenerateOptimumWeaponBuilds(db *sql.DB, weaponId string, constraints EvaluationConstraints) error {
 	weapon, err := createWeaponPossibilityTree(db, weaponId)
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Failed to create possibility tree for weapon id: %s", weaponId)
@@ -15,16 +15,6 @@ func GenerateOptimumWeaponBuilds(db *sql.DB, weaponId string) error {
 	}
 
 	traderOfferGetter := CreateTraderOfferGetter(db)
-
-	constraints := EvaluationConstraints{
-		TraderLevels: []TraderLevel{
-			{Name: "Jaeger", Level: 5},
-			{Name: "Prapor", Level: 5},
-			{Name: "Peacekeeper", Level: 5},
-			{Name: "Mechanic", Level: 5},
-			{Name: "Skier", Level: 5},
-		},
-	}
 
 	bestRecoilItem, err := evaluate(traderOfferGetter, weapon, "recoil", constraints)
 	if err != nil {
@@ -118,11 +108,6 @@ func createWeaponPossibilityTree(db *sql.DB, id string) (*Item, error) {
 	}
 
 	return weapon, nil
-}
-
-type TraderLevel struct {
-	Name  string
-	Level int
 }
 
 type EvaluationConstraints struct {
