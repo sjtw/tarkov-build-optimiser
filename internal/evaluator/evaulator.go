@@ -154,6 +154,7 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 	} else {
 		sum = outItem.RecoilSum
 	}
+
 	err := e.buildSaver.Save(outItem.ID, evaluationType, item.Type, sum, outItem, item.Name, constraints)
 	if err != nil {
 		return nil, err

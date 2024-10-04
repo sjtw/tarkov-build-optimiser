@@ -2,6 +2,7 @@ package evaluator
 
 import (
 	"github.com/stretchr/testify/assert"
+	"sync"
 	"tarkov-build-optimiser/internal/models"
 	"testing"
 )
@@ -37,18 +38,50 @@ func (to *MockTraderOfferGetter) Get(_ string) ([]models.TraderOffer, error) {
 	return offers, nil
 }
 
-type MockBuildSaver struct{}
+type SaveArgs struct {
+	ItemID      string
+	BuildType   string
+	ItemType    string
+	Sum         int
+	Build       *models.ItemEvaluationResult
+	Name        string
+	Constraints models.EvaluationConstraints
+}
 
-func (saver *MockBuildSaver) Save(_ string, _ string, _ string, _ int, _ *models.ItemEvaluationResult, _ string, _ models.EvaluationConstraints) error {
+type MockBuildSaver struct {
+	SaveCallCount int        // Tracks how many times Save was called
+	SaveArgs      []SaveArgs // Stores the arguments passed to Save
+	mu            sync.Mutex
+}
+
+func (saver *MockBuildSaver) Save(itemId string, buildType string, itemType string, sum int, build *models.ItemEvaluationResult, name string, constraints models.EvaluationConstraints) error {
+	saver.mu.Lock()
+	defer saver.mu.Unlock()
+
+	saver.SaveCallCount++
+	saver.SaveArgs = append(saver.SaveArgs, SaveArgs{
+		ItemID:      itemId,
+		BuildType:   buildType,
+		ItemType:    itemType,
+		Sum:         sum,
+		Build:       build,
+		Name:        name,
+		Constraints: constraints,
+	})
+
 	return nil
 }
 
-func CreateMockBuildSaver() BuildSaver {
-	return &MockBuildSaver{}
+func CreateMockBuildSaver() *MockBuildSaver {
+	return &MockBuildSaver{
+		SaveCallCount: 0,
+		SaveArgs:      []SaveArgs{},
+		mu:            sync.Mutex{},
+	}
 }
 
 func TestFindBestRecoilTree(t *testing.T) {
-	weapon := ConstructItem("test-item", "Test Item")
+	weapon := ConstructItem("weapon1", "Weapon1")
 	weapon.RecoilModifier = -10
 	weapon.ErgonomicsModifier = 10
 
@@ -98,16 +131,40 @@ func TestFindBestRecoilTree(t *testing.T) {
 	assert.Equal(t, build.Slots[0].Item.RecoilSum, -5)
 
 	assert.NotNil(t, build.Slots[0].Item)
-	assert.Equal(t, build.Slots[0].Item.ID, item1.ID)
+	assert.Equal(t, item1.ID, build.Slots[0].Item.ID)
 	assert.Len(t, build.Slots[0].Item.Slots, 1)
-	assert.Equal(t, build.Slots[0].Item.Slots[0].ID, item1ChildSlot.ID)
-	assert.Equal(t, build.Slots[0].Item.Slots[0].Item.ID, item1ChildSlotItem.ID)
-	assert.Equal(t, build.Slots[0].Item.Slots[0].Item.RecoilSum, item1ChildSlotItem.RecoilModifier)
+	assert.Equal(t, item1ChildSlot.ID, build.Slots[0].Item.Slots[0].ID)
+	assert.Equal(t, item1ChildSlotItem.ID, build.Slots[0].Item.Slots[0].Item.ID)
+	assert.Equal(t, item1ChildSlotItem.RecoilModifier, build.Slots[0].Item.Slots[0].Item.RecoilSum)
 
 	assert.NotNil(t, build.Slots[1])
-	assert.Equal(t, build.Slots[1].Item.RecoilSum, -3)
-	assert.Equal(t, build.Slots[1].Item.ID, item3.ID)
+	assert.Equal(t, -3, build.Slots[1].Item.RecoilSum)
+	assert.Equal(t, item3.ID, build.Slots[1].Item.ID)
 	assert.Len(t, build.Slots[1].Item.Slots, 0)
+
+	assert.Equal(t, 5, len(buildSaver.SaveArgs))
+
+	assert.Equal(t, item1ChildSlotItem.ID, buildSaver.SaveArgs[0].ItemID)
+	assert.Equal(t, -4, buildSaver.SaveArgs[0].Sum)
+	assert.Equal(t, "recoil", buildSaver.SaveArgs[0].BuildType)
+	assert.Equal(t, item1ChildSlotItem.Name, buildSaver.SaveArgs[0].Name)
+	assert.Equal(t, constraints, buildSaver.SaveArgs[0].Constraints)
+	assert.Equal(t, constraints, buildSaver.SaveArgs[0].Constraints)
+
+	assert.Equal(t, item1.ID, buildSaver.SaveArgs[1].ItemID)
+	assert.Equal(t, item1ChildSlotItem.RecoilModifier+item1.RecoilModifier, buildSaver.SaveArgs[1].Sum)
+	assert.Equal(t, "recoil", buildSaver.SaveArgs[1].BuildType)
+	assert.Equal(t, item1.Name, buildSaver.SaveArgs[1].Name)
+	assert.Equal(t, constraints, buildSaver.SaveArgs[1].Constraints)
+	assert.Equal(t, constraints, buildSaver.SaveArgs[1].Constraints)
+
+	assert.Equal(t, item2.ID, buildSaver.SaveArgs[2].ItemID)
+	assert.Equal(t, item2.RecoilModifier, buildSaver.SaveArgs[2].Sum)
+	assert.Equal(t, "recoil", buildSaver.SaveArgs[2].BuildType)
+	assert.Equal(t, item2.Name, buildSaver.SaveArgs[2].Name)
+	assert.Equal(t, constraints, buildSaver.SaveArgs[2].Constraints)
+	assert.Equal(t, constraints, buildSaver.SaveArgs[2].Constraints)
+
 }
 
 func TestFindBestErgoTree(t *testing.T) {
