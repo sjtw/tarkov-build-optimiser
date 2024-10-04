@@ -2,83 +2,38 @@ package evaluator
 
 import (
 	"database/sql"
-	"encoding/json"
 	"github.com/rs/zerolog/log"
 	"tarkov-build-optimiser/internal/models"
 )
 
-func GenerateOptimumWeaponBuilds(db *sql.DB, weaponId string, constraints EvaluationConstraints) error {
+func GenerateOptimumWeaponBuilds(db *sql.DB, weaponId string, constraints models.EvaluationConstraints) error {
 	weapon, err := createWeaponPossibilityTree(db, weaponId)
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Failed to create possibility tree for weapon id: %s", weaponId)
 		return err
 	}
 
-	traderOfferGetter := CreateTraderOfferGetter(db)
+	traderOfferGetter := CreatePgTraderOfferGetter(db)
+	buildSaver := CreatePgBuildSaver(db)
+	evaluator := CreateEvaluator(traderOfferGetter, buildSaver)
 
-	bestRecoilItem, err := evaluate(traderOfferGetter, weapon, "recoil", constraints)
+	bestRecoilItem, err := evaluator.evaluate(weapon, "recoil", constraints)
 	if err != nil {
 		return err
 	}
-	err = upsertOptimumBuild(db, weaponId, "recoil", bestRecoilItem.RecoilSum, bestRecoilItem, bestRecoilItem.Name, constraints)
+	err = models.UpsertOptimumBuild(db, weaponId, "recoil", "weapon", bestRecoilItem.RecoilSum, bestRecoilItem, bestRecoilItem.Name, constraints)
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Failed to upsert optimum recoil build")
 		return err
 	}
 
-	bestErgoItem, err := evaluate(traderOfferGetter, weapon, "ergonomics", constraints)
+	bestErgoItem, err := evaluator.evaluate(weapon, "ergonomics", constraints)
 	if err != nil {
 		return err
 	}
-	err = upsertOptimumBuild(db, weaponId, "ergo", bestErgoItem.ErgonomicsSum, bestErgoItem, bestErgoItem.Name, constraints)
+	err = models.UpsertOptimumBuild(db, weaponId, "ergo", "weapon", bestErgoItem.ErgonomicsSum, bestErgoItem, bestErgoItem.Name, constraints)
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Failed to upsert optimum ergo build")
-		return err
-	}
-
-	return nil
-}
-
-func upsertOptimumBuild(db *sql.DB, itemId string, buildType string, sum int, build *ItemEvaluationResult, name string, constraints EvaluationConstraints) error {
-	b, err := json.Marshal(build)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to marshal build")
-		return err
-	}
-
-	tradersMap := make(map[string]int)
-
-	for i := 0; i < len(constraints.TraderLevels); i++ {
-		tradersMap[constraints.TraderLevels[i].Name] = constraints.TraderLevels[i].Level
-	}
-
-	query := `INSERT INTO optimum_builds (
-			item_id,
-			build,
-			build_type,
-            modifier_sum,
-            name,
-			jaeger_level,
-			prapor_level,
-			peacekeeper_level,
-			mechanic_level,
-			skier_level
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`
-	_, err = db.Exec(
-		query,
-		itemId,
-		b,
-		buildType,
-		sum,
-		name,
-		tradersMap["Jaeger"],
-		tradersMap["Prapor"],
-		tradersMap["Peacekeeper"],
-		tradersMap["Mechanic"],
-		tradersMap["Skier"],
-	)
-	if err != nil {
 		return err
 	}
 
@@ -110,70 +65,26 @@ func createWeaponPossibilityTree(db *sql.DB, id string) (*Item, error) {
 	return weapon, nil
 }
 
-type EvaluationConstraints struct {
-	TraderLevels []TraderLevel
+type Evaluator struct {
+	traderOfferGetter TraderOfferGetter
+	buildSaver        BuildSaver
 }
 
-type ItemEvaluationResult struct {
-	ID                 string                  `json:"id"`
-	Name               string                  `json:"name"`
-	EvaluationType     string                  `json:"evaluation_type"`
-	RecoilModifier     int                     `json:"recoil_modifier"`
-	ErgonomicsModifier int                     `json:"ergonomics_modifier"`
-	Slots              []*SlotEvaluationResult `json:"slots"`
-	RecoilSum          int                     `json:"recoil_sum"`
-	ErgonomicsSum      int                     `json:"ergonomics_sum"`
-}
-
-type SlotEvaluationResult struct {
-	ID   string                `json:"id"`
-	Name string                `json:"name"`
-	Item *ItemEvaluationResult `json:"item"`
-}
-
-func validateConstraints(offers []models.TraderOffer, constraints EvaluationConstraints) bool {
-	for i := 0; i < len(offers); i++ {
-		for j := i + 1; j < len(constraints.TraderLevels); j++ {
-			tc := constraints.TraderLevels[j]
-			if offers[i].Trader == tc.Name && tc.Level >= offers[i].MinTraderLevel {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-type TraderOfferGetter interface {
-	Get(itemID string) ([]models.TraderOffer, error)
-}
-
-type TraderOffers struct {
-	db *sql.DB
-}
-
-func CreateTraderOfferGetter(db *sql.DB) TraderOfferGetter {
-	return &TraderOffers{
-		db: db,
+func CreateEvaluator(traderOfferGetter TraderOfferGetter, buildSaver BuildSaver) *Evaluator {
+	return &Evaluator{
+		traderOfferGetter: traderOfferGetter,
+		buildSaver:        buildSaver,
 	}
 }
 
-func (to *TraderOffers) Get(itemID string) ([]models.TraderOffer, error) {
-	offers, err := models.GetTraderOffersByItemID(to.db, itemID)
-	if err != nil {
-		return nil, err
-	}
-	return offers, nil
-}
-
-func evaluate(to TraderOfferGetter, item *Item, evaluationType string, constraints EvaluationConstraints) (*ItemEvaluationResult, error) {
-	outItem := &ItemEvaluationResult{
+func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error) {
+	outItem := &models.ItemEvaluationResult{
 		ID:                 item.ID,
 		Name:               item.Name,
 		EvaluationType:     evaluationType,
 		RecoilModifier:     item.RecoilModifier,
 		ErgonomicsModifier: item.ErgonomicsModifier,
-		Slots:              make([]*SlotEvaluationResult, len(item.Slots)),
+		Slots:              make([]*models.SlotEvaluationResult, len(item.Slots)),
 		ErgonomicsSum:      item.ErgonomicsModifier,
 		RecoilSum:          item.RecoilModifier,
 	}
@@ -187,7 +98,7 @@ func evaluate(to TraderOfferGetter, item *Item, evaluationType string, constrain
 			return outItem, nil
 		}
 
-		outSlot := &SlotEvaluationResult{
+		outSlot := &models.SlotEvaluationResult{
 			ID:   item.Slots[i].ID,
 			Name: item.Slots[i].Name,
 			Item: nil,
@@ -197,7 +108,7 @@ func evaluate(to TraderOfferGetter, item *Item, evaluationType string, constrain
 		slotRecoil := 0
 		for j := 0; j < len(item.Slots[i].AllowedItems); j++ {
 			ai := item.Slots[i].AllowedItems[j]
-			offers, err := to.Get(ai.ID)
+			offers, err := e.traderOfferGetter.Get(ai.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -207,7 +118,7 @@ func evaluate(to TraderOfferGetter, item *Item, evaluationType string, constrain
 				break
 			}
 
-			highestItem, err := evaluate(to, ai, evaluationType, constraints)
+			highestItem, err := e.evaluate(ai, evaluationType, constraints)
 			if err != nil {
 				return nil, err
 			}
@@ -235,6 +146,17 @@ func evaluate(to TraderOfferGetter, item *Item, evaluationType string, constrain
 		outItem.Slots[i] = outSlot
 		outItem.RecoilSum += slotRecoil
 		outItem.ErgonomicsSum += slotErgo
+	}
+
+	var sum int
+	if evaluationType == "ergonomics" {
+		sum = outItem.ErgonomicsSum
+	} else {
+		sum = outItem.RecoilSum
+	}
+	err := e.buildSaver.Save(outItem.ID, evaluationType, item.Type, sum, outItem, item.Name, constraints)
+	if err != nil {
+		return nil, err
 	}
 
 	return outItem, nil

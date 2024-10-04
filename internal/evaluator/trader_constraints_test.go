@@ -3,13 +3,14 @@ package evaluator
 import (
 	"github.com/stretchr/testify/assert"
 	"tarkov-build-optimiser/internal/helpers"
+	"tarkov-build-optimiser/internal/models"
 	"testing"
 )
 
 func TestGenerateVariations(t *testing.T) {
-	traderLevels := GenerateTraderLevelVariations(TraderNames)
+	traderLevels := GenerateTraderLevelVariations(models.TraderNames)
 
-	expectedCombinations := helpers.Pow(5, len(TraderNames))
+	expectedCombinations := helpers.Pow(5, len(models.TraderNames))
 	assert.Len(t, traderLevels, expectedCombinations)
 	combinationMap := make(map[string]bool)
 

@@ -1,41 +1,22 @@
 package evaluator
 
 import (
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
-	"tarkov-build-optimiser/internal/db"
 	"tarkov-build-optimiser/internal/models"
 	"testing"
 )
 
-func TestCalculateOptimumRecoil(t *testing.T) {
-	dbClient, err := db.CreateBuildOptimiserDBClient()
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to DB")
-		t.Fatal()
-	}
-	id := "5a0ec13bfcdbcb00165aa685"
-	weapon, err := createWeaponPossibilityTree(dbClient.Conn, id)
-	if err != nil {
-		log.Fatal().Err(err).Msgf("Failed to create possibility tree for weapon id: %s", id)
-	}
-	err = GenerateOptimumWeaponBuilds(dbClient.Conn, weapon.ID)
-	assert.Nil(t, err)
-}
-
-func TestCreateWeaponPossibilityTree(t *testing.T) {
-	// AKMN
-	dbClient, err := db.CreateBuildOptimiserDBClient()
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to DB")
-		return
+func createMockConstraints() models.EvaluationConstraints {
+	constraints := models.EvaluationConstraints{
+		TraderLevels: []models.TraderLevel{},
 	}
 
-	id := "5a0ec13bfcdbcb00165aa685"
-	weapon, err := createWeaponPossibilityTree(dbClient.Conn, id)
-	assert.NoError(t, err)
+	for i := 0; i < len(models.TraderNames); i++ {
+		trader := models.TraderLevel{Name: models.TraderNames[i], Level: 5}
+		constraints.TraderLevels = append(constraints.TraderLevels, trader)
+	}
 
-	assert.IsType(t, &Item{}, weapon)
+	return constraints
 }
 
 type MockTraderOfferGetter struct {
@@ -54,6 +35,16 @@ func (to *MockTraderOfferGetter) Get(itemID string) ([]models.TraderOffer, error
 		{ID: "child-item1", Name: "1", Trader: "Prapor", MinTraderLevel: 1, PriceRub: 1},
 	}
 	return offers, nil
+}
+
+type MockBuildSaver struct{}
+
+func (saver *MockBuildSaver) Save(itemId string, buildType string, itemType string, sum int, build *models.ItemEvaluationResult, name string, constraints models.EvaluationConstraints) error {
+	return nil
+}
+
+func CreateMockBuildSaver() BuildSaver {
+	return &MockBuildSaver{}
 }
 
 func TestFindBestRecoilTree(t *testing.T) {
@@ -90,19 +81,12 @@ func TestFindBestRecoilTree(t *testing.T) {
 	weapon.AddChildSlot(slot1)
 	weapon.AddChildSlot(slot2)
 
-	constraints := EvaluationConstraints{
-		TraderLevels: []TraderLevel{
-			{Name: "Jaeger", Level: 5},
-			{Name: "Prapor", Level: 5},
-			{Name: "Peacekeeper", Level: 5},
-			{Name: "Mechanic", Level: 5},
-			{Name: "Skier", Level: 5},
-		},
-	}
-
+	constraints := createMockConstraints()
 	offerGetter := CreateMockTraderOfferGetter()
+	buildSaver := CreateMockBuildSaver()
 
-	build, err := evaluate(offerGetter, weapon, "recoil", constraints)
+	evaluator := CreateEvaluator(offerGetter, buildSaver)
+	build, err := evaluator.evaluate(weapon, "recoil", constraints)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,19 +144,13 @@ func TestFindBestErgoTree(t *testing.T) {
 	weapon.AddChildSlot(slot1)
 	weapon.AddChildSlot(slot2)
 
+	constraints := createMockConstraints()
 	offerGetter := CreateMockTraderOfferGetter()
+	buildSaver := CreateMockBuildSaver()
+	evaluator := CreateEvaluator(offerGetter, buildSaver)
 
-	constraints := EvaluationConstraints{
-		TraderLevels: []TraderLevel{
-			{Name: "Jaeger", Level: 5},
-			{Name: "Prapor", Level: 5},
-			{Name: "Peacekeeper", Level: 5},
-			{Name: "Mechanic", Level: 5},
-			{Name: "Skier", Level: 5},
-		},
-	}
+	build, err := evaluator.evaluate(weapon, "recoil", constraints)
 
-	build, err := evaluate(offerGetter, weapon, "ergonomics", constraints)
 	if err != nil {
 		t.Fatal(err)
 	}

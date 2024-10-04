@@ -54,7 +54,20 @@ func UpsertManyWeapon(tx *sql.Tx, weapons []Weapon) error {
 }
 
 func GetWeaponById(db *sql.DB, id string) (*Weapon, error) {
-	query := `select item_id, name, recoil_modifier, ergonomics_modifier from weapons where item_id = $1;`
+	query := `
+		select w.name,
+					w.item_id             as id,
+					w.recoil_modifier     as recoil_modifier,
+					w.ergonomics_modifier as ergonomics_modifier,
+					jsonb_agg(jsonb_build_object('slot_id', ws.slot_id, 'name', ws.name, 'allowed_items', (
+							select jsonb_agg(jsonb_build_object('item_id', sai.item_id, 'name', sai.name))
+							from slot_allowed_items sai
+							where sai.slot_id = ws.slot_id
+					)))                   as slots
+		from weapons w
+						join slots ws on w.item_id = ws.item_id
+		where w.item_id = $1
+		group by w.name, w.item_id, w.recoil_modifier, w.ergonomics_modifier;`
 
 	rows, err := db.Query(query, id)
 
@@ -67,10 +80,16 @@ func GetWeaponById(db *sql.DB, id string) (*Weapon, error) {
 	weapons := make([]*Weapon, 0)
 	for rows.Next() {
 		weapon := &Weapon{}
-		err := rows.Scan(&weapon.ID, &weapon.Name, &weapon.RecoilModifier, &weapon.ErgonomicsModifier)
+		var slotsStr string
+		err := rows.Scan(&weapon.Name, &weapon.ID, &weapon.RecoilModifier, &weapon.ErgonomicsModifier, &slotsStr)
 		if err != nil {
 			return nil, err
 		}
+
+		if err := json.Unmarshal([]byte(slotsStr), &weapon.Slots); err != nil {
+			return nil, err
+		}
+
 		weapons = append(weapons, weapon)
 	}
 

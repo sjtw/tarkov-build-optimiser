@@ -29,10 +29,10 @@ func main() {
 	for i := 0; i < len(weaponIds); i++ {
 		log.Info().Msgf("Creating task variations for weapon %s", weaponIds[i])
 
-		traderLevelVariations := evaluator.GenerateTraderLevelVariations(evaluator.TraderNames)
+		traderLevelVariations := evaluator.GenerateTraderLevelVariations(models.TraderNames)
 
 		for j := 0; j < len(traderLevelVariations); j++ {
-			constraints := evaluator.EvaluationConstraints{
+			constraints := models.EvaluationConstraints{
 				TraderLevels: traderLevelVariations[j],
 			}
 
@@ -70,7 +70,7 @@ func main() {
 }
 
 type Task struct {
-	Constraints evaluator.EvaluationConstraints
+	Constraints models.EvaluationConstraints
 	WeaponID    string
 }
 

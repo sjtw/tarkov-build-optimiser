@@ -131,7 +131,7 @@ func getTraderOffersFromTarkovDev(api *tarkovdev.Api) ([]models.TraderOffer, err
 	return items, nil
 }
 
-func getTraderOffersFromCache(cache *cache.JSONFileCache) ([]models.TraderOffer, error) {
+func getTraderOffersFromCache(cache cache.FileCache) ([]models.TraderOffer, error) {
 	all, err := cache.All()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get trader offer from cache")
@@ -160,7 +160,7 @@ func getTraderOffersFromCache(cache *cache.JSONFileCache) ([]models.TraderOffer,
 	return traderOffers, nil
 }
 
-func updateTraderOffercache(traderOfferCache *cache.JSONFileCache, traderOffers []models.TraderOffer) error {
+func updateTraderOffercache(traderOfferCache cache.FileCache, traderOffers []models.TraderOffer) error {
 	for i := 0; i < len(traderOffers); i++ {
 		err := traderOfferCache.Store(traderOffers[i].ID, traderOffers[i])
 		if err != nil {

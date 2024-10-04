@@ -80,7 +80,7 @@ func ImportWeapons(db *db.Database, api *tarkovdev.Api) error {
 	return nil
 }
 
-func getWeaponsFromCache(cache *cache.JSONFileCache) ([]models.Weapon, error) {
+func getWeaponsFromCache(cache cache.FileCache) ([]models.Weapon, error) {
 	all, err := cache.All()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get weapons from cache")
@@ -163,7 +163,7 @@ func getWeaponsFromTarkovDev(api *tarkovdev.Api) ([]models.Weapon, error) {
 	return weapons, nil
 }
 
-func updateWeaponFileCache(weaponsCache *cache.JSONFileCache, weapons []models.Weapon) error {
+func updateWeaponFileCache(weaponsCache cache.FileCache, weapons []models.Weapon) error {
 	for i := 0; i < len(weapons); i++ {
 		log.Info().Msgf("Storing weapon %s in file cache", weapons[i].ID)
 		err := weaponsCache.Store(weapons[i].ID, weapons[i])

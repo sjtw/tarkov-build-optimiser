@@ -123,7 +123,7 @@ func getModsFromTarkovDev(api *tarkovdev.Api) ([]models.WeaponMod, error) {
 	return weaponMods, nil
 }
 
-func getModsFromCache(cache *cache.JSONFileCache) ([]models.WeaponMod, error) {
+func getModsFromCache(cache cache.FileCache) ([]models.WeaponMod, error) {
 	all, err := cache.All()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get weapon mod from cache")
@@ -152,7 +152,7 @@ func getModsFromCache(cache *cache.JSONFileCache) ([]models.WeaponMod, error) {
 	return weapons, nil
 }
 
-func updateModFileCache(modCache *cache.JSONFileCache, mods []models.WeaponMod) error {
+func updateModFileCache(modCache cache.FileCache, mods []models.WeaponMod) error {
 	for i := 0; i < len(mods); i++ {
 		err := modCache.Store(mods[i].ID, mods[i])
 		if err != nil {
