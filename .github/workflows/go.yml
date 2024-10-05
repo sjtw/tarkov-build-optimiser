@@ -11,9 +11,31 @@ on:
 
 jobs:
 
-  build:
+  verify:
     runs-on: ubuntu-latest
     environment: verify
+
+    env:
+      POSTGRES_USER: ${{ secrets.CI_POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ci_db
+
+    services:
+      postgres:
+        image: postgres:13
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - uses: actions/checkout@v4
@@ -36,35 +58,6 @@ jobs:
     - name: Build Evaluator
       run: task evaluator:build
 
-  test:
-    runs-on: ubuntu-latest
-    environment: verify
-
-    env:
-      POSTGRES_USER: ${{ secrets.CI_POSTGRES_USER }}
-      POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
-      POSTGRES_HOST: localhost
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ci_db
-
-    services:
-      postgres:
-        image: postgres:13
-        ports:
-          - 5432:5432
-        env:
-            POSTGRES_USER: ${{ env.POSTGRES_USER }}
-            POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-            POSTGRES_DB: ${{ env.POSTGRES_DB }}
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-    - uses: actions/checkout@v4
-      name: Checkout Repository
-
     - name: Wait for PostgreSQL to be ready
       run: |
         for i in {1..30}; do
@@ -72,30 +65,6 @@ jobs:
           echo "Waiting for PostgreSQL..."
           sleep 1
         done
-
-    - name: Verify Secrets
-      run: |
-        if [ -z "${{ env.POSTGRES_USER }}" ]; then
-          echo "POSTGRES_USER is not set"
-          exit 1
-        else
-          echo "POSTGRES_USER is set"
-        fi
-
-        if [ -z "${{ env.POSTGRES_PASSWORD }}" ]; then
-          echo "POSTGRES_PASSWORD is not set"
-          exit 1
-        else
-          echo "POSTGRES_PASSWORD is set"
-        fi
-
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.22'
-
-    - name: Install dependencies
-      run: ./scripts/install-go-deps.sh
 
     - name: Build Migrations
       run: task migrate:build
