@@ -6,20 +6,26 @@ import (
 	"testing"
 )
 
-func getCache() cache.FileCache {
-	c := cache.NewJSONFileCache("./test.json")
-	err := c.Purge()
+func getCache() (cache.FileCache, error) {
+	c, err := cache.NewJSONFileCache("./test.json")
 	if err != nil {
-		return nil
+		return nil, err
+	}
+	err = c.Purge()
+	if err != nil {
+		return nil, err
 	}
 
-	return c
+	return c, nil
 }
 
 func TestStoreWeapons(t *testing.T) {
-	c := getCache()
+	c, err := getCache()
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
 
-	err := c.Store("weapon1", models.Weapon{ID: "weapon1", Name: "M4A1"})
+	err = c.Store("weapon1", models.Weapon{ID: "weapon1", Name: "M4A1"})
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
@@ -60,9 +66,12 @@ func TestStoreWeapons(t *testing.T) {
 }
 
 func TestStoreWeaponMod(t *testing.T) {
-	c := getCache()
+	c, err := getCache()
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
 
-	err := c.Store("mod1", models.WeaponMod{ID: "mod1", Name: "Magpul MOE Carbine stock"})
+	err = c.Store("mod1", models.WeaponMod{ID: "mod1", Name: "Magpul MOE Carbine stock"})
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
@@ -82,9 +91,12 @@ func TestStoreWeaponMod(t *testing.T) {
 }
 
 func TestGetAll(t *testing.T) {
-	c := getCache()
+	c, err := getCache()
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
 
-	err := c.Store("weapon1", models.Weapon{ID: "weapon1", Name: "M4A1"})
+	err = c.Store("weapon1", models.Weapon{ID: "weapon1", Name: "M4A1"})
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}

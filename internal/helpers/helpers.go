@@ -66,3 +66,23 @@ func GetProjectRoot() (string, error) {
 
 	return cwd, nil
 }
+
+func CreateDirAndFileIfNoExist(filePath string) error {
+	if _, err := os.Stat(filePath); err != nil {
+		if os.IsNotExist(err) {
+			err := os.MkdirAll(filepath.Dir(filePath), 0755)
+			if err != nil {
+				return err
+			}
+
+			err = os.WriteFile(filePath, []byte("{}"), 0644)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+
+	return nil
+}

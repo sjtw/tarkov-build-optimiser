@@ -14,7 +14,11 @@ import (
 )
 
 func ImportWeapons(db *db.Database, api *tarkovdev.Api) error {
-	weaponsCache := cache.NewJSONFileCache("./file-caches/weapons-cache.json")
+	weaponsCache, err := cache.NewJSONFileCache("./file-caches/weapons-cache.json")
+	if err != nil {
+		return err
+	}
+
 	if cli.GetFlags().PurgeCache {
 		fmt.Println("--purge-cache provided - purging weapons file cache")
 		err := weaponsCache.Purge()
