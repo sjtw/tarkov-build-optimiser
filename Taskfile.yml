@@ -8,14 +8,6 @@ tasks:
     desc: Build the api
     cmd: go build -o bin/tarkov-build-optimiser-api ./cmd/tarkov-build-optimiser-api
 
-  api:debug:
-    desc: start the api locally in debug mode
-    cmd: dlv debug --listen=:4000 -log=true --accept-multiclient --api-version=2 ./cmd/tarkov-build-optimiser-api
-
-  api:debug:headless:
-    desc: start the api locally in headless debug mode
-    cmd: dlv debug --listen=:4000 -log=true --headless=true --accept-multiclient --api-version=2 ./cmd/tarkov-build-optimiser-api
-
   api:start:
     desc: start the api locally
     deps: [api:build, compose:up]
@@ -31,6 +23,7 @@ tasks:
     cmds:
       - go clean
       - rm -rf bin
+      - rm file-caches/*.json
 
   compose:postgres:up:
     desc: Start the local database
@@ -98,6 +91,10 @@ tasks:
     deps: [compose:postgres:up, migrate:build]
     cmd: ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" up
 
+  migrate:ci:
+    desc: Apply migrations in CI
+    cmd: ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" up
+
   start:local:
     desc: Start full local environment
     deps: [compose:start, api:start]
@@ -132,7 +129,7 @@ tasks:
 
   init:
     desc: Initialise the project for development
-    deps: [deps:install:go, deps:install:node, compose:up, migrate:up]
+    deps: [deps:install:node, compose:up, migrate:up]
 
   env:
     desc: Print the environment variables

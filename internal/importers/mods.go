@@ -13,7 +13,11 @@ import (
 )
 
 func ImportMods(db *db.Database, api *tarkovdev.Api) error {
-	modCache := cache.NewJSONFileCache("./file-caches/mods-cache.json")
+	modCache, err := cache.NewJSONFileCache("./file-caches/mods-cache.json")
+	if err != nil {
+		return err
+	}
+
 	if cli.GetFlags().PurgeCache {
 		fmt.Println("--purge-cache provided - purging mods file cache")
 		err := modCache.Purge()

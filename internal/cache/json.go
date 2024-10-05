@@ -39,12 +39,17 @@ func (a *JSONFileCacheAllResult) Keys() []string {
 	return keys
 }
 
-func NewJSONFileCache(filePath string) FileCache {
+func NewJSONFileCache(filePath string) (FileCache, error) {
+	err := helpers.CreateDirAndFileIfNoExist(filePath)
+	if err != nil {
+		return nil, err
+	}
+
 	cache := &JSONFileCache{
 		filePath: filePath,
 	}
 
-	return cache
+	return cache, nil
 }
 
 func (c *JSONFileCache) Store(key string, i interface{}) error {
@@ -124,18 +129,6 @@ func (c *JSONFileCache) saveToFile(file map[string]interface{}) error {
 }
 
 func (c *JSONFileCache) loadFileBytes() ([]byte, error) {
-	// create the file if it doesn't exist
-	if _, err := os.Stat(c.filePath); err != nil {
-		if os.IsNotExist(err) {
-			err := os.WriteFile(c.filePath, []byte("{}"), 0644)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
-	}
-
 	fileData, err := os.ReadFile(c.filePath)
 	if err != nil {
 		log.Error().Err(err).Msg("Error reading cache data from file")

@@ -21,7 +21,11 @@ type TraderItemOffer struct {
 }
 
 func ImportTraderOffers(db *db.Database, api *tarkovdev.Api) error {
-	traderOfferCache := cache.NewJSONFileCache("./file-caches/trader-offers-cache.json")
+	traderOfferCache, err := cache.NewJSONFileCache("./file-caches/trader-offers-cache.json")
+	if err != nil {
+		return err
+	}
+
 	if cli.GetFlags().PurgeCache {
 		fmt.Println("--purge-cache provided - purging trader offers file cache")
 		err := traderOfferCache.Purge()

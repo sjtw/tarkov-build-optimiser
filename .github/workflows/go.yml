@@ -1,0 +1,76 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: Go
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  verify:
+    runs-on: ubuntu-latest
+    environment: verify
+
+    env:
+      POSTGRES_USER: ${{ secrets.CI_POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ci_db
+
+    services:
+      postgres:
+        image: postgres:13
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout Repository
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+
+    - name: Install dependencies
+      run: ./scripts/install-go-deps.sh
+
+    - name: Build Migrations
+      run: task migrate:build
+
+    - name: Build Importer
+      run: task importer:build
+
+    - name: Build Evaluator
+      run: task evaluator:build
+
+    - name: Wait for PostgreSQL to be ready
+      run: |
+        for i in {1..30}; do
+          nc -z localhost 5432 && echo "PostgreSQL is up!" && break
+          echo "Waiting for PostgreSQL..."
+          sleep 1
+        done
+
+    - name: Build Migrations
+      run: task migrate:build
+
+    - name: Run Migrations
+      run: task migrate:ci
+
+    - name: Run Tests
+      run: go test ./...
