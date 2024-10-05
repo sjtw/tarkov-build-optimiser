@@ -10,11 +10,12 @@ import (
 )
 
 type Env struct {
-	PgHost     string
-	PgPort     string
-	PgUser     string
-	PgPassword string
-	PgName     string
+	PgHost      string
+	PgPort      string
+	PgUser      string
+	PgPassword  string
+	PgName      string
+	Environment string
 }
 
 func Get() (Env, error) {
@@ -30,11 +31,12 @@ func Get() (Env, error) {
 	}
 
 	env := Env{
-		PgHost:     os.Getenv("POSTGRES_HOST"),
-		PgPort:     os.Getenv("POSTGRES_PORT"),
-		PgUser:     os.Getenv("POSTGRES_USER"),
-		PgPassword: os.Getenv("POSTGRES_PASSWORD"),
-		PgName:     os.Getenv("POSTGRES_DB"),
+		PgHost:      os.Getenv("POSTGRES_HOST"),
+		PgPort:      os.Getenv("POSTGRES_PORT"),
+		PgUser:      os.Getenv("POSTGRES_USER"),
+		PgPassword:  os.Getenv("POSTGRES_PASSWORD"),
+		PgName:      os.Getenv("POSTGRES_DB"),
+		Environment: os.Getenv("ENVIRONMENT"),
 	}
 
 	log.Info().Interface("env", env).Msg("Environment variables")
