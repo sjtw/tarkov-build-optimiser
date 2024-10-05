@@ -40,8 +40,8 @@ func NewDatabase(config Config) (*Database, error) {
 
 	log.Info().Msg("Connected to database")
 
-	db.SetMaxIdleConns(10)
-	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(50)
+	db.SetMaxOpenConns(50)
 
 	return &Database{
 		Conn: db,

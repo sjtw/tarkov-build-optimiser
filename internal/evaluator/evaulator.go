@@ -6,24 +6,19 @@ import (
 	"tarkov-build-optimiser/internal/models"
 )
 
-func GenerateOptimumWeaponBuilds(db *sql.DB, weaponId string, constraints models.EvaluationConstraints) error {
-	weapon, err := createWeaponPossibilityTree(db, weaponId)
-	if err != nil {
-		log.Fatal().Err(err).Msgf("Failed to create possibility tree for weapon id: %s", weaponId)
-		return err
-	}
+func GenerateOptimumWeaponBuilds(db *sql.DB, weapon Item, constraints models.EvaluationConstraints) error {
 
 	traderOfferGetter := CreatePgTraderOfferGetter(db)
 	buildSaver := CreatePgBuildSaver(db)
 	subtreeGetter := CreatePgSubtreeGetter(db)
 	evaluator := CreateEvaluator(traderOfferGetter, buildSaver, subtreeGetter)
 
-	_, err = evaluator.evaluate(weapon, "recoil", constraints)
+	_, err := evaluator.evaluate(&weapon, "recoil", constraints)
 	if err != nil {
 		return err
 	}
 
-	_, err = evaluator.evaluate(weapon, "ergonomics", constraints)
+	_, err = evaluator.evaluate(&weapon, "ergonomics", constraints)
 	if err != nil {
 		return err
 	}
@@ -31,7 +26,7 @@ func GenerateOptimumWeaponBuilds(db *sql.DB, weaponId string, constraints models
 	return nil
 }
 
-func createWeaponPossibilityTree(db *sql.DB, id string) (*Item, error) {
+func CreateWeaponPossibilityTree(db *sql.DB, id string) (*Item, error) {
 	w, err := models.GetWeaponById(db, id)
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get weapon %s", id)
@@ -92,6 +87,17 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		return outItem, nil
 	}
 
+	preEvaluatedItem, err := e.subtreeGetter.Get(outItem.ID, evaluationType, constraints)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to get subtree for evaluation. item: %s", preEvaluatedItem.ID)
+		return nil, err
+	}
+
+	if preEvaluatedItem != nil {
+		log.Info().Msgf("Optimal [%s] evaluation for item [%s] already evaluated. returning.", outItem.EvaluationType, item.ID)
+		return preEvaluatedItem, nil
+	}
+
 	for i := 0; i < len(item.Slots); i++ {
 		if item.Slots[i].AllowedItems == nil || len(item.Slots[i].AllowedItems) == 0 {
 			return outItem, nil
@@ -114,24 +120,12 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 
 			valid := validateConstraints(offers, constraints)
 			if valid != true {
-				break
+				continue
 			}
 
-			var highestItem *models.ItemEvaluationResult
-			highestItem, err = e.subtreeGetter.Get(ai.ID, evaluationType, constraints)
+			highestItem, err := e.evaluate(ai, evaluationType, constraints)
 			if err != nil {
-				log.Error().Err(err).Msgf("Failed to get subtree for evaluation. item: %s", ai.ID)
 				return nil, err
-			}
-
-			if highestItem == nil {
-				log.Info().Msgf("Item subtree not yet evaluated. item: %s", ai.ID)
-				highestItem, err = e.evaluate(ai, evaluationType, constraints)
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				log.Info().Msgf("Item subtree already evaluated. item: %s", ai.ID)
 			}
 
 			recoilSum := highestItem.RecoilSum
@@ -159,7 +153,7 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		outItem.ErgonomicsSum += slotErgo
 	}
 
-	err := e.buildSaver.Save(outItem, constraints, outItem.IsSubtree)
+	err = e.buildSaver.Save(outItem, constraints, outItem.IsSubtree)
 	if err != nil {
 		return nil, err
 	}

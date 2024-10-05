@@ -121,7 +121,7 @@ func getTraderOffersFromTarkovDev(api *tarkovdev.Api) ([]models.TraderOffer, err
 				newItem.MinTraderLevel = trader.MinTraderLevel
 				newItem.Trader = trader.Name
 			case *tarkovdev.GetItemPricesItemsItemBuyForItemPriceVendorFleaMarket:
-				break
+				continue
 			}
 		}
 
