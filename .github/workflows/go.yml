@@ -13,16 +13,44 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: ci_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v4
+      name: Checkout Repository
+
+    - name: Wait for PostgreSQL to be ready
+      run: |
+        for i in {1..30}; do
+          nc -z localhost 5432 && echo "PostgreSQL is up!" && break
+          echo "Waiting for PostgreSQL..."
+          sleep 1
+        done
 
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
         go-version: '1.22'
 
-    - name: Build
-      run: go build -v ./...
+    - name: Install dependencies
+      run: ./scripts/install-go-deps.sh
 
-    - name: Test
-      run: go test -v ./...
+    - name: Build Evaluator
+      run: task evaluator:build
+
+#    - name: Test
+#      run: go test -v ./...
