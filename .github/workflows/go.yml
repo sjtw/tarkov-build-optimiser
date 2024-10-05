@@ -12,8 +12,8 @@ on:
 env:
   POSTGRES_HOST: localhost
   POSTGRES_PORT: 5432
-  POSTGRES_USER: ci_user
-  POSTGRES_PASSWORD: ci_password
+  POSTGRES_USER: ${{ secrets.CI_POSTGRES_USER }}
+  POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD }}
   POSTGRES_DB: ci_db
 
 jobs:
