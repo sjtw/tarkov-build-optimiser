@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/rs/zerolog/log"
+	"runtime"
 	"tarkov-build-optimiser/internal/db"
-	"tarkov-build-optimiser/internal/evaluator"
 	"tarkov-build-optimiser/internal/models"
 )
 
@@ -19,13 +19,17 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to get all weapon IDs")
 	}
 
+	//weaponIds := []string{"5bf3e03b0db834001d2c4a9c"}
+
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
-	for i := 0; i < len(weaponIds); i++ {
-		log.Info().Msgf("Building weapon %s", weaponIds[i])
-		err := evaluator.GenerateOptimumWeaponBuilds(dbClient.Conn, weaponIds[i])
-		if err != nil {
-			log.Fatal().Err(err).Msgf("Failed to generate weapon builds for %s", weaponIds[i])
-		}
-	}
+
+	workerCount := runtime.NumCPU() * 10
+	weaponPossibilities := generateWeaponPossibilities(dbClient.Conn, weaponIds, workerCount)
+
+	tasks := createEvaluationTasks(weaponPossibilities)
+	log.Info().Msgf("Scheduled %d evaluation tasks", len(tasks))
+
+	processEvaluationTasks(dbClient.Conn, tasks, workerCount)
+
 	log.Info().Msg("Evaluator done.")
 }

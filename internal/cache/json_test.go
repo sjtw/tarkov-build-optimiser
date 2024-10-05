@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func getCache() *cache.JSONFileCache {
+func getCache() cache.FileCache {
 	c := cache.NewJSONFileCache("./test.json")
 	err := c.Purge()
 	if err != nil {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v4/stdlib"
 )
 
 type DatabaseConfig struct {
@@ -33,15 +33,15 @@ func NewDatabase(config Config) (*Database, error) {
 	connStrTemplate := "postgresql://%s:%s@%s:%s/%s?sslmode=disable"
 	connStr := fmt.Sprintf(connStrTemplate, config.User, config.Password, config.Host, config.Port, config.Name)
 	log.Info().Msgf("Connecting to database: %s", connStr)
-	db, err := sql.Open("postgres", connStr)
+	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
 	log.Info().Msg("Connected to database")
 
-	db.SetMaxIdleConns(10)
-	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(50)
+	db.SetMaxOpenConns(50)
 
 	return &Database{
 		Conn: db,

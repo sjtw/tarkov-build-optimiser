@@ -30,7 +30,7 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 	})
 
 	e.GET("/weapons/:id", func(c echo.Context) error {
-		res, err := models.GetWeapon(db, c.Param("id"))
+		res, err := models.GetWeaponById(db, c.Param("id"))
 		if err != nil {
 			return c.String(500, err.Error())
 		}

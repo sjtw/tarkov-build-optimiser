@@ -2,7 +2,7 @@ package cache
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/rs/zerolog/log"
 	"os"
 	"sync"
 	"tarkov-build-optimiser/internal/helpers"
@@ -17,7 +17,7 @@ type JSONFileCacheAllResult struct {
 	Items map[string]interface{}
 }
 
-func createFileCacheAllResult(items map[string]interface{}) *JSONFileCacheAllResult {
+func createFileCacheAllResult(items map[string]interface{}) FileCacheAllResult {
 	return &JSONFileCacheAllResult{
 		Items: items,
 	}
@@ -39,7 +39,7 @@ func (a *JSONFileCacheAllResult) Keys() []string {
 	return keys
 }
 
-func NewJSONFileCache(filePath string) *JSONFileCache {
+func NewJSONFileCache(filePath string) FileCache {
 	cache := &JSONFileCache{
 		filePath: filePath,
 	}
@@ -79,7 +79,7 @@ func (c *JSONFileCache) Get(key string, target interface{}) error {
 	return nil
 }
 
-func (c *JSONFileCache) All() (*JSONFileCacheAllResult, error) {
+func (c *JSONFileCache) All() (FileCacheAllResult, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -110,13 +110,13 @@ func (c *JSONFileCache) Purge() error {
 func (c *JSONFileCache) saveToFile(file map[string]interface{}) error {
 	jsonData, err := json.Marshal(file)
 	if err != nil {
-		fmt.Println("Error marshalling cache data:", err)
+		log.Error().Err(err).Msg("Error marshalling cache data")
 		return err
 	}
 
 	err = os.WriteFile(c.filePath, jsonData, 0644)
 	if err != nil {
-		fmt.Println("Error writing cache data to file:", err)
+		log.Error().Err(err).Msg("Error writing cache data to file")
 		return err
 	}
 
@@ -138,7 +138,7 @@ func (c *JSONFileCache) loadFileBytes() ([]byte, error) {
 
 	fileData, err := os.ReadFile(c.filePath)
 	if err != nil {
-		fmt.Println("Error reading cache data from file:", err)
+		log.Error().Err(err).Msg("Error reading cache data from file")
 		return nil, err
 	}
 

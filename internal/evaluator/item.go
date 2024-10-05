@@ -12,8 +12,8 @@ type Item struct {
 	RecoilModifier     int         `json:"recoil_modifier" bson:"recoil_modifier"`
 	ErgonomicsModifier int         `json:"ergonomics_modifier" bson:"ergonomics_modifier"`
 	Slots              []*ItemSlot `json:"slots" bson:"slots"`
+	Type               string      `json:"type" bson:"type"`
 	parentSlot         *ItemSlot
-	Type               string `json:"type" bson:"type"`
 }
 
 func ConstructItem(id string, name string) *Item {
@@ -23,17 +23,6 @@ func ConstructItem(id string, name string) *Item {
 		RecoilModifier:     0,
 		ErgonomicsModifier: 0,
 		Slots:              make([]*ItemSlot, 0),
-	}
-}
-
-func (item *Item) SetType(t string) {
-	switch t {
-	case "weapon":
-		item.Type = "weapon"
-	case "weapon_mod":
-		item.Type = "weapon_mod"
-	default:
-		log.Error().Str("type", t).Msg("invalid item type")
 	}
 }
 

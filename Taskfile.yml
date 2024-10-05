@@ -6,18 +6,15 @@ dotenv:
 tasks:
   api:build:
     desc: Build the api
-    cmds:
-      - go build -o bin/tarkov-build-optimiser-api ./cmd/tarkov-build-optimiser-api
+    cmd: go build -o bin/tarkov-build-optimiser-api ./cmd/tarkov-build-optimiser-api
 
   api:debug:
     desc: start the api locally in debug mode
-    cmds:
-      - dlv debug --listen=:4000 -log=true --accept-multiclient --api-version=2 ./cmd/tarkov-build-optimiser-api
+    cmd: dlv debug --listen=:4000 -log=true --accept-multiclient --api-version=2 ./cmd/tarkov-build-optimiser-api
 
   api:debug:headless:
     desc: start the api locally in headless debug mode
-    cmds:
-      - dlv debug --listen=:4000 -log=true --headless=true --accept-multiclient --api-version=2 ./cmd/tarkov-build-optimiser-api
+    cmd: dlv debug --listen=:4000 -log=true --headless=true --accept-multiclient --api-version=2 ./cmd/tarkov-build-optimiser-api
 
   api:start:
     desc: start the api locally
@@ -27,8 +24,7 @@ tasks:
 
   docker:build:
     desc: Build Docker image
-    cmds:
-      - docker build -t tarkov-build-optimiser .
+    cmd: docker build -t tarkov-build-optimiser .
 
   clean:
     desc: Clean the project
@@ -38,13 +34,11 @@ tasks:
 
   compose:postgres:up:
     desc: Start the local database
-    cmds:
-      - docker compose --env-file .env up -d postgres
+    cmd: docker compose --env-file .env up -d postgres
 
   compose:up:
     desc: Start the local environment
-    cmds:
-      - docker compose --env-file .env up -d
+    cmd: docker compose --env-file .env up -d
 
   compose:restart:
     desc: Restart the local environment
@@ -52,14 +46,12 @@ tasks:
 
   compose:down:
     desc: Stop the local environment
-    cmds:
-      - docker compose --env-file .env down
+    cmd: docker compose --env-file .env down
 
   importer:start:use-cache:
     desc: Start the importer - retrieve cached data instead of fetching from the tarkovdev API
     deps: [importer:build]
-    cmds:
-      - ./bin/tarkov-dev-importer --use-cache
+    cmd: ./bin/tarkov-dev-importer --use-cache
 
   importer:start:cache-only:
     desc: Start the importer - only cache the data as json
@@ -86,24 +78,20 @@ tasks:
 
   lint:
     desc: Run linter
-    cmds:
-      - golangci-lint run
+    cmd: golangci-lint run
 
   migrate:create:
     desc: Create a new migration
-    cmds:
-      - goose -dir=./migrations create {{.CLI_ARGS}} go
+    cmd: goose -dir=./migrations create {{.CLI_ARGS}} go
 
   migrate:build:
     desc: Build the migrations
-    cmds:
-      - go build -o bin/migrate ./cmd/migrations/*.go
+    cmd: go build -o bin/migrate ./cmd/migrations/*.go
 
   migrate:down:
     desc: Rollback migrations
     deps: [compose:postgres:up, migrate:build]
-    cmds:
-      - ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" down
+    cmd: ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" down
 
   migrate:up:
     desc: Apply migrations
@@ -116,17 +104,15 @@ tasks:
 
   test:
     desc: Run tests
-    cmds:
-      - go test ./...
+    cmd: go test ./...
 
   tarkovdev:get-schema:
     desc: Retrieve the latest schema from the tarkov.dev API
-    cmd: graphql-inspector introspect https://api.tarkov.dev/api/graphql --write ./internal/tarkovdev/schemas/schema.graphql
+    cmd: graphql-inspector introspect https://api.tarkov.dev/graphql --write ./internal/tarkovdev/schemas/schema.graphql
 
   tarkovdev:regenerate:
     desc: Regenerate the tarkovdev client
-    cmds:
-      - go run github.com/Khan/genqlient
+    cmd: go run github.com/Khan/genqlient
 
   tarkovdev:
     desc: Sync the tarkovdev schema and regenerate the client
@@ -134,13 +120,11 @@ tasks:
 
   deps:install:go:
     desc: Install go dependencies
-    cmds:
-      - ./scripts/install-go-deps.sh
+    cmd: ./scripts/install-go-deps.sh
 
   deps:install:node:
     desc: Install node dependencies
-    cmds:
-      - ./scripts/install-node-deps.sh
+    cmd: ./scripts/install-node-deps.sh
 
   init:go-only:
     desc: Initialise the project for development (without nodejs/tarkovdev schema dependencies)
@@ -154,3 +138,6 @@ tasks:
     desc: Print the environment variables
     cmds:
       - echo $PATH
+
+  default:
+    cmd: task --list-all

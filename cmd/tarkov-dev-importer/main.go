@@ -48,7 +48,6 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to import weapons.")
 	}
-
 	log.Info().Msg("All weapons imported OK.")
 
 	log.Info().Msg("Importing mods.")
@@ -56,5 +55,12 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to import mods.")
 	}
-	log.Info().Msg("All mods imported.")
+	log.Info().Msg("All mods imported OK.")
+
+	log.Info().Msg("Importing trader offers.")
+	err = importers.ImportTraderOffers(dbClient, api)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to import trader offers.")
+	}
+	log.Info().Msg("All trader offers imported OK.")
 }

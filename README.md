@@ -5,8 +5,8 @@ A tool for calculating optimal weapon builds in Escape from Tarkov.
 ## Goals
 
 - [x] calculate an optimum weapon build
-- [ ] write a couple of tests to make sure optimum builds are actually optimum
-- [ ] do step 1. but restricted by trader availability
+- [x] write a couple of tests to make sure optimum builds are actually optimum
+- [x] do step 1. but restricted by trader availability
 - [ ] API for querying optimised builds
 - [ ] create something to convert an `optimum_build` json into the structure used by totovbuilder.com import feature.
 - [ ] provide cost effective alternatives

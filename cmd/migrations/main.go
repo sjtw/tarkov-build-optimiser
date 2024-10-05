@@ -7,10 +7,9 @@ import (
 	"log"
 	"os"
 
-	_ "tarkov-build-optimiser/migrations"
-
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/pressly/goose/v3"
+	_ "tarkov-build-optimiser/migrations"
 )
 
 var (

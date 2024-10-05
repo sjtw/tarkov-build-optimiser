@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func createMockWeapon(db *sql.DB) models.Weapon {
+func createMockWeapon(tx *sql.Tx) models.Weapon {
 	weapon := models.Weapon{
 		ID:                 "mock_weapon",
 		Name:               "M4A1",
@@ -22,7 +22,7 @@ func createMockWeapon(db *sql.DB) models.Weapon {
 		},
 	}
 
-	err := models.UpsertWeapon(db, weapon)
+	err := models.UpsertWeapon(tx, weapon)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to create mock weapon")
 	}
@@ -47,7 +47,15 @@ func TestCreateAndGetWeapon(t *testing.T) {
 	conn := dbClient.Conn
 
 	reset(conn)
-	createdWeapon := createMockWeapon(conn)
+	tx, err := conn.Begin()
+	if err != nil {
+		t.Fatal("failed to begin transaction")
+	}
+	createdWeapon := createMockWeapon(tx)
+	err = tx.Commit()
+	if err != nil {
+		t.Fatal("failed to commit transaction")
+	}
 
 	weapon, err := models.GetWeaponById(conn, createdWeapon.ID)
 	if err != nil {

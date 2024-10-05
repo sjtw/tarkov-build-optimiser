@@ -2,46 +2,23 @@ package evaluator
 
 import (
 	"database/sql"
-	"encoding/json"
 	"github.com/rs/zerolog/log"
 	"tarkov-build-optimiser/internal/models"
 )
 
 type ItemSlot struct {
-	ID                 string  `json:"id", bson:"id"`
-	Name               string  `json:"name", bson:"name"`
+	ID                 string  `json:"id" bson:"id"`
+	Name               string  `json:"name" bson:"name"`
 	AllowedItems       []*Item `json:"-"`
-	BestRecoilItem     *Item   `json:"best_recoil_item", bson:"best_recoil_item"`
-	BestRecoilModifier int     `json:"best_recoil_modifier", bson:"best_recoil_modifier"`
-	BestErgoModifier   int     `json:"best_ergo_modifier", bson:"best_ergo_modifier"`
-	BestErgoItem       *Item   `json:"best_ergo_item", bson:"best_ergo_item"`
-	parentItem         *Item   `json:"-"`
+	BestRecoilItem     *Item   `json:"best_recoil_item" bson:"best_recoil_item"`
+	BestRecoilModifier int     `json:"best_recoil_modifier" bson:"best_recoil_modifier"`
+	BestErgoModifier   int     `json:"best_ergo_modifier" bson:"best_ergo_modifier"`
+	BestErgoItem       *Item   `json:"best_ergo_item" bson:"best_ergo_item"`
+	parentItem         *Item
 	// IDs of items which would potentially create a circular reference
 	// we don't want to add these to the possibility tree for obvious reasons,
 	// but we may still want to know what they are
 	AllowedCircularReferenceItemIds []string `json:"allowed_circular_reference_item_ids"`
-}
-
-// MarshalJSON - method to include only specific fields
-func (slot *ItemSlot) MarshalJSON() ([]byte, error) {
-	type Alias ItemSlot // Create an alias to avoid infinite recursion
-	return json.Marshal(&struct {
-		ID                              string   `json:"id"`
-		Name                            string   `json:"name"`
-		BestRecoilItem                  *Item    `json:"best_recoil_item"`
-		BestRecoilModifier              int      `json:"best_recoil_modifier"`
-		BestErgoModifier                int      `json:"best_ergo_modifier"`
-		BestErgoItem                    *Item    `json:"best_ergo_item"`
-		AllowedCircularReferenceItemIds []string `json:"allowed_circular_reference_item_ids"`
-	}{
-		ID:                              slot.ID,
-		Name:                            slot.Name,
-		BestRecoilItem:                  slot.BestRecoilItem,
-		BestRecoilModifier:              slot.BestRecoilModifier,
-		BestErgoModifier:                slot.BestErgoModifier,
-		BestErgoItem:                    slot.BestErgoItem,
-		AllowedCircularReferenceItemIds: slot.AllowedCircularReferenceItemIds,
-	})
 }
 
 func ConstructSlot(id string, name string) *ItemSlot {
@@ -163,15 +140,4 @@ func (slot *ItemSlot) IsItemValidChild(item *Item) bool {
 	}
 
 	return true
-}
-
-func (slot *ItemSlot) IsIdInAncestors(id string) bool {
-	ancestors := slot.GetAncestorIds()
-	for i := 0; i < len(ancestors); i++ {
-		if ancestors[i] == id {
-			return true
-		}
-	}
-
-	return false
 }

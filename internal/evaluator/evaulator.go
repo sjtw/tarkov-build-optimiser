@@ -2,140 +2,188 @@ package evaluator
 
 import (
 	"database/sql"
-	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/rs/zerolog/log"
+	"tarkov-build-optimiser/internal/models"
 )
 
-func findBestRecoilTree(item *Item) (int, *Item) {
-	if item.Slots == nil {
-		return item.RecoilModifier, item
-	}
+func GenerateOptimumWeaponBuilds(db *sql.DB, weapon Item, constraints models.EvaluationConstraints) error {
 
-	if len(item.Slots) == 0 {
-		return item.RecoilModifier, item
-	}
+	traderOfferGetter := CreatePgTraderOfferGetter(db)
+	buildSaver := CreatePgBuildSaver(db)
+	subtreeGetter := CreatePgSubtreeGetter(db)
+	evaluator := CreateEvaluator(traderOfferGetter, buildSaver, subtreeGetter)
 
-	sum := item.RecoilModifier
-
-	for i := 0; i < len(item.Slots); i++ {
-		item.Slots[i].BestRecoilModifier = 0
-
-		if item.Slots[i].AllowedItems == nil {
-			return sum, item
-		}
-
-		if len(item.Slots[i].AllowedItems) == 0 {
-			return sum, item
-		}
-
-		for j := 0; j < len(item.Slots[i].AllowedItems); j++ {
-			childSum, highestItem := findBestRecoilTree(item.Slots[i].AllowedItems[j])
-
-			sumWithChildSum := sum + childSum
-
-			if sumWithChildSum < item.Slots[i].BestRecoilModifier {
-				item.Slots[i].BestRecoilModifier = childSum
-				item.Slots[i].BestRecoilItem = highestItem
-			}
-		}
-	}
-
-	for i := 0; i < len(item.Slots); i++ {
-		sum = sum + item.Slots[i].BestRecoilModifier
-	}
-
-	return sum, item
-}
-
-func findBestErgoTree(item *Item) (int, *Item) {
-	sum := item.ErgonomicsModifier
-
-	if item.Slots == nil {
-		return sum, item
-	}
-
-	if len(item.Slots) == 0 {
-		return sum, item
-	}
-
-	for i := 0; i < len(item.Slots); i++ {
-		item.Slots[i].BestErgoModifier = 0
-
-		if item.Slots[i].AllowedItems == nil {
-			break
-		}
-
-		if len(item.Slots[i].AllowedItems) == 0 {
-			break
-		}
-
-		for j := 0; j < len(item.Slots[i].AllowedItems); j++ {
-			childSum, highestItem := findBestErgoTree(item.Slots[i].AllowedItems[j])
-
-			sumWithChildSum := sum + childSum
-
-			if sumWithChildSum > item.Slots[i].BestErgoModifier {
-				item.Slots[i].BestErgoModifier = childSum
-				item.Slots[i].BestErgoItem = highestItem
-			}
-		}
-	}
-
-	for i := 0; i < len(item.Slots); i++ {
-		sum = sum + item.Slots[i].BestErgoModifier
-	}
-
-	return sum, item
-}
-
-func GenerateOptimumWeaponBuilds(db *sql.DB, weaponId string) error {
-	weapon, err := CreateWeaponPossibilityTree(db, weaponId)
+	log.Info().Msgf("Evaluating recoil for %s", weapon.ID)
+	_, err := evaluator.evaluate(&weapon, "recoil", constraints)
 	if err != nil {
-		log.Fatal().Err(err).Msgf("Failed to create possibility tree for weapon id: %s", weaponId)
 		return err
 	}
 
-	bestRecoilSum, bestRecoilItem := findBestRecoilTree(weapon)
-	err = upsertOptimumBuild(db, weaponId, "recoil", bestRecoilSum, bestRecoilItem, bestRecoilItem.Name)
-	if err != nil {
-		log.Fatal().Err(err).Msgf("Failed to upsert optimum recoil build")
-		return err
-	}
-
-	bestErgoSum, bestErgoItem := findBestErgoTree(weapon)
-	err = upsertOptimumBuild(db, weaponId, "ergo", bestErgoSum, bestErgoItem, bestErgoItem.Name)
-	if err != nil {
-		log.Fatal().Err(err).Msgf("Failed to upsert optimum ergo build")
-		return err
-	}
-
-	return nil
-}
-
-func upsertOptimumBuild(db *sql.DB, itemId string, buildType string, sum int, build *Item, name string) error {
-	b, err := json.Marshal(build)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to marshal build")
-		return err
-	}
-
-	query := `INSERT INTO optimum_builds (
-			item_id,
-			build,
-			build_type,
-            modifier_sum,
-            name
-		)
-		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (item_id, build_type) DO UPDATE SET
-			build = $2,
-			modifier_sum = $4,
-			name = $5
-		;`
-	_, err = db.Exec(query, itemId, b, buildType, sum, name)
+	_, err = evaluator.evaluate(&weapon, "ergonomics", constraints)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func CreateWeaponPossibilityTree(db *sql.DB, id string) (*Item, error) {
+	w, err := models.GetWeaponById(db, id)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to get weapon %s", id)
+		return nil, err
+	}
+	weapon := &Item{
+		ID:                 id,
+		Name:               w.Name,
+		RecoilModifier:     w.RecoilModifier,
+		ErgonomicsModifier: w.ErgonomicsModifier,
+		Slots:              []*ItemSlot{},
+		parentSlot:         nil,
+		Type:               "weapon",
+	}
+
+	err = weapon.PopulateSlots(db)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to populate slots for weapon %s", w.ID)
+		return nil, err
+	}
+
+	return weapon, nil
+}
+
+type Evaluator struct {
+	traderOfferGetter TraderOfferGetter
+	buildSaver        BuildSaver
+	subtreeGetter     SubtreeGetter
+}
+
+func CreateEvaluator(traderOfferGetter TraderOfferGetter, buildSaver BuildSaver, subtreeGetter SubtreeGetter) *Evaluator {
+	return &Evaluator{
+		traderOfferGetter: traderOfferGetter,
+		buildSaver:        buildSaver,
+		subtreeGetter:     subtreeGetter,
+	}
+}
+
+func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error) {
+	outItem := &models.ItemEvaluationResult{
+		ID:                 item.ID,
+		Name:               item.Name,
+		EvaluationType:     evaluationType,
+		RecoilModifier:     item.RecoilModifier,
+		ErgonomicsModifier: item.ErgonomicsModifier,
+		Slots:              make([]*models.SlotEvaluationResult, len(item.Slots)),
+		ErgonomicsSum:      item.ErgonomicsModifier,
+		RecoilSum:          item.RecoilModifier,
+	}
+
+	if item.Type == "weapon" {
+		outItem.IsSubtree = false
+	} else {
+		outItem.IsSubtree = true
+	}
+
+	if item.Slots == nil {
+		return outItem, nil
+	}
+
+	preEvaluatedItem, err := e.subtreeGetter.Get(outItem.ID, evaluationType, constraints)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to get subtree for evaluation. item: %s", preEvaluatedItem.ID)
+		return nil, err
+	}
+
+	if preEvaluatedItem != nil {
+		log.Info().Msgf("Optimal [%s] evaluation for item [%s] already evaluated. returning.", outItem.EvaluationType, item.ID)
+		return preEvaluatedItem, nil
+	}
+
+	for i := 0; i < len(item.Slots); i++ {
+		log.Info().Msgf("Evaluating slot %d for item [%s]", i, item.ID)
+
+		outSlot := &models.SlotEvaluationResult{
+			ID:   item.Slots[i].ID,
+			Name: item.Slots[i].Name,
+			Item: nil,
+		}
+
+		slotErgo := 0
+		slotRecoil := 0
+		for j := 0; j < len(item.Slots[i].AllowedItems); j++ {
+			log.Info().Msgf("Evaluating slot %d for item [%s]", j, item.ID)
+			ai := item.Slots[i].AllowedItems[j]
+			offers, err := e.traderOfferGetter.Get(ai.ID)
+			if err != nil {
+				log.Error().Err(err).Msgf("Failed to get trader offer for item [%s]", item.ID)
+				return nil, err
+			}
+
+			valid := validateConstraints(offers, constraints)
+			if valid != true {
+				log.Info().Msg("item does not meet build constraints, skipping")
+				continue
+			}
+
+			highestItem, err := e.evaluate(ai, evaluationType, constraints)
+			if err != nil {
+				log.Info().Msg("Failed to evaluate highest item")
+				return nil, err
+			}
+
+			recoilSum := highestItem.RecoilSum
+			ergoSum := highestItem.ErgonomicsSum
+
+			log.Info().Msgf("Evaluation type %s", evaluationType)
+			if evaluationType == "ergonomics" {
+				if ergoSum > slotErgo {
+					log.Info().Msgf("item %v IS new highest sum", highestItem)
+					slotErgo = ergoSum
+					slotRecoil = recoilSum
+					outSlot.Item = highestItem
+				} else if outSlot.Item == nil && recoilSum < slotRecoil {
+					log.Info().Msgf("Item %v does not improve ergonomics, but improves recoil over empty slot.", highestItem)
+					slotErgo = ergoSum
+					slotRecoil = recoilSum
+					outSlot.Item = highestItem
+				} else {
+					log.Info().Msgf("item %v does not improve stats", highestItem)
+				}
+			} else if evaluationType == "recoil" {
+				if recoilSum < slotRecoil {
+					log.Info().Msgf("item %v IS new highest sum", highestItem)
+					slotErgo = ergoSum
+					slotRecoil = recoilSum
+					outSlot.Item = highestItem
+				} else if outSlot.Item == nil && ergoSum > slotErgo {
+					log.Info().Msgf("Item %v does not improve recoil, but improves ergo over empty slot.", highestItem)
+					slotErgo = ergoSum
+					slotRecoil = recoilSum
+					outSlot.Item = highestItem
+				} else {
+					log.Info().Msgf("item %v does not improve stats", highestItem)
+				}
+			} else {
+				msg := fmt.Sprintf("Invalid evaluation type [%s]", evaluationType)
+				log.Error().Msg(msg)
+				return nil, errors.New(msg)
+			}
+		}
+
+		outItem.Slots[i] = outSlot
+		outItem.RecoilSum += slotRecoil
+		outItem.ErgonomicsSum += slotErgo
+	}
+
+	err = e.buildSaver.Save(outItem, constraints, outItem.IsSubtree)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to save evaluation result for item: %s", outItem.ID)
+		return nil, err
+	}
+
+	log.Info().Msgf("Output item %v", outItem)
+
+	return outItem, nil
 }
