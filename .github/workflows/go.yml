@@ -14,6 +14,31 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    steps:
+    - uses: actions/checkout@v4
+      name: Checkout Repository
+
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+
+    - name: Install dependencies
+      run: ./scripts/install-go-deps.sh
+
+    - name: Build Migrations
+      run: task migrate:build
+
+    - name: Build Importer
+      run: task importer:build
+
+    - name: Build Evaluator
+      run: task evaluator:build
+
+  test:
+    runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:13
@@ -28,7 +53,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
     - uses: actions/checkout@v4
       name: Checkout Repository
@@ -49,8 +73,17 @@ jobs:
     - name: Install dependencies
       run: ./scripts/install-go-deps.sh
 
-    - name: Build Evaluator
-      run: task evaluator:build
+    - name: Build Migrations
+      run: task migrate:build
 
-#    - name: Test
-#      run: go test -v ./...
+    - name: Run Migrations
+      run: task migrate:up
+
+    - name: Run Tests
+      env:
+        POSTGRES_HOST: postgres
+        POSTGRES_USER: ci_user
+        POSTGRES_PASSWORD: ci_password
+        POSTGRES_DB: ci_db
+        POSTGRES_PORT: 5432
+      run: task test
