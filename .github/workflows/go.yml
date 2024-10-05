@@ -82,8 +82,8 @@ jobs:
     - name: Run Tests
       env:
         POSTGRES_HOST: postgres
+        POSTGRES_PORT: 5432
         POSTGRES_USER: ci_user
         POSTGRES_PASSWORD: ci_password
         POSTGRES_DB: ci_db
-        POSTGRES_PORT: 5432
-      run: task test
+      run: go test ./...
