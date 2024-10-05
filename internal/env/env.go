@@ -1,6 +1,7 @@
 package env
 
 import (
+	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"tarkov-build-optimiser/internal/helpers"
@@ -18,15 +19,17 @@ type Env struct {
 }
 
 func Get() (Env, error) {
-	projectRoot, err := helpers.GetProjectRoot()
-	if err != nil {
-		return Env{}, err
-	}
-	envFilePath := filepath.Join(projectRoot, ".env")
+	if os.Getenv("CI") != "true" {
+		projectRoot, err := helpers.GetProjectRoot()
+		if err != nil {
+			return Env{}, err
+		}
+		envFilePath := filepath.Join(projectRoot, ".env")
 
-	err = godotenv.Load(envFilePath)
-	if err != nil {
-		return Env{}, err
+		err = godotenv.Load(envFilePath)
+		if err != nil {
+			return Env{}, err
+		}
 	}
 
 	env := Env{
@@ -37,6 +40,13 @@ func Get() (Env, error) {
 		PgName:      os.Getenv("POSTGRES_DB"),
 		Environment: os.Getenv("ENVIRONMENT"),
 	}
+
+	log.Info().
+		Str("PgHost", env.PgHost).
+		Str("PgPort", env.PgPort).
+		Str("PgName", env.PgName).
+		Str("Environment", env.Environment).
+		Msg("Environment variables loaded")
 
 	return env, nil
 }
