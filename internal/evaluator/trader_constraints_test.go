@@ -10,7 +10,7 @@ import (
 func TestGenerateVariations(t *testing.T) {
 	traderLevels := GenerateTraderLevelVariations(models.TraderNames)
 
-	expectedCombinations := helpers.Pow(5, len(models.TraderNames))
+	expectedCombinations := helpers.Pow(4, len(models.TraderNames))
 	assert.Len(t, traderLevels, expectedCombinations)
 	combinationMap := make(map[string]bool)
 
@@ -19,7 +19,7 @@ func TestGenerateVariations(t *testing.T) {
 
 		for _, trader := range combination {
 			assert.GreaterOrEqual(t, trader.Level, 1, "Level is below 1 for trader: %s", trader.Name)
-			assert.LessOrEqual(t, trader.Level, 5, "Level is above 5 for trader: %s", trader.Name)
+			assert.LessOrEqual(t, trader.Level, 4, "Level is above 4 for trader: %s", trader.Name)
 		}
 
 		assert.False(t, combinationMap[key], "Duplicate combination found: %v", combination)
