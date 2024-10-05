@@ -98,6 +98,10 @@ tasks:
     deps: [compose:postgres:up, migrate:build]
     cmd: ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" up
 
+  migrate:ci:
+    desc: Apply migrations in CI
+    cmd: ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" up
+
   start:local:
     desc: Start full local environment
     deps: [compose:start, api:start]
