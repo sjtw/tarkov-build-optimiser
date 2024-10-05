@@ -6,7 +6,6 @@ import (
 	"tarkov-build-optimiser/internal/helpers"
 
 	"github.com/joho/godotenv"
-	"github.com/rs/zerolog/log"
 )
 
 type Env struct {
@@ -38,8 +37,6 @@ func Get() (Env, error) {
 		PgName:      os.Getenv("POSTGRES_DB"),
 		Environment: os.Getenv("ENVIRONMENT"),
 	}
-
-	log.Info().Interface("env", env).Msg("Environment variables")
 
 	return env, nil
 }
