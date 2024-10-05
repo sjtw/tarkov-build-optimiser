@@ -19,6 +19,8 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to get all weapon IDs")
 	}
 
+	//weaponIds := []string{"5bf3e03b0db834001d2c4a9c"}
+
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
 
 	workerCount := runtime.NumCPU() * 10

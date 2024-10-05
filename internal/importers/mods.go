@@ -51,7 +51,7 @@ func ImportMods(db *db.Database, api *tarkovdev.Api) error {
 		log.Info().Msgf("Added all %d mods to file cache.", len(mods))
 	}
 
-	if cli.GetFlags().UseCache {
+	if cli.GetFlags().CacheOnly {
 		log.Info().Msg("--cache-only was provided - Not persisting mods in db.")
 		return nil
 	}
@@ -136,7 +136,7 @@ func getModsFromCache(cache cache.FileCache) ([]models.WeaponMod, error) {
 		return nil, errors.New("no weapon mods to import found in cache")
 	}
 
-	weapons := make([]models.WeaponMod, 0, len(keys))
+	mods := make([]models.WeaponMod, 0, len(keys))
 	for i := 0; i < len(keys); i++ {
 		key := keys[i]
 		mod := models.WeaponMod{}
@@ -146,10 +146,10 @@ func getModsFromCache(cache cache.FileCache) ([]models.WeaponMod, error) {
 			return nil, err
 		}
 
-		weapons = append(weapons, mod)
+		mods = append(mods, mod)
 	}
 
-	return weapons, nil
+	return mods, nil
 }
 
 func updateModFileCache(modCache cache.FileCache, mods []models.WeaponMod) error {

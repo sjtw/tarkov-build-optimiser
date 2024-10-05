@@ -37,7 +37,7 @@ func UpsertManyTraderOffers(tx *sql.Tx, offers []TraderOffer) error {
 			log.Error().Err(err).Msgf("Failed to upsert trader offer: %v", offers[i])
 			return err
 		}
-		log.Info().Msgf("Upserted mod: ID: %s, Name: %s", offers[i].ID, offers[i].Name)
+		log.Info().Msgf("Upserted trader offer: item_id: %s, Name: %s", offers[i].ID, offers[i].Name)
 	}
 	return nil
 }

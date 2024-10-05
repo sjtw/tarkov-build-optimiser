@@ -26,7 +26,7 @@ func generateWeaponPossibilities(db *sql.DB, weaponIds []string, workerCount int
 	for i := 0; i < len(weaponIds); i++ {
 		idChan <- weaponIds[i]
 	}
-	log.Info().Msgf("Queued %d weaponIds.", len(idChan))
+	log.Info().Msgf("Queued %d weaponIds.", len(weaponIds))
 
 	close(idChan)
 
@@ -37,7 +37,7 @@ func generateWeaponPossibilities(db *sql.DB, weaponIds []string, workerCount int
 		close(resultChan)
 	}()
 
-	results := make([]WeaponPossibilityResult, len(resultChan))
+	results := make([]WeaponPossibilityResult, len(weaponIds))
 	log.Info().Msg("Collecting possibility generation results.")
 	for result := range resultChan {
 		results = append(results, result)

@@ -22,7 +22,7 @@ func processEvaluationTasks(db *sql.DB, tasks []Task, workerCount int) {
 	for i := 0; i < len(tasks); i++ {
 		taskChannel <- tasks[i]
 	}
-	log.Info().Msgf("Queued %d tasks", len(taskChannel))
+	log.Info().Msgf("Queued %d tasks", len(tasks))
 
 	close(taskChannel)
 	wg.Wait()
@@ -49,6 +49,14 @@ func createEvaluationTasks(weaponPossibilities []WeaponPossibilityResult) []Task
 	tasks := make([]Task, 0)
 
 	traderLevelVariations := evaluator.GenerateTraderLevelVariations(models.TraderNames)
+	//testLevels := []models.TraderLevel{
+	//	{Name: "Prapor", Level: 4},
+	//	{Name: "Peacekeeper", Level: 4},
+	//	{Name: "Jaeger", Level: 4},
+	//	{Name: "Mechanic", Level: 4},
+	//	{Name: "Skier", Level: 4},
+	//}
+	//traderLevelVariations := [][]models.TraderLevel{testLevels}
 
 	evaluatedWeapons := make([]*evaluator.Item, 0)
 	for i := 0; i < len(weaponPossibilities); i++ {

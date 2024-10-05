@@ -135,7 +135,7 @@ func GetEvaluatedSubtree(db *sql.DB, itemId string, buildType string, constraint
 	}
 	defer rows.Close()
 
-	results := make([]ItemEvaluationResult, 0)
+	var results []ItemEvaluationResult
 	for rows.Next() {
 		result := ItemEvaluationResult{}
 		var build string
@@ -147,6 +147,8 @@ func GetEvaluatedSubtree(db *sql.DB, itemId string, buildType string, constraint
 		if err := json.Unmarshal([]byte(build), &result); err != nil {
 			return nil, err
 		}
+
+		results = append(results, result)
 	}
 
 	if len(results) == 0 {

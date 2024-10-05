@@ -21,7 +21,7 @@ func validateConstraints(offers []models.TraderOffer, constraints models.Evaluat
 
 func GenerateTraderLevelVariations(traderNames []string) [][]models.TraderLevel {
 	traderCount := len(traderNames)
-	totalCombinations := helpers.Pow(5, traderCount)
+	totalCombinations := helpers.Pow(4, traderCount)
 
 	var traders [][]models.TraderLevel
 	for i := 0; i < totalCombinations; i++ {
