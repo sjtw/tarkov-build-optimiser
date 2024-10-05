@@ -9,6 +9,13 @@ on:
   pull_request:
     branches: [ "main" ]
 
+env:
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_USER: ci_user
+  POSTGRES_PASSWORD: ci_password
+  POSTGRES_DB: ci_db
+
 jobs:
 
   build:
@@ -17,7 +24,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       name: Checkout Repository
-
 
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -45,9 +51,9 @@ jobs:
         ports:
           - 5432:5432
         env:
-          POSTGRES_USER: ci_user
-          POSTGRES_PASSWORD: ci_password
-          POSTGRES_DB: ci_db
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD:  ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -80,10 +86,4 @@ jobs:
       run: task migrate:ci
 
     - name: Run Tests
-      env:
-        POSTGRES_HOST: postgres
-        POSTGRES_PORT: 5432
-        POSTGRES_USER: ci_user
-        POSTGRES_PASSWORD: ci_password
-        POSTGRES_DB: ci_db
       run: go test ./...
