@@ -73,6 +73,22 @@ jobs:
           sleep 1
         done
 
+    - name: Verify Secrets
+      run: |
+        if [ -z "${{ env.POSTGRES_USER }}" ]; then
+          echo "POSTGRES_USER is not set"
+          exit 1
+        else
+          echo "POSTGRES_USER is set"
+        fi
+
+        if [ -z "${{ env.POSTGRES_PASSWORD }}" ]; then
+          echo "POSTGRES_PASSWORD is not set"
+          exit 1
+        else
+          echo "POSTGRES_PASSWORD is set"
+        fi
+
     - name: Set up Go
       uses: actions/setup-go@v4
       with:

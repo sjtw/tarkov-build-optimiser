@@ -43,6 +43,11 @@ func NewDatabase(config Config) (*Database, error) {
 	db.SetMaxIdleConns(50)
 	db.SetMaxOpenConns(50)
 
+	if err = db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
 	return &Database{
 		Conn: db,
 	}, nil
