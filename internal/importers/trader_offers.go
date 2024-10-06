@@ -37,46 +37,46 @@ func ImportTraderOffers(db *db.Database, api *tarkovdev.Api) error {
 	var offers []models.TraderOffer
 
 	if cli.GetFlags().UseCache {
-		log.Info().Msg("--use-cache provided - pulling trader offers from file cache.")
+		log.Debug().Msg("--use-cache provided - pulling trader offers from file cache.")
 		data, err := getTraderOffersFromCache(traderOfferCache)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get trader offers from file cache.")
 			return err
 		}
 		offers = data
-		log.Info().Msg("Retrieved trader offers from file cache.")
+		log.Debug().Msg("Retrieved trader offers from file cache.")
 	} else {
-		log.Info().Msg("Fetching trader offers from Tarkov.dev API.")
+		log.Debug().Msg("Fetching trader offers from Tarkov.dev API.")
 		res, err := getTraderOffersFromTarkovDev(api)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get trader offers from Tarkov.dev API.")
 			return err
 		}
 		offers = res
-		log.Info().Msg("Retrieved trader offers from Tarkov.dev API..")
+		log.Debug().Msg("Retrieved trader offers from Tarkov.dev API..")
 
-		log.Info().Msgf("Storing %d trader offers in file cache.", len(offers))
+		log.Debug().Msgf("Storing %d trader offers in file cache.", len(offers))
 		err = updateTraderOffercache(traderOfferCache, offers)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to store trader offers in file cache.")
 			return err
 		}
-		log.Info().Msgf("Added all %d trader offers to file cache.", len(offers))
+		log.Debug().Msgf("Added all %d trader offers to file cache.", len(offers))
 	}
 
 	if cli.GetFlags().CacheOnly {
-		log.Info().Msg("--cache-only was provided - Not persisting trader offers in db.")
+		log.Debug().Msg("--cache-only was provided - Not persisting trader offers in db.")
 		return nil
 	}
 
-	log.Info().Msg("Beginning db transaction.")
+	log.Debug().Msg("Beginning db transaction.")
 	tx, err := db.Conn.Begin()
 	if err != nil {
-		log.Info().Err(err).Msg("Failed to begin db transaction.")
+		log.Debug().Err(err).Msg("Failed to begin db transaction.")
 		return err
 	}
 
-	log.Info().Msgf("Importing %d trader offers", len(offers))
+	log.Debug().Msgf("Importing %d trader offers", len(offers))
 	err = models.UpsertManyTraderOffers(tx, offers)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -87,7 +87,7 @@ func ImportTraderOffers(db *db.Database, api *tarkovdev.Api) error {
 		return err
 	}
 
-	log.Info().Msg("All trader offers imported, committing transaction.")
+	log.Debug().Msg("All trader offers imported, committing transaction.")
 	err = tx.Commit()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to commit transaction.")
@@ -108,7 +108,7 @@ func getTraderOffersFromTarkovDev(api *tarkovdev.Api) ([]models.TraderOffer, err
 	items := make([]models.TraderOffer, 0, len(res.Items))
 
 	for i := 0; i < len(res.Items); i++ {
-		log.Info().Msgf("Processing Item %s price.", res.Items[i].Id)
+		log.Debug().Msgf("Processing Item %s price.", res.Items[i].Id)
 		item := res.Items[i]
 
 		newItem := models.TraderOffer{
@@ -171,7 +171,7 @@ func updateTraderOffercache(traderOfferCache cache.FileCache, traderOffers []mod
 			log.Error().Err(err).Msgf("Failed to store trader offer %v in file cache", traderOffers[i])
 			return err
 		}
-		log.Info().Msgf("Trader offer stored in file cache: %v", traderOffers[i])
+		log.Debug().Msgf("Trader offer stored in file cache: %v", traderOffers[i])
 	}
 	return nil
 }

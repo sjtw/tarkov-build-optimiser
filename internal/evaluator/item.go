@@ -73,6 +73,10 @@ func (item *Item) PopulateSlots(db *sql.DB) error {
 		}
 		item.AddChildSlot(slot)
 
+		if slot.Name == "Scope" {
+			continue
+		}
+
 		err := slot.PopulateAllowedItems(db)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to populate slot %s", s.ID)

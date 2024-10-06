@@ -14,7 +14,7 @@ func CreateBuildOptimiserDBClient() (*Database, error) {
 		return nil, err
 	}
 
-	log.Info().Msg("connecting to database")
+	log.Debug().Msg("connecting to database")
 	db, err := NewDatabase(Config{
 		Host:     e.PgHost,
 		Port:     e.PgPort,

@@ -8,6 +8,12 @@ import (
 
 func validateConstraints(offers []models.TraderOffer, constraints models.EvaluationConstraints) bool {
 	for i := 0; i < len(offers); i++ {
+		o := offers[i]
+		if o.Trader == "" && o.MinTraderLevel == 0 {
+			// TODO: I think this can be assumed to be a preset item? Worth checking for edge cases nonetheless
+			return true
+		}
+
 		for j := i + 1; j < len(constraints.TraderLevels); j++ {
 			tc := constraints.TraderLevels[j]
 			if offers[i].Trader == tc.Name && tc.Level >= offers[i].MinTraderLevel {

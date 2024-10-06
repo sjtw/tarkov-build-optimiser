@@ -47,7 +47,7 @@ func UpsertManyWeapon(tx *sql.Tx, weapons []Weapon) error {
 		if err != nil {
 			return err
 		}
-		log.Info().Msgf("Upserted weapon: ID: %s, Name: %s", weapons[i].ID, weapons[i].Name)
+		log.Debug().Msgf("Upserted weapon: ID: %s, Name: %s", weapons[i].ID, weapons[i].Name)
 	}
 
 	return nil

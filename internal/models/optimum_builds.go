@@ -162,3 +162,12 @@ func GetEvaluatedSubtree(db *sql.DB, itemId string, buildType string, constraint
 
 	return &results[0], nil
 }
+
+func PurgeOptimumBuilds(db *sql.DB) error {
+	_, err := db.Exec("TRUNCATE optimum_builds;")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

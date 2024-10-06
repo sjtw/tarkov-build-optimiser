@@ -32,13 +32,13 @@ type Config struct {
 func NewDatabase(config Config) (*Database, error) {
 	connStrTemplate := "postgresql://%s:%s@%s:%s/%s?sslmode=disable"
 	connStr := fmt.Sprintf(connStrTemplate, config.User, config.Password, config.Host, config.Port, config.Name)
-	log.Info().Msgf("Connecting to database: %s:%s", config.Host, config.Port)
+	log.Debug().Msgf("Connecting to database: %s:%s", config.Host, config.Port)
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	log.Info().Msg("Connected to database")
+	log.Debug().Msg("Connected to database")
 
 	db.SetMaxIdleConns(50)
 	db.SetMaxOpenConns(50)
@@ -54,6 +54,6 @@ func NewDatabase(config Config) (*Database, error) {
 }
 
 func (d *Database) Close() error {
-	log.Info().Msg("Closing database connection")
+	log.Debug().Msg("Closing database connection")
 	return d.Conn.Close()
 }

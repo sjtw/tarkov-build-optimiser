@@ -28,46 +28,46 @@ func ImportMods(db *db.Database, api *tarkovdev.Api) error {
 
 	var mods []models.WeaponMod
 	if cli.GetFlags().UseCache {
-		log.Info().Msg("--use-cache provided - pulling mods from file cache.")
+		log.Debug().Msg("--use-cache provided - pulling mods from file cache.")
 		data, err := getModsFromCache(modCache)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get mods from file cache.")
 			return err
 		}
 		mods = data
-		log.Info().Msg("Retrieved mods from file cache.")
+		log.Debug().Msg("Retrieved mods from file cache.")
 	} else {
-		log.Info().Msg("Fetching mods from Tarkov.dev API.")
+		log.Debug().Msg("Fetching mods from Tarkov.dev API.")
 		res, err := getModsFromTarkovDev(api)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get mods from Tarkov.dev API.")
 			return err
 		}
 		mods = res
-		log.Info().Msg("Retrieved mods from Tarkov.dev API..")
+		log.Debug().Msg("Retrieved mods from Tarkov.dev API..")
 
-		log.Info().Msgf("Storing %d mods in file cache.", len(mods))
+		log.Debug().Msgf("Storing %d mods in file cache.", len(mods))
 		err = updateModFileCache(modCache, mods)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to store mods in file cache.")
 			return err
 		}
-		log.Info().Msgf("Added all %d mods to file cache.", len(mods))
+		log.Debug().Msgf("Added all %d mods to file cache.", len(mods))
 	}
 
 	if cli.GetFlags().CacheOnly {
-		log.Info().Msg("--cache-only was provided - Not persisting mods in db.")
+		log.Debug().Msg("--cache-only was provided - Not persisting mods in db.")
 		return nil
 	}
 
-	log.Info().Msg("Beginning db transaction.")
+	log.Debug().Msg("Beginning db transaction.")
 	tx, err := db.Conn.Begin()
 	if err != nil {
-		log.Info().Err(err).Msg("Failed to begin db transaction.")
+		log.Debug().Err(err).Msg("Failed to begin db transaction.")
 		return err
 	}
 
-	log.Info().Msgf("Importing %d mods", len(mods))
+	log.Debug().Msgf("Importing %d mods", len(mods))
 	err = models.UpsertManyMod(tx, mods)
 	if err != nil {
 		if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -78,7 +78,7 @@ func ImportMods(db *db.Database, api *tarkovdev.Api) error {
 		return err
 	}
 
-	log.Info().Msg("All mods imported, committing transaction.")
+	log.Debug().Msg("All mods imported, committing transaction.")
 	err = tx.Commit()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to commit transaction.")
@@ -98,7 +98,7 @@ func getModsFromTarkovDev(api *tarkovdev.Api) ([]models.WeaponMod, error) {
 	weaponMods := make([]models.WeaponMod, 0, len(res.Items))
 
 	for i := 0; i < len(res.Items); i++ {
-		log.Info().Msgf("Importing weapon mod %s", res.Items[i].Name)
+		log.Debug().Msgf("Importing weapon mod %s", res.Items[i].Name)
 		mod := res.Items[i]
 		newMod := models.WeaponMod{
 			ID:                 mod.Id,
@@ -118,7 +118,7 @@ func getModsFromTarkovDev(api *tarkovdev.Api) ([]models.WeaponMod, error) {
 				return nil, err
 			}
 		default:
-			log.Info().Msgf("unsupported mod properties type: %T - skipping", mod.Properties)
+			log.Debug().Msgf("unsupported mod properties type: %T - skipping", mod.Properties)
 		}
 
 		newMod.Slots = slots
@@ -163,7 +163,7 @@ func updateModFileCache(modCache cache.FileCache, mods []models.WeaponMod) error
 			log.Error().Err(err).Msgf("Failed to store mod in file cache %v", mods[i])
 			return err
 		}
-		log.Info().Msgf("Mod stored in file cache: %v", mods[i])
+		log.Debug().Msgf("Mod stored in file cache: %v", mods[i])
 	}
 	return nil
 }

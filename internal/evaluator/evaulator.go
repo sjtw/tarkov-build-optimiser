@@ -15,7 +15,7 @@ func GenerateOptimumWeaponBuilds(db *sql.DB, weapon Item, constraints models.Eva
 	subtreeGetter := CreatePgSubtreeGetter(db)
 	evaluator := CreateEvaluator(traderOfferGetter, buildSaver, subtreeGetter)
 
-	log.Info().Msgf("Evaluating recoil for %s", weapon.ID)
+	log.Debug().Msgf("Evaluating recoil for %s", weapon.ID)
 	_, err := evaluator.evaluate(&weapon, "recoil", constraints)
 	if err != nil {
 		return err
@@ -52,6 +52,18 @@ func CreateWeaponPossibilityTree(db *sql.DB, id string) (*Item, error) {
 	}
 
 	return weapon, nil
+}
+
+type SubtreeGetter interface {
+	Get(itemId string, buildType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error)
+}
+
+type TraderOfferGetter interface {
+	Get(itemID string) ([]models.TraderOffer, error)
+}
+
+type BuildSaver interface {
+	Save(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints, isSubtree bool) error
 }
 
 type Evaluator struct {
@@ -97,12 +109,12 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 	}
 
 	if preEvaluatedItem != nil {
-		log.Info().Msgf("Optimal [%s] evaluation for item [%s] already evaluated. returning.", outItem.EvaluationType, item.ID)
+		log.Debug().Msgf("Optimal [%s] evaluation for item [%s] already evaluated. returning.", outItem.EvaluationType, item.ID)
 		return preEvaluatedItem, nil
 	}
 
 	for i := 0; i < len(item.Slots); i++ {
-		log.Info().Msgf("Evaluating slot %d for item [%s]", i, item.ID)
+		log.Debug().Msgf("Evaluating slot %d for item [%s]", i, item.ID)
 
 		outSlot := &models.SlotEvaluationResult{
 			ID:   item.Slots[i].ID,
@@ -113,7 +125,7 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		slotErgo := 0
 		slotRecoil := 0
 		for j := 0; j < len(item.Slots[i].AllowedItems); j++ {
-			log.Info().Msgf("Evaluating slot %d for item [%s]", j, item.ID)
+			log.Debug().Msgf("Evaluating slot %d for item [%s]", j, item.ID)
 			ai := item.Slots[i].AllowedItems[j]
 			offers, err := e.traderOfferGetter.Get(ai.ID)
 			if err != nil {
@@ -123,47 +135,47 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 
 			valid := validateConstraints(offers, constraints)
 			if valid != true {
-				log.Info().Msg("item does not meet build constraints, skipping")
+				log.Debug().Msg("item does not meet build constraints, skipping")
 				continue
 			}
 
 			highestItem, err := e.evaluate(ai, evaluationType, constraints)
 			if err != nil {
-				log.Info().Msg("Failed to evaluate highest item")
+				log.Debug().Msg("Failed to evaluate highest item")
 				return nil, err
 			}
 
 			recoilSum := highestItem.RecoilSum
 			ergoSum := highestItem.ErgonomicsSum
 
-			log.Info().Msgf("Evaluation type %s", evaluationType)
+			log.Debug().Msgf("Evaluation type %s", evaluationType)
 			if evaluationType == "ergonomics" {
 				if ergoSum > slotErgo {
-					log.Info().Msgf("item %v IS new highest sum", highestItem)
+					log.Debug().Msgf("item %v IS new highest sum", highestItem)
 					slotErgo = ergoSum
 					slotRecoil = recoilSum
 					outSlot.Item = highestItem
 				} else if outSlot.Item == nil && recoilSum < slotRecoil {
-					log.Info().Msgf("Item %v does not improve ergonomics, but improves recoil over empty slot.", highestItem)
+					log.Debug().Msgf("Item %v does not improve ergonomics, but improves recoil over empty slot.", highestItem)
 					slotErgo = ergoSum
 					slotRecoil = recoilSum
 					outSlot.Item = highestItem
 				} else {
-					log.Info().Msgf("item %v does not improve stats", highestItem)
+					log.Debug().Msgf("item %v does not improve stats", highestItem)
 				}
 			} else if evaluationType == "recoil" {
 				if recoilSum < slotRecoil {
-					log.Info().Msgf("item %v IS new highest sum", highestItem)
+					log.Debug().Msgf("item %v IS new highest sum", highestItem)
 					slotErgo = ergoSum
 					slotRecoil = recoilSum
 					outSlot.Item = highestItem
 				} else if outSlot.Item == nil && ergoSum > slotErgo {
-					log.Info().Msgf("Item %v does not improve recoil, but improves ergo over empty slot.", highestItem)
+					log.Debug().Msgf("Item %v does not improve recoil, but improves ergo over empty slot.", highestItem)
 					slotErgo = ergoSum
 					slotRecoil = recoilSum
 					outSlot.Item = highestItem
 				} else {
-					log.Info().Msgf("item %v does not improve stats", highestItem)
+					log.Debug().Msgf("item %v does not improve stats", highestItem)
 				}
 			} else {
 				msg := fmt.Sprintf("Invalid evaluation type [%s]", evaluationType)
@@ -183,7 +195,7 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		return nil, err
 	}
 
-	log.Info().Msgf("Output item %v", outItem)
+	log.Debug().Msgf("Output item %v", outItem)
 
 	return outItem, nil
 }

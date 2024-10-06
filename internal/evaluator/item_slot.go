@@ -92,6 +92,11 @@ func (slot *ItemSlot) PopulateAllowedItems(db *sql.DB) error {
 			return nil
 		}
 
+		// if the mod has no effect on recoil or ergonomics, we don't care about it
+		if modProperties.RecoilModifier == 0 && modProperties.ErgonomicsModifier == 0 {
+			continue
+		}
+
 		allowedItem := &Item{
 			ID:                 item.ID,
 			Name:               item.Name,
@@ -111,7 +116,7 @@ func (slot *ItemSlot) PopulateAllowedItems(db *sql.DB) error {
 				return err
 			}
 		} else {
-			log.Info().Msgf("Not adding item: %s to slot: %s - would result in recursion", allowedItem.ID, slot.ID)
+			log.Debug().Msgf("Not adding item: %s to slot: %s - would result in recursion", allowedItem.ID, slot.ID)
 		}
 	}
 

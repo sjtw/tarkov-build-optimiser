@@ -46,7 +46,7 @@ func UpsertManyMod(tx *sql.Tx, mods []WeaponMod) error {
 			log.Error().Err(err).Msgf("Failed to upsert mod: %v", mods[i])
 			return err
 		}
-		log.Info().Msgf("Upserted mod: ID: %s, Name: %s", mods[i].ID, mods[i].Name)
+		log.Debug().Msgf("Upserted mod: ID: %s, Name: %s", mods[i].ID, mods[i].Name)
 	}
 	return nil
 }

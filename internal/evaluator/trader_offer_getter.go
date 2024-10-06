@@ -5,15 +5,11 @@ import (
 	"tarkov-build-optimiser/internal/models"
 )
 
-type TraderOfferGetter interface {
-	Get(itemID string) ([]models.TraderOffer, error)
-}
-
 type PgTraderOfferGetter struct {
 	db *sql.DB
 }
 
-func CreatePgTraderOfferGetter(db *sql.DB) TraderOfferGetter {
+func CreatePgTraderOfferGetter(db *sql.DB) *PgTraderOfferGetter {
 	return &PgTraderOfferGetter{
 		db: db,
 	}

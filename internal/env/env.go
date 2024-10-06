@@ -41,7 +41,7 @@ func Get() (Env, error) {
 		Environment: os.Getenv("ENVIRONMENT"),
 	}
 
-	log.Info().
+	log.Debug().
 		Str("PgHost", env.PgHost).
 		Str("PgPort", env.PgPort).
 		Str("PgName", env.PgName).

@@ -6,38 +6,26 @@ import (
 )
 
 type Flags struct {
-	PurgeCache bool
-	UseCache   bool
-	CacheOnly  bool
-}
-
-func constructFlags() Flags {
-	return Flags{
-		PurgeCache: false,
-		UseCache:   false,
-		CacheOnly:  false,
-	}
+	PurgeCache         bool
+	UseCache           bool
+	CacheOnly          bool
+	PurgeOptimumBuilds bool
 }
 
 func GetFlags() Flags {
-	flags := constructFlags()
-	if HasFlag("--purge-cache") {
+	flags := Flags{}
+	if helpers.ContainsStr(os.Args, "--purge-cache") {
 		flags.PurgeCache = true
 	}
-	if HasFlag("--use-cache") {
+	if helpers.ContainsStr(os.Args, "--use-cache") {
 		flags.UseCache = true
 	}
-	if HasFlag("--cache-only") {
+	if helpers.ContainsStr(os.Args, "--cache-only") {
 		flags.CacheOnly = true
+	}
+	if helpers.ContainsStr(os.Args, "--purge-optimum-builds") {
+		flags.PurgeOptimumBuilds = true
 	}
 
 	return flags
-}
-
-func HasFlag(flag string) bool {
-	if helpers.ContainsStr(os.Args, flag) {
-		return true
-	}
-
-	return false
 }

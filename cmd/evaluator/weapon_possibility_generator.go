@@ -13,20 +13,22 @@ type WeaponPossibilityResult struct {
 }
 
 func generateWeaponPossibilities(db *sql.DB, weaponIds []string, workerCount int) (weapons []WeaponPossibilityResult) {
-	idChan := make(chan string, len(weaponIds))
-	resultChan := make(chan WeaponPossibilityResult, len(weaponIds))
+	weaponCount := len(weaponIds)
+
+	idChan := make(chan string, weaponCount)
+	resultChan := make(chan WeaponPossibilityResult, weaponCount)
 	doneChan := make(chan struct{})
 
 	for i := 0; i < workerCount; i++ {
-		log.Info().Msgf("Creating possibility generation worker %d", i)
+		log.Debug().Msgf("Creating possibility generation worker %d", i)
 		go weaponPossibilityWorker(db, idChan, resultChan, doneChan, i)
 	}
 
-	log.Info().Msgf("Queuing weapons for possibility generation")
-	for i := 0; i < len(weaponIds); i++ {
+	log.Debug().Msgf("Queuing weapons for possibility generation")
+	for i := 0; i < weaponCount; i++ {
 		idChan <- weaponIds[i]
 	}
-	log.Info().Msgf("Queued %d weaponIds.", len(weaponIds))
+	log.Debug().Msgf("Queued %d weaponIds.", weaponCount)
 
 	close(idChan)
 
@@ -35,12 +37,19 @@ func generateWeaponPossibilities(db *sql.DB, weaponIds []string, workerCount int
 			<-doneChan
 		}
 		close(resultChan)
+		close(doneChan)
 	}()
 
-	results := make([]WeaponPossibilityResult, len(weaponIds))
-	log.Info().Msg("Collecting possibility generation results.")
+	results := make([]WeaponPossibilityResult, 0, weaponCount)
+	log.Debug().Msg("Collecting possibility generation results.")
+	count := 0
 	for result := range resultChan {
+		if count%10 == 0 {
+			log.Info().Msgf("Generated %d weapon possibilities, %d remaining.", count, weaponCount-count)
+		}
+
 		results = append(results, result)
+		count++
 	}
 
 	return results
@@ -48,7 +57,7 @@ func generateWeaponPossibilities(db *sql.DB, weaponIds []string, workerCount int
 
 func weaponPossibilityWorker(db *sql.DB, weaponIds <-chan string, resultsChan chan<- WeaponPossibilityResult, doneChan chan<- struct{}, id int) {
 	for weaponId := range weaponIds {
-		log.Info().Msgf("[Worker %d] Creating possibility tree for %s", id, weaponId)
+		log.Debug().Msgf("[Worker %d] Creating possibility tree for %s", id, weaponId)
 		weapon, err := evaluator.CreateWeaponPossibilityTree(db, weaponId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to generate weapon builds for %s", weaponId)
@@ -60,7 +69,7 @@ func weaponPossibilityWorker(db *sql.DB, weaponIds <-chan string, resultsChan ch
 			continue
 		}
 
-		log.Info().Msgf("[Worker %d] Finished possibility tree for %s", id, weaponId)
+		log.Debug().Msgf("[Worker %d] Finished possibility tree for %s", id, weaponId)
 
 		resultsChan <- WeaponPossibilityResult{
 			Id:   weaponId,

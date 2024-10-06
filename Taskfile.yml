@@ -69,6 +69,11 @@ tasks:
     deps: [evaluator:build]
     cmd: ./bin/evaluator
 
+  evaluator:start:purge:
+    desc: Evaluate best ergo & recoil builds for all weapons & mods in db, purging existing data
+    deps: [evaluator:build]
+    cmd: ./bin/evaluator --purge-optimum-builds
+
   lint:
     desc: Run linter
     cmd: golangci-lint run

@@ -5,10 +5,6 @@ import (
 	"tarkov-build-optimiser/internal/models"
 )
 
-type SubtreeGetter interface {
-	Get(itemId string, buildType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error)
-}
-
 type PgSubtreeGetter struct {
 	db *sql.DB
 }
@@ -22,7 +18,7 @@ func (sg *PgSubtreeGetter) Get(itemId string, buildType string, constraints mode
 	return subtree, nil
 }
 
-func CreatePgSubtreeGetter(db *sql.DB) SubtreeGetter {
+func CreatePgSubtreeGetter(db *sql.DB) *PgSubtreeGetter {
 	return &PgSubtreeGetter{
 		db: db,
 	}

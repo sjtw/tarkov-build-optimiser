@@ -29,39 +29,39 @@ func ImportWeapons(db *db.Database, api *tarkovdev.Api) error {
 
 	var weapons []models.Weapon
 	if cli.GetFlags().UseCache {
-		log.Info().Msg("--use-cache provided - pulling weapons from file cache.")
+		log.Debug().Msg("--use-cache provided - pulling weapons from file cache.")
 		data, err := getWeaponsFromCache(weaponsCache)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get weapons from file cache.")
 			return err
 		}
-		log.Info().Msg("Retrieved weapons from file cache.")
+		log.Debug().Msg("Retrieved weapons from file cache.")
 		weapons = data
 	} else {
-		log.Info().Msg("Fetching weapons from Tarkov.dev API.")
+		log.Debug().Msg("Fetching weapons from Tarkov.dev API.")
 		res, err := getWeaponsFromTarkovDev(api)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get weapons from Tarkov.dev API.")
 			return err
 		}
-		log.Info().Msg("Retrieved weapons from Tarkov.dev API..")
+		log.Debug().Msg("Retrieved weapons from Tarkov.dev API..")
 		weapons = res
 
-		log.Info().Msg("Updating weapon file cache with weapons from Tarkov.dev.")
+		log.Debug().Msg("Updating weapon file cache with weapons from Tarkov.dev.")
 		err = updateWeaponFileCache(weaponsCache, weapons)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to update weapon cache with weapons from Tarkov.dev.")
 			return err
 		}
-		log.Info().Msgf("Added weapon %d to file cache.", len(weapons))
+		log.Debug().Msgf("Added weapon %d to file cache.", len(weapons))
 	}
 
 	if cli.GetFlags().CacheOnly {
-		log.Info().Msg("--cache-only was provided - Not persisting weapons in db.")
+		log.Debug().Msg("--cache-only was provided - Not persisting weapons in db.")
 		return nil
 	}
 
-	log.Info().Msg("Beginning transaction.")
+	log.Debug().Msg("Beginning transaction.")
 	tx, err := db.Conn.Begin()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to begin transaction.")
@@ -131,7 +131,7 @@ func getWeaponsFromTarkovDev(api *tarkovdev.Api) ([]models.Weapon, error) {
 
 	weapons := make([]models.Weapon, 0, len(res.Items))
 	for i := 0; i < len(res.Items); i++ {
-		log.Info().Msgf("Importing weapon %s", res.Items[i].Name)
+		log.Debug().Msgf("Importing weapon %s", res.Items[i].Name)
 
 		weapon := res.Items[i]
 		newWeapon := models.Weapon{
@@ -155,7 +155,7 @@ func getWeaponsFromTarkovDev(api *tarkovdev.Api) ([]models.Weapon, error) {
 					return nil, err
 				}
 			default:
-				log.Info().Msgf("unsupported weapon mod properties type: %T - skipping", weapon.Properties)
+				log.Debug().Msgf("unsupported weapon mod properties type: %T - skipping", weapon.Properties)
 			}
 
 			newWeapon.Slots = slots
@@ -169,7 +169,7 @@ func getWeaponsFromTarkovDev(api *tarkovdev.Api) ([]models.Weapon, error) {
 
 func updateWeaponFileCache(weaponsCache cache.FileCache, weapons []models.Weapon) error {
 	for i := 0; i < len(weapons); i++ {
-		log.Info().Msgf("Storing weapon %s in file cache", weapons[i].ID)
+		log.Debug().Msgf("Storing weapon %s in file cache", weapons[i].ID)
 		err := weaponsCache.Store(weapons[i].ID, weapons[i])
 		if err != nil {
 			return err

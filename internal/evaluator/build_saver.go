@@ -5,10 +5,6 @@ import (
 	"tarkov-build-optimiser/internal/models"
 )
 
-type BuildSaver interface {
-	Save(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints, isSubtree bool) error
-}
-
 type PgBuildSaver struct {
 	db *sql.DB
 }
@@ -22,7 +18,7 @@ func (bs *PgBuildSaver) Save(build *models.ItemEvaluationResult, constraints mod
 	return nil
 }
 
-func CreatePgBuildSaver(db *sql.DB) BuildSaver {
+func CreatePgBuildSaver(db *sql.DB) *PgBuildSaver {
 	return &PgBuildSaver{
 		db: db,
 	}

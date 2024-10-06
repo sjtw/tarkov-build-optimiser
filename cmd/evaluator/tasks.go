@@ -3,29 +3,57 @@ package main
 import (
 	"database/sql"
 	"github.com/rs/zerolog/log"
-	"sync"
 	"tarkov-build-optimiser/internal/evaluator"
 	"tarkov-build-optimiser/internal/models"
 )
 
-func processEvaluationTasks(db *sql.DB, tasks []Task, workerCount int) {
-	var wg sync.WaitGroup
-	taskChannel := make(chan Task, len(tasks))
+type EvaluationResult struct {
+	Task  Task
+	Ok    bool
+	Error error
+}
+
+func processEvaluationTasks(db *sql.DB, tasks []Task, workerCount int) []EvaluationResult {
+	taskCount := len(tasks)
+
+	taskChan := make(chan Task, len(tasks))
+	resultChan := make(chan EvaluationResult, taskCount)
+	doneChan := make(chan struct{})
 
 	for i := 0; i < workerCount; i++ {
-		log.Info().Msgf("Creating worker %d", i)
-		wg.Add(1)
-		go calculateBuilds(db, taskChannel, &wg, i)
+		log.Debug().Msgf("Creating worker %d", i)
+		go calculateBuilds(db, taskChan, resultChan, doneChan, i)
 	}
 
-	log.Info().Msgf("Queuing tasks")
+	log.Debug().Msgf("Queuing tasks")
 	for i := 0; i < len(tasks); i++ {
-		taskChannel <- tasks[i]
+		taskChan <- tasks[i]
 	}
-	log.Info().Msgf("Queued %d tasks", len(tasks))
+	log.Debug().Msgf("Queued %d tasks", len(tasks))
 
-	close(taskChannel)
-	wg.Wait()
+	close(taskChan)
+
+	go func() {
+		for i := 0; i < workerCount; i++ {
+			<-doneChan
+		}
+		close(resultChan)
+		close(doneChan)
+	}()
+
+	log.Debug().Msg("Collecting results")
+	count := 0
+	results := make([]EvaluationResult, 0, taskCount)
+	for result := range resultChan {
+		if count%1000 == 0 {
+			log.Info().Msgf("Generated %d weapon builds, %d remaining.", count, taskCount-count)
+		}
+
+		results = append(results, result)
+		count++
+	}
+
+	return results
 }
 
 type Task struct {
@@ -33,16 +61,30 @@ type Task struct {
 	Weapon      evaluator.Item
 }
 
-func calculateBuilds(db *sql.DB, tasks <-chan Task, wg *sync.WaitGroup, workerId int) {
-	defer wg.Done()
-
+func calculateBuilds(db *sql.DB, tasks <-chan Task, resultChan chan<- EvaluationResult, doneChan chan<- struct{}, workerId int) {
 	for task := range tasks {
-		log.Info().Msgf("[Worker %d] Processing evaluation task: %v", workerId, task)
+		log.Debug().Msgf("[Worker %d] Processing evaluation task: %v", workerId, task)
 		err := evaluator.GenerateOptimumWeaponBuilds(db, task.Weapon, task.Constraints)
 		if err != nil {
-			log.Error().Err(err).Msgf("Failed to generate weapon builds for %s", task.Weapon.ID)
+			log.Error().Err(err).Msgf("[Worker %d] Failed to generate weapon builds for %s", workerId, task.Weapon.ID)
+			resultChan <- EvaluationResult{
+				Task:  task,
+				Ok:    false,
+				Error: err,
+			}
+			continue
+		}
+
+		log.Debug().Msgf("[Worker %d] Finished possibility tree for %s", task.Weapon.ID, task.Constraints)
+
+		resultChan <- EvaluationResult{
+			Task:  task,
+			Ok:    true,
+			Error: nil,
 		}
 	}
+
+	doneChan <- struct{}{}
 }
 
 func createEvaluationTasks(weaponPossibilities []WeaponPossibilityResult) []Task {
@@ -63,11 +105,11 @@ func createEvaluationTasks(weaponPossibilities []WeaponPossibilityResult) []Task
 		w := weaponPossibilities[i]
 
 		if w.Ok == false || w.Item == nil {
-			log.Info().Msgf("Skipping %v - weapon possibility result is invalid.", w.Id)
+			log.Debug().Msgf("Skipping %v - weapon possibility result is invalid.", w.Id)
 			continue
 		}
 
-		log.Info().Msgf("Creating task variations for weapon %s", w.Id)
+		log.Debug().Msgf("Creating task variations for weapon %s", w.Id)
 
 		evaluatedWeapons = append(evaluatedWeapons, weaponPossibilities[i].Item)
 
