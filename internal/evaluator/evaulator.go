@@ -45,7 +45,7 @@ func CreateWeaponPossibilityTree(db *sql.DB, id string) (*Item, error) {
 		Type:               "weapon",
 	}
 
-	err = weapon.PopulateSlots(db)
+	err = weapon.PopulateSlots(db, []string{"Sight", "Ubgl"})
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to populate slots for weapon %s", w.ID)
 		return nil, err

@@ -78,7 +78,7 @@ func (slot *ItemSlot) GetAncestorItems() []*Item {
 	return append([]*Item{parentItem}, ancestorItems...)
 }
 
-func (slot *ItemSlot) PopulateAllowedItems(db *sql.DB) error {
+func (slot *ItemSlot) PopulateAllowedItems(db *sql.DB, ignoredSlotNames []string) error {
 	allowedItems, err := models.GetAllowedItemsBySlotID(db, slot.ID)
 	if err != nil {
 		return err
@@ -110,7 +110,7 @@ func (slot *ItemSlot) PopulateAllowedItems(db *sql.DB) error {
 		if slot.IsItemValidChild(allowedItem) {
 			// must add first - add child maintains the parent relationship
 			slot.AddChildItem(allowedItem)
-			err := allowedItem.PopulateSlots(db)
+			err := allowedItem.PopulateSlots(db, ignoredSlotNames)
 			if err != nil {
 				log.Error().Err(err).Msgf("Failed to populate slot %s with item: %s", slot.ID, item.ID)
 				return err

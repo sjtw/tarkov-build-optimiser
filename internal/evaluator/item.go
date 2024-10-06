@@ -57,7 +57,7 @@ func (item *Item) GetAncestorIds() []string {
 	return append([]string{parent.ID}, ancestors...)
 }
 
-func (item *Item) PopulateSlots(db *sql.DB) error {
+func (item *Item) PopulateSlots(db *sql.DB, ignoredSlotNames []string) error {
 	slots, err := models.GetSlotsByItemID(db, item.ID)
 	if err != nil {
 		return err
@@ -73,11 +73,13 @@ func (item *Item) PopulateSlots(db *sql.DB) error {
 		}
 		item.AddChildSlot(slot)
 
-		if slot.Name == "Scope" {
-			continue
+		for j := 0; j < len(ignoredSlotNames); j++ {
+			if slot.Name == ignoredSlotNames[j] {
+				continue
+			}
 		}
 
-		err := slot.PopulateAllowedItems(db)
+		err := slot.PopulateAllowedItems(db, ignoredSlotNames)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to populate slot %s", s.ID)
 			return err
