@@ -13,7 +13,6 @@ jobs:
 
   verify:
     runs-on: ubuntu-latest
-    environment: verify
 
     env:
       POSTGRES_USER: ${{ secrets.CI_POSTGRES_USER }}
