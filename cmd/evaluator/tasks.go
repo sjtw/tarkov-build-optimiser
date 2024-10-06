@@ -75,7 +75,7 @@ func calculateBuilds(db *sql.DB, tasks <-chan Task, resultChan chan<- Evaluation
 			continue
 		}
 
-		log.Debug().Msgf("[Worker %d] Finished possibility tree for %s", task.Weapon.ID, task.Constraints)
+		log.Debug().Msgf("[Worker %d] Finished possibility tree for %s, %v", workerId, task.Weapon.ID, task.Constraints)
 
 		resultChan <- EvaluationResult{
 			Task:  task,
