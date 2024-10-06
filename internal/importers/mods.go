@@ -118,7 +118,7 @@ func getModsFromTarkovDev(api *tarkovdev.Api) ([]models.WeaponMod, error) {
 				return nil, err
 			}
 		default:
-			fmt.Printf("unsupported mod properties type: %T - skipping", mod.Properties)
+			log.Info().Msgf("unsupported mod properties type: %T - skipping", mod.Properties)
 		}
 
 		newMod.Slots = slots

@@ -1,15 +1,64 @@
-version: "3.8"
-
 services:
   postgres:
     image: postgres
+    container_name: tarkov-build-optimiser-postgres
     restart: always
     environment:
-      POSTGRES_HOST: ${POSTGRES_HOST}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - ./.docker-volumes:/var/lib/postgresql/data
+      - ~/.docker-volumes:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+
+  migrations:
+    build:
+      context: .
+      dockerfile: docker/migrations.Dockerfile
+    container_name: tarkov-build-optimiser-migrations
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: no
+
+  importer:
+    build:
+      context: .
+      dockerfile: docker/importer.Dockerfile
+    container_name: tarkov-build-optimiser-importer
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+    restart: no
+
+
+  evaluator:
+    build:
+      context: .
+      dockerfile: docker/evaluator.Dockerfile
+    container_name: tarkov-build-optimiser-evaluator
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    depends_on:
+      importer:
+        condition: service_completed_successfully
+    restart: no

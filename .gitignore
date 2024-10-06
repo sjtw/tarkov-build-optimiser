@@ -1,10 +1,8 @@
-# Ignore directories
 .docker-volumes/
 bin/
 file-caches/
 .idea
-
-# Ignore files
+**/__debug_bin*
 *.log
 *.tmp
-
+**/*-cache.json
