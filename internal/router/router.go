@@ -3,7 +3,6 @@ package router
 import (
 	"tarkov-build-optimiser/internal/db"
 	itemsrouter "tarkov-build-optimiser/internal/router/items"
-	usersrouter "tarkov-build-optimiser/internal/router/users"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -25,7 +24,6 @@ func NewRouter(config Config) *echo.Echo {
 		return c.String(200, "Hello, World!")
 	})
 
-	usersrouter.Bind(api.Group("/users"))
 	itemsrouter.Bind(api.Group("/items"), config.DB.Conn)
 
 	return e

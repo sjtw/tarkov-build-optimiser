@@ -16,6 +16,11 @@ type Weapon struct {
 	Slots              []Slot `json:"slots"`
 }
 
+type WeaponShort struct {
+	ID   string `json:"item_id"`
+	Name string `json:"name"`
+}
+
 func UpsertWeapon(tx *sql.Tx, weapon Weapon) error {
 	query := `INSERT INTO weapons (
 			item_id,
@@ -126,6 +131,29 @@ func GetAllWeaponIds(db *sql.DB) ([]string, error) {
 	}
 
 	return ids, nil
+}
+
+func GetWeaponsShort(db *sql.DB) ([]WeaponShort, error) {
+	query := `select item_id, name from weapons;`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var weapons []WeaponShort
+	for rows.Next() {
+		weapon := WeaponShort{}
+		err := rows.Scan(&weapon.ID, &weapon.Name)
+		if err != nil {
+			return nil, err
+		}
+		weapons = append(weapons, weapon)
+	}
+
+	return weapons, nil
 }
 
 func GetWeapons(db *sql.DB) ([]Weapon, error) {

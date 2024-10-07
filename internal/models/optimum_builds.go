@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -45,6 +46,21 @@ func constraintsToTraderMap(constraints EvaluationConstraints) map[string]int {
 	}
 
 	return tradersMap
+}
+
+// TODO: stop using []TraderLevel and use map[string]int instead
+func TraderMapToTraderLevels(tradersMap map[string]int) []TraderLevel {
+	levels := []TraderLevel{}
+
+	for i := 0; i < len(TraderNames); i++ {
+		traderLevel := TraderLevel{
+			Name:  TraderNames[i],
+			Level: tradersMap[TraderNames[i]],
+		}
+		levels = append(levels, traderLevel)
+	}
+
+	return levels
 }
 
 func SerialiseLevels(levels []TraderLevel) string {
@@ -113,22 +129,22 @@ func UpsertOptimumBuild(db *sql.DB, build *ItemEvaluationResult, constraints Eva
 	return nil
 }
 
-func GetEvaluatedSubtree(db *sql.DB, itemId string, buildType string, constraints EvaluationConstraints) (*ItemEvaluationResult, error) {
+func GetEvaluatedSubtree(ctx context.Context, db *sql.DB, itemId string, buildType string, constraints EvaluationConstraints) (*ItemEvaluationResult, error) {
 	tradersMap := constraintsToTraderMap(constraints)
 
 	query := `
 		SELECT
 			build
 		FROM optimum_builds
-		where is_subtree = true
-			and item_id = $1
+		where item_id = $1
 			and build_type = $2
 			and jaeger_level = $3
 			and prapor_level = $4
 			and peacekeeper_level = $5
 			and mechanic_level = $6
 			and skier_level = $7;`
-	rows, err := db.Query(
+	rows, err := db.QueryContext(
+		ctx,
 		query,
 		itemId,
 		buildType,
@@ -165,6 +181,64 @@ func GetEvaluatedSubtree(db *sql.DB, itemId string, buildType string, constraint
 
 	if len(results) > 1 {
 		msg := fmt.Sprintf("Multiple Evaluated Subtrees found for: itemId: %s, buildType: %s, constraints: %v", itemId, buildType, constraints)
+		return nil, errors.New(msg)
+	}
+
+	return &results[0], nil
+}
+
+func GetOptimumBuild(db *sql.DB, itemId string, buildType string, constraints EvaluationConstraints) (*ItemEvaluationResult, error) {
+	tradersMap := constraintsToTraderMap(constraints)
+
+	query := `
+		SELECT
+			build
+		FROM optimum_builds
+		WHERE is_subtree = false
+			AND item_id = $1
+			AND build_type = $2
+			AND jaeger_level = $3
+			AND prapor_level = $4
+			AND peacekeeper_level = $5
+			AND mechanic_level = $6
+			AND skier_level = $7;`
+	rows, err := db.Query(
+		query,
+		itemId,
+		buildType,
+		tradersMap["Jaeger"],
+		tradersMap["Prapor"],
+		tradersMap["Peacekeeper"],
+		tradersMap["Mechanic"],
+		tradersMap["Skier"],
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []ItemEvaluationResult
+	for rows.Next() {
+		result := ItemEvaluationResult{}
+		var build string
+		err := rows.Scan(&build)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := json.Unmarshal([]byte(build), &result); err != nil {
+			return nil, err
+		}
+
+		results = append(results, result)
+	}
+
+	if len(results) == 0 {
+		return nil, nil
+	}
+
+	if len(results) > 1 {
+		msg := fmt.Sprintf("Multiple Optimum Builds found for: itemId: %s, buildType: %s, constraints: %v", itemId, buildType, constraints)
 		return nil, errors.New(msg)
 	}
 

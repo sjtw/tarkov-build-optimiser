@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"github.com/rs/zerolog/log"
@@ -111,7 +112,8 @@ func (tds *DataService) GetSubtree(itemId string, buildType string, constraints 
 		return build, nil
 	}
 
-	subtree, err := models.GetEvaluatedSubtree(tds.db, itemId, buildType, constraints)
+	ctx := context.Background()
+	subtree, err := models.GetEvaluatedSubtree(ctx, tds.db, itemId, buildType, constraints)
 	if err != nil {
 		return nil, err
 	}

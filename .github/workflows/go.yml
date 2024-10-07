@@ -57,6 +57,9 @@ jobs:
     - name: Build Evaluator
       run: task evaluator:build
 
+    - name: Build API
+      run: task api:build
+
     - name: Wait for PostgreSQL to be ready
       run: |
         for i in {1..30}; do
