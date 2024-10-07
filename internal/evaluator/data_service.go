@@ -3,6 +3,7 @@ package evaluator
 import (
 	"database/sql"
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"sync"
 	"tarkov-build-optimiser/internal/models"
 )
@@ -84,13 +85,21 @@ func serialiseBuildKey(itemId string, buildType string, constraints models.Evalu
 	return fmt.Sprintf("%s-%s-%s", itemId, buildType, serialisedTraderConstraints)
 }
 
-func (tds *DataService) SaveBuild(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints) error {
+func (tds *DataService) SaveBuild(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints) {
 	key := serialiseBuildKey(build.ID, build.EvaluationType, constraints)
 	tds.evalResultMu.Lock()
 	tds.evalResultCache[key] = build
 	tds.evalResultMu.Unlock()
 
-	return models.UpsertOptimumBuild(tds.db, build, constraints)
+	// We don't want to block the main evaluation thread, so we'll save the build in a goroutine
+	// I'm sure it can be done more elegantly but rn if it fails it's not the end of the world
+	// we just have to calculate it again sometime...
+	go func() {
+		err := models.UpsertOptimumBuild(tds.db, build, constraints)
+		if err != nil {
+			log.Warn().Err(err).Msgf("Failed to save build: %v", build)
+		}
+	}()
 }
 
 func (tds *DataService) GetSubtree(itemId string, buildType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error) {

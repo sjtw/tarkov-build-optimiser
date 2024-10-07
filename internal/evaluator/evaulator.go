@@ -13,7 +13,7 @@ type Data struct {
 type EvaluationDataProvider interface {
 	GetSubtree(itemId string, buildType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error)
 	GetTraderOffer(itemID string) ([]models.TraderOffer, error)
-	SaveBuild(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints) error
+	SaveBuild(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints)
 }
 
 type Task struct {
@@ -150,12 +150,7 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		outItem.ErgonomicsSum += slotErgo
 	}
 
-	go func(out models.ItemEvaluationResult, constraints models.EvaluationConstraints) {
-		err = e.dataService.SaveBuild(&out, constraints)
-		if err != nil {
-			log.Error().Err(err).Msgf("Failed to save evaluation result for item: %s", outItem.ID)
-		}
-	}(*outItem, constraints)
+	e.dataService.SaveBuild(outItem, constraints)
 
 	log.Debug().Msgf("Output item %v", outItem)
 
