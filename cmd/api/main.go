@@ -1,14 +1,21 @@
 package main
 
 import (
+	"github.com/rs/zerolog/log"
 	"tarkov-build-optimiser/internal/db"
+	"tarkov-build-optimiser/internal/env"
 	"tarkov-build-optimiser/internal/router"
 )
 
 func main() {
-	dbClient, err := db.CreateBuildOptimiserDBClient()
+	environment, err := env.Get()
 	if err != nil {
-		panic(err)
+		log.Fatal().Err(err).Msg("Failed to get environment variables")
+	}
+
+	dbClient, err := db.CreateBuildOptimiserDBClient(environment)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to connect to db")
 	}
 
 	cfg := router.Config{DB: dbClient}

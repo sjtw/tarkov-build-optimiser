@@ -8,12 +8,7 @@ import (
 
 // CreateBuildOptimiserDBClient helper to create db connection to the pg db
 // using the current env
-func CreateBuildOptimiserDBClient() (*Database, error) {
-	e, err := env.Get()
-	if err != nil {
-		return nil, err
-	}
-
+func CreateBuildOptimiserDBClient(e env.Env) (*Database, error) {
 	log.Debug().Msg("connecting to database")
 	db, err := NewDatabase(Config{
 		Host:     e.PgHost,

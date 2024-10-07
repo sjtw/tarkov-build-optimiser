@@ -3,6 +3,7 @@ package models_test
 import (
 	"database/sql"
 	"tarkov-build-optimiser/internal/db"
+	"tarkov-build-optimiser/internal/env"
 	"tarkov-build-optimiser/internal/helpers"
 	"tarkov-build-optimiser/internal/models"
 	"testing"
@@ -39,7 +40,11 @@ func reset(db *sql.DB) {
 
 // TODO: Model tests should use a separate DB instance
 func TestCreateAndGetWeapon(t *testing.T) {
-	dbClient, err := db.CreateBuildOptimiserDBClient()
+	environment, err := env.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbClient, err := db.CreateBuildOptimiserDBClient(environment)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect to database")
 	}

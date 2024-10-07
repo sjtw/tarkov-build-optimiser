@@ -1,11 +1,17 @@
 package db
 
 import (
+	"tarkov-build-optimiser/internal/env"
 	"testing"
 )
 
 func TestBuildOptimiserDbConn(t *testing.T) {
-	db, err := CreateBuildOptimiserDBClient()
+	environment, err := env.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	db, err := CreateBuildOptimiserDBClient(environment)
 	if err != nil {
 		t.Fatal(err)
 	}

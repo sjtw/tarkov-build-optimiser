@@ -20,9 +20,8 @@ type WeaponPossibilityResult struct {
 	Ok   bool
 }
 
-func processEvaluationTasks(dataProvider evaluator.EvaluationDataProvider, tasks []evaluator.Task) []EvaluationResult {
+func processEvaluationTasks(dataProvider evaluator.EvaluationDataProvider, tasks []evaluator.Task, workerCount int) []EvaluationResult {
 	ev := evaluator.CreateEvaluator(dataProvider)
-	workerCount := 1000
 	taskChan := make(chan evaluator.Task, len(tasks))
 	wg := sync.WaitGroup{}
 
@@ -115,7 +114,8 @@ func createWeaponPossibilities(weaponIds []string, dataProvider evaluator.TreeDa
 	for i := 0; i < len(weaponIds); i++ {
 		weapon, err := evaluator.ConstructWeaponTree(weaponIds[i], dataProvider)
 		if err != nil {
-			log.Error().Err(err).Msgf("Failed to create weapon tree for %s", weaponIds[i])
+			log.Error().Err(err).Msgf("Failed to create weapon tree for %s. Skipping", weaponIds[i])
+			continue
 		}
 
 		results = append(results, WeaponPossibilityResult{
