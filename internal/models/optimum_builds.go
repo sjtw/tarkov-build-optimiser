@@ -47,7 +47,16 @@ func constraintsToTraderMap(constraints EvaluationConstraints) map[string]int {
 	return tradersMap
 }
 
-func UpsertOptimumBuild(db *sql.DB, build *ItemEvaluationResult, constraints EvaluationConstraints, isSubtree bool) error {
+func SerialiseLevels(levels []TraderLevel) string {
+	str := ""
+	for i := 0; i < len(levels); i++ {
+		str += fmt.Sprintf("%s-%d", levels[i].Name, levels[i].Level)
+	}
+
+	return str
+}
+
+func UpsertOptimumBuild(db *sql.DB, build *ItemEvaluationResult, constraints EvaluationConstraints) error {
 	serialisedBuild, err := json.Marshal(build)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to marshal build")
@@ -74,7 +83,6 @@ func UpsertOptimumBuild(db *sql.DB, build *ItemEvaluationResult, constraints Eva
 		ON CONFLICT (
 		    item_id,
 		    build_type,
-		    is_subtree,
 		    jaeger_level,
 		    prapor_level,
 		    peacekeeper_level,
@@ -89,7 +97,7 @@ func UpsertOptimumBuild(db *sql.DB, build *ItemEvaluationResult, constraints Eva
 		build.ID,
 		serialisedBuild,
 		build.EvaluationType,
-		isSubtree,
+		build.IsSubtree,
 		build.RecoilSum,
 		build.ErgonomicsSum,
 		build.Name,

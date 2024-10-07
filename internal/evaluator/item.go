@@ -56,7 +56,7 @@ func (item *Item) GetAncestorIds() []string {
 	return append([]string{parent.ID}, ancestors...)
 }
 
-func (item *Item) PopulateSlots(ignoredSlotNames []string) error {
+func (item *Item) PopulateSlots() error {
 	slots, err := item.RootWeaponTree.dataService.GetSlotsByItemID(item.ID)
 	if err != nil {
 		return err
@@ -66,15 +66,9 @@ func (item *Item) PopulateSlots(ignoredSlotNames []string) error {
 		s := slots[i]
 		slot := ConstructSlot(s.ID, s.Name, item.RootWeaponTree)
 
-		for j := 0; j < len(ignoredSlotNames); j++ {
-			if slot.Name == ignoredSlotNames[j] {
-				continue
-			}
-		}
-
 		item.AddChildSlot(slot)
 
-		err := slot.PopulateAllowedItems(ignoredSlotNames)
+		err := slot.PopulateAllowedItems()
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to populate slot %s", s.ID)
 			return err

@@ -3,9 +3,9 @@ package main
 import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"runtime"
 	"tarkov-build-optimiser/internal/cli"
 	"tarkov-build-optimiser/internal/db"
+	"tarkov-build-optimiser/internal/evaluator"
 	"tarkov-build-optimiser/internal/models"
 )
 
@@ -33,8 +33,8 @@ func main() {
 		log.Info().Msg("Using test weapon IDs")
 		weaponIds = []string{
 			"5447a9cd4bdc2dbd208b4567",
-			"5448bd6b4bdc2dfc2f8b4569",
-			"54491c4f4bdc2db1078b4568",
+			//"5448bd6b4bdc2dfc2f8b4569",
+			//"54491c4f4bdc2db1078b4568",
 		}
 	} else {
 		log.Info().Msg("Fetching weapon IDs")
@@ -46,29 +46,15 @@ func main() {
 
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
 
-	maxWorkerCount := runtime.NumCPU() * 100
-	var workerCount int
-	if len(weaponIds) > maxWorkerCount {
-		workerCount = maxWorkerCount
-	} else {
-		workerCount = len(weaponIds)
-	}
-
-	log.Info().Msgf("Worker pool size: %d", workerCount)
-	weaponPossibilities := generateWeaponPossibilities(dbClient.Conn, weaponIds, workerCount)
+	dataService := evaluator.CreateDataService(dbClient.Conn)
+	weaponPossibilities := createWeaponPossibilities(weaponIds, dataService)
 	log.Info().Msgf("Generated %d weapon possibility trees.", len(weaponPossibilities))
-	log.Info().Msg("Creating evaluation tasks.")
 
-	tasks := createEvaluationTasks(weaponPossibilities)
+	log.Info().Msg("Creating evaluation tasks.")
+	tasks := createEvaluationTasks(weaponPossibilities, []string{"recoil", "ergonomics"})
 	log.Info().Msgf("Scheduled %d evaluation tasks.", len(tasks))
-	if len(tasks) > maxWorkerCount {
-		workerCount = maxWorkerCount
-	} else {
-		workerCount = len(tasks)
-	}
-	log.Info().Msgf("Worker pool size: %d", workerCount)
 
 	log.Info().Msg("Processing evaluation tasks.")
-	processEvaluationTasks(dbClient.Conn, tasks, workerCount)
+	processEvaluationTasks(dataService, tasks)
 	log.Info().Msg("Evaluator done.")
 }

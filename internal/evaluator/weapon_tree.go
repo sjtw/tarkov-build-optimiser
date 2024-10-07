@@ -6,22 +6,30 @@ import (
 	"tarkov-build-optimiser/internal/models"
 )
 
-type DataProvider interface {
+type TreeDataProvider interface {
 	GetWeaponById(id string) (*models.Weapon, error)
 	GetSlotsByItemID(id string) ([]models.Slot, error)
 	GetWeaponModById(id string) (*models.WeaponMod, error)
 	GetAllowedItemsBySlotID(id string) ([]*models.AllowedItem, error)
 }
 
+type WeaponTreeConstraints struct {
+	ignoredSlotNames map[string]bool
+}
+
 type WeaponTree struct {
 	Item        *Item
 	db          *sql.DB
-	dataService DataProvider
+	dataService TreeDataProvider
+	constraints WeaponTreeConstraints
 }
 
-func ConstructWeaponTree(id string, data DataProvider) (*WeaponTree, error) {
+func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) {
 	weaponTree := &WeaponTree{
 		dataService: data,
+		constraints: WeaponTreeConstraints{
+			ignoredSlotNames: map[string]bool{"Scope": true, "Ubgl": true},
+		},
 	}
 
 	w, err := data.GetWeaponById(id)
@@ -40,7 +48,7 @@ func ConstructWeaponTree(id string, data DataProvider) (*WeaponTree, error) {
 		RootWeaponTree:     weaponTree,
 	}
 
-	err = item.PopulateSlots([]string{"Sight", "Ubgl"})
+	err = item.PopulateSlots()
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to populate slots for weapon %s", w.ID)
 		return nil, err

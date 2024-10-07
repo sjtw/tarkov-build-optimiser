@@ -76,18 +76,26 @@ func (slot *ItemSlot) GetAncestorItems() []*Item {
 	return append([]*Item{parentItem}, ancestorItems...)
 }
 
-func (slot *ItemSlot) PopulateAllowedItems(ignoredSlotNames []string) error {
+func (slot *ItemSlot) PopulateAllowedItems() error {
 	allowedItems, err := slot.RootWeaponTree.dataService.GetAllowedItemsBySlotID(slot.ID)
 	if err != nil {
 		return err
 	}
 
-	for i := 0; i < len(allowedItems); i++ {
-		item := allowedItems[i]
+	if _, ok := slot.RootWeaponTree.constraints.ignoredSlotNames[slot.Name]; ok {
+		return nil
+	}
 
-		modProperties, err := slot.RootWeaponTree.dataService.GetWeaponModById(item.ID)
+	for i := 0; i < len(allowedItems); i++ {
+		allowedItem := allowedItems[i]
+
+		modProperties, err := slot.RootWeaponTree.dataService.GetWeaponModById(allowedItem.ID)
 		if err != nil {
 			return nil
+		}
+
+		if modProperties == nil {
+			continue
 		}
 
 		// if the mod has no effect on recoil or ergonomics, we don't care about it
@@ -95,15 +103,15 @@ func (slot *ItemSlot) PopulateAllowedItems(ignoredSlotNames []string) error {
 			continue
 		}
 
-		allowedItem := ConstructItem(item.ID, item.Name, slot.RootWeaponTree)
-		allowedItem.RecoilModifier = modProperties.RecoilModifier
-		allowedItem.ErgonomicsModifier = modProperties.ErgonomicsModifier
-		allowedItem.Type = "weapon_mod"
+		item := ConstructItem(allowedItem.ID, allowedItem.Name, slot.RootWeaponTree)
+		item.RecoilModifier = modProperties.RecoilModifier
+		item.ErgonomicsModifier = modProperties.ErgonomicsModifier
+		item.Type = "weapon_mod"
 
-		if slot.IsItemValidChild(allowedItem) {
+		if slot.IsItemValidChild(item) {
 			// must add first - add child maintains the parent relationship
-			slot.AddChildItem(allowedItem)
-			err := allowedItem.PopulateSlots(ignoredSlotNames)
+			slot.AddChildItem(item)
+			err := item.PopulateSlots()
 			if err != nil {
 				log.Error().Err(err).Msgf("Failed to populate slot %s with item: %s", slot.ID, item.ID)
 				return err

@@ -80,3 +80,23 @@ func GetWeaponModById(db *sql.DB, id string) (*WeaponMod, error) {
 
 	return weaponMods[0], nil
 }
+
+func GetAllWeaponMods(db *sql.DB) ([]*WeaponMod, error) {
+	rows, err := db.Query(`select item_id, name, ergonomics_modifier, recoil_modifier from weapon_mods;`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	weaponMods := make([]*WeaponMod, 0)
+	for rows.Next() {
+		weaponMod := &WeaponMod{}
+		err := rows.Scan(&weaponMod.ID, &weaponMod.Name, &weaponMod.ErgonomicsModifier, &weaponMod.RecoilModifier)
+		if err != nil {
+			return nil, err
+		}
+		weaponMods = append(weaponMods, weaponMod)
+	}
+
+	return weaponMods, nil
+}

@@ -3,8 +3,9 @@ package models
 import "database/sql"
 
 type AllowedItem struct {
-	ID   string `json:"item_id"`
-	Name string `json:"name"`
+	ID     string `json:"item_id"`
+	Name   string `json:"name"`
+	SlotID string `json:"slot_id"`
 }
 
 func upsertAllowedItem(tx *sql.Tx, slotID string, allowedItem AllowedItem) error {
@@ -37,8 +38,28 @@ func upsertManyAllowedItem(tx *sql.Tx, slotId string, allowedItems []AllowedItem
 	return nil
 }
 
+func GetAllAllowedItems(db *sql.DB) (map[string][]*AllowedItem, error) {
+	rows, err := db.Query(`select item_id, name, slot_id FROM slot_allowed_items;`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	allowedItems := make(map[string][]*AllowedItem)
+	for rows.Next() {
+		allowedItem := &AllowedItem{}
+		err := rows.Scan(&allowedItem.ID, &allowedItem.Name, &allowedItem.SlotID)
+		if err != nil {
+			return nil, err
+		}
+		allowedItems[allowedItem.SlotID] = append(allowedItems[allowedItem.SlotID], allowedItem)
+	}
+
+	return allowedItems, nil
+}
+
 func GetAllowedItemsBySlotID(db *sql.DB, slotID string) ([]*AllowedItem, error) {
-	rows, err := db.Query(`select item_id, name FROM slot_allowed_items where slot_id = $1;`, slotID)
+	rows, err := db.Query(`select item_id, name, slot_id FROM slot_allowed_items where slot_id = $1;`, slotID)
 	if err != nil {
 		return nil, err
 	}

@@ -1,58 +1,44 @@
 package evaluator
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"tarkov-build-optimiser/internal/models"
 )
 
-func GenerateOptimumWeaponBuilds(db *sql.DB, weapon Item, constraints models.EvaluationConstraints) error {
-
-	traderOfferGetter := CreatePgTraderOfferGetter(db)
-	buildSaver := CreatePgBuildSaver(db)
-	subtreeGetter := CreatePgSubtreeGetter(db)
-	evaluator := CreateEvaluator(traderOfferGetter, buildSaver, subtreeGetter)
-
-	log.Debug().Msgf("Evaluating recoil for %s", weapon.ID)
-	_, err := evaluator.evaluate(&weapon, "recoil", constraints)
-	if err != nil {
-		return err
-	}
-
-	_, err = evaluator.evaluate(&weapon, "ergonomics", constraints)
-	if err != nil {
-		return err
-	}
-
-	return nil
+type Data struct {
 }
 
-type SubtreeGetter interface {
-	Get(itemId string, buildType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error)
+type EvaluationDataProvider interface {
+	GetSubtree(itemId string, buildType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error)
+	GetTraderOffer(itemID string) ([]models.TraderOffer, error)
+	SaveBuild(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints) error
 }
 
-type TraderOfferGetter interface {
-	Get(itemID string) ([]models.TraderOffer, error)
-}
-
-type BuildSaver interface {
-	Save(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints, isSubtree bool) error
+type Task struct {
+	Constraints    models.EvaluationConstraints
+	Weapon         Item
+	EvaluationType string
 }
 
 type Evaluator struct {
-	traderOfferGetter TraderOfferGetter
-	buildSaver        BuildSaver
-	subtreeGetter     SubtreeGetter
+	dataService EvaluationDataProvider
 }
 
-func CreateEvaluator(traderOfferGetter TraderOfferGetter, buildSaver BuildSaver, subtreeGetter SubtreeGetter) *Evaluator {
+func CreateEvaluator(dataService EvaluationDataProvider) *Evaluator {
 	return &Evaluator{
-		traderOfferGetter: traderOfferGetter,
-		buildSaver:        buildSaver,
-		subtreeGetter:     subtreeGetter,
+		dataService: dataService,
 	}
+}
+
+func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error) {
+	result, err := e.evaluate(&task.Weapon, task.EvaluationType, task.Constraints)
+	if err != nil {
+		return models.ItemEvaluationResult{}, err
+	}
+
+	return *result, nil
 }
 
 func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error) {
@@ -77,7 +63,7 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		return outItem, nil
 	}
 
-	preEvaluatedItem, err := e.subtreeGetter.Get(outItem.ID, evaluationType, constraints)
+	preEvaluatedItem, err := e.dataService.GetSubtree(outItem.ID, evaluationType, constraints)
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get subtree for evaluation. item: %s", preEvaluatedItem.ID)
 		return nil, err
@@ -102,7 +88,7 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		for j := 0; j < len(item.Slots[i].AllowedItems); j++ {
 			log.Debug().Msgf("Evaluating slot %d for item [%s]", j, item.ID)
 			ai := item.Slots[i].AllowedItems[j]
-			offers, err := e.traderOfferGetter.Get(ai.ID)
+			offers, err := e.dataService.GetTraderOffer(ai.ID)
 			if err != nil {
 				log.Error().Err(err).Msgf("Failed to get trader offer for item [%s]", item.ID)
 				return nil, err
@@ -164,11 +150,12 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		outItem.ErgonomicsSum += slotErgo
 	}
 
-	err = e.buildSaver.Save(outItem, constraints, outItem.IsSubtree)
-	if err != nil {
-		log.Error().Err(err).Msgf("Failed to save evaluation result for item: %s", outItem.ID)
-		return nil, err
-	}
+	go func(out models.ItemEvaluationResult, constraints models.EvaluationConstraints) {
+		err = e.dataService.SaveBuild(&out, constraints)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to save evaluation result for item: %s", outItem.ID)
+		}
+	}(*outItem, constraints)
 
 	log.Debug().Msgf("Output item %v", outItem)
 
