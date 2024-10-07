@@ -19,9 +19,11 @@ func generateWeaponPossibilities(db *sql.DB, weaponIds []string, workerCount int
 	resultChan := make(chan WeaponPossibilityResult, weaponCount)
 	doneChan := make(chan struct{})
 
+	dataService := evaluator.CreateTreeDataService(db)
+
 	for i := 0; i < workerCount; i++ {
 		log.Debug().Msgf("Creating possibility generation worker %d", i)
-		go weaponPossibilityWorker(db, idChan, resultChan, doneChan, i)
+		go weaponPossibilityWorker(dataService, idChan, resultChan, doneChan, i)
 	}
 
 	log.Debug().Msgf("Queuing weapons for possibility generation")
@@ -55,10 +57,10 @@ func generateWeaponPossibilities(db *sql.DB, weaponIds []string, workerCount int
 	return results
 }
 
-func weaponPossibilityWorker(db *sql.DB, weaponIds <-chan string, resultsChan chan<- WeaponPossibilityResult, doneChan chan<- struct{}, id int) {
+func weaponPossibilityWorker(data evaluator.DataProvider, weaponIds <-chan string, resultsChan chan<- WeaponPossibilityResult, doneChan chan<- struct{}, id int) {
 	for weaponId := range weaponIds {
 		log.Debug().Msgf("[Worker %d] Creating possibility tree for %s", id, weaponId)
-		weapon, err := evaluator.CreateWeaponPossibilityTree(db, weaponId)
+		weapon, err := evaluator.ConstructWeaponTree(weaponId, data)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to generate weapon builds for %s", weaponId)
 			resultsChan <- WeaponPossibilityResult{
@@ -73,7 +75,7 @@ func weaponPossibilityWorker(db *sql.DB, weaponIds <-chan string, resultsChan ch
 
 		resultsChan <- WeaponPossibilityResult{
 			Id:   weaponId,
-			Item: weapon,
+			Item: weapon.Item,
 			Ok:   true,
 		}
 	}

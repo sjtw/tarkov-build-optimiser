@@ -10,6 +10,7 @@ type Flags struct {
 	UseCache           bool
 	CacheOnly          bool
 	PurgeOptimumBuilds bool
+	TestRun            bool
 }
 
 func GetFlags() Flags {
@@ -25,6 +26,10 @@ func GetFlags() Flags {
 	}
 	if helpers.ContainsStr(os.Args, "--purge-optimum-builds") {
 		flags.PurgeOptimumBuilds = true
+	}
+	if helpers.ContainsStr(os.Args, "--test-run") {
+		// makes evaluator only use a few weapons for testing
+		flags.TestRun = true
 	}
 
 	return flags

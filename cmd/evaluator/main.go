@@ -28,13 +28,21 @@ func main() {
 		log.Info().Msg("Models purged.")
 	}
 
-	log.Debug().Msg("Fetching weapon IDs")
-	weaponIds, err := models.GetAllWeaponIds(dbClient.Conn)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to get all weapon IDs")
+	var weaponIds []string
+	if env.TestRun {
+		log.Info().Msg("Using test weapon IDs")
+		weaponIds = []string{
+			"5447a9cd4bdc2dbd208b4567",
+			"5448bd6b4bdc2dfc2f8b4569",
+			"54491c4f4bdc2db1078b4568",
+		}
+	} else {
+		log.Info().Msg("Fetching weapon IDs")
+		weaponIds, err = models.GetAllWeaponIds(dbClient.Conn)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to get all weapon IDs")
+		}
 	}
-
-	//weaponIds := []string{"5fc3e272f8b6a877a729eac5"}
 
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
 

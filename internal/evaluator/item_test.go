@@ -6,15 +6,17 @@ import (
 )
 
 func TestItem_GetParentSlot_NoParent(t *testing.T) {
-	item := ConstructItem("item1", "Item1")
+	rootWeapon := &WeaponTree{}
+	item := ConstructItem("item1", "Item1", rootWeapon)
 	parentSlot := item.GetParentSlot()
 
 	assert.Nil(t, parentSlot)
 }
 
 func TestItem_GetParentSlot_WithParent(t *testing.T) {
-	item := ConstructItem("item1", "Item1")
-	slot := ConstructSlot("slot1", "Slot1")
+	rootWeapon := &WeaponTree{}
+	item := ConstructItem("item1", "Item1", rootWeapon)
+	slot := ConstructSlot("slot1", "Slot1", rootWeapon)
 	item.SetParentSlot(slot)
 
 	parentSlot := item.GetParentSlot()

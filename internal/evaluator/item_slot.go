@@ -1,9 +1,7 @@
 package evaluator
 
 import (
-	"database/sql"
 	"github.com/rs/zerolog/log"
-	"tarkov-build-optimiser/internal/models"
 )
 
 type ItemSlot struct {
@@ -19,19 +17,19 @@ type ItemSlot struct {
 	// we don't want to add these to the possibility tree for obvious reasons,
 	// but we may still want to know what they are
 	AllowedCircularReferenceItemIds []string `json:"allowed_circular_reference_item_ids"`
+	RootWeaponTree                  *WeaponTree
 }
 
-func ConstructSlot(id string, name string) *ItemSlot {
+func ConstructSlot(id string, name string, rootWeaponTree *WeaponTree) *ItemSlot {
 	return &ItemSlot{
-		ID:           id,
-		Name:         name,
-		AllowedItems: make([]*Item, 0),
-		parentItem:   nil,
+		ID:             id,
+		Name:           name,
+		RootWeaponTree: rootWeaponTree,
 	}
 }
 
 func (slot *ItemSlot) GetParentItem() *Item {
-	if slot.AllowedItems == nil {
+	if slot.parentItem == nil {
 		return nil
 	}
 
@@ -78,8 +76,8 @@ func (slot *ItemSlot) GetAncestorItems() []*Item {
 	return append([]*Item{parentItem}, ancestorItems...)
 }
 
-func (slot *ItemSlot) PopulateAllowedItems(db *sql.DB, ignoredSlotNames []string) error {
-	allowedItems, err := models.GetAllowedItemsBySlotID(db, slot.ID)
+func (slot *ItemSlot) PopulateAllowedItems(ignoredSlotNames []string) error {
+	allowedItems, err := slot.RootWeaponTree.dataService.GetAllowedItemsBySlotID(slot.ID)
 	if err != nil {
 		return err
 	}
@@ -87,7 +85,7 @@ func (slot *ItemSlot) PopulateAllowedItems(db *sql.DB, ignoredSlotNames []string
 	for i := 0; i < len(allowedItems); i++ {
 		item := allowedItems[i]
 
-		modProperties, err := models.GetWeaponModById(db, item.ID)
+		modProperties, err := slot.RootWeaponTree.dataService.GetWeaponModById(item.ID)
 		if err != nil {
 			return nil
 		}
@@ -97,20 +95,15 @@ func (slot *ItemSlot) PopulateAllowedItems(db *sql.DB, ignoredSlotNames []string
 			continue
 		}
 
-		allowedItem := &Item{
-			ID:                 item.ID,
-			Name:               item.Name,
-			RecoilModifier:     modProperties.RecoilModifier,
-			ErgonomicsModifier: modProperties.ErgonomicsModifier,
-			Slots:              nil,
-			parentSlot:         nil,
-			Type:               "weapon_mod",
-		}
+		allowedItem := ConstructItem(item.ID, item.Name, slot.RootWeaponTree)
+		allowedItem.RecoilModifier = modProperties.RecoilModifier
+		allowedItem.ErgonomicsModifier = modProperties.ErgonomicsModifier
+		allowedItem.Type = "weapon_mod"
 
 		if slot.IsItemValidChild(allowedItem) {
 			// must add first - add child maintains the parent relationship
 			slot.AddChildItem(allowedItem)
-			err := allowedItem.PopulateSlots(db, ignoredSlotNames)
+			err := allowedItem.PopulateSlots(ignoredSlotNames)
 			if err != nil {
 				log.Error().Err(err).Msgf("Failed to populate slot %s with item: %s", slot.ID, item.ID)
 				return err

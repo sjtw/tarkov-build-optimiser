@@ -1,9 +1,7 @@
 package evaluator
 
 import (
-	"database/sql"
 	"github.com/rs/zerolog/log"
-	"tarkov-build-optimiser/internal/models"
 )
 
 type Item struct {
@@ -14,15 +12,16 @@ type Item struct {
 	Slots              []*ItemSlot `json:"slots" bson:"slots"`
 	Type               string      `json:"type" bson:"type"`
 	parentSlot         *ItemSlot
+	RootItem           *Item
+	RootWeaponTree     *WeaponTree
 }
 
-func ConstructItem(id string, name string) *Item {
+func ConstructItem(id string, name string, rootWeaponTree *WeaponTree) *Item {
 	return &Item{
-		ID:                 id,
-		Name:               name,
-		RecoilModifier:     0,
-		ErgonomicsModifier: 0,
-		Slots:              make([]*ItemSlot, 0),
+		ID:             id,
+		Name:           name,
+		Slots:          make([]*ItemSlot, 0),
+		RootWeaponTree: rootWeaponTree,
 	}
 }
 
@@ -57,21 +56,15 @@ func (item *Item) GetAncestorIds() []string {
 	return append([]string{parent.ID}, ancestors...)
 }
 
-func (item *Item) PopulateSlots(db *sql.DB, ignoredSlotNames []string) error {
-	slots, err := models.GetSlotsByItemID(db, item.ID)
+func (item *Item) PopulateSlots(ignoredSlotNames []string) error {
+	slots, err := item.RootWeaponTree.dataService.GetSlotsByItemID(item.ID)
 	if err != nil {
 		return err
 	}
 
 	for i := 0; i < len(slots); i++ {
 		s := slots[i]
-		slot := &ItemSlot{
-			ID:           s.ID,
-			Name:         s.Name,
-			AllowedItems: nil,
-			parentItem:   nil,
-		}
-		item.AddChildSlot(slot)
+		slot := ConstructSlot(s.ID, s.Name, item.RootWeaponTree)
 
 		for j := 0; j < len(ignoredSlotNames); j++ {
 			if slot.Name == ignoredSlotNames[j] {
@@ -79,7 +72,9 @@ func (item *Item) PopulateSlots(db *sql.DB, ignoredSlotNames []string) error {
 			}
 		}
 
-		err := slot.PopulateAllowedItems(db, ignoredSlotNames)
+		item.AddChildSlot(slot)
+
+		err := slot.PopulateAllowedItems(ignoredSlotNames)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to populate slot %s", s.ID)
 			return err

@@ -84,34 +84,35 @@ func CreateMockSubtreeGetter() SubtreeGetter {
 }
 
 func TestFindBestRecoilTree(t *testing.T) {
-	weapon := ConstructItem("weapon1", "Weapon1")
+	rootWeaponTree := &WeaponTree{}
+	weapon := ConstructItem("weapon1", "Weapon1", rootWeaponTree)
 	weapon.RecoilModifier = -10
 	weapon.ErgonomicsModifier = 10
 
-	item1 := ConstructItem("item1", "Item1")
+	item1 := ConstructItem("item1", "Item1", rootWeaponTree)
 	item1.RecoilModifier = -1
 	item1.ErgonomicsModifier = 1
 
-	item2 := ConstructItem("item2", "Item2")
+	item2 := ConstructItem("item2", "Item2", rootWeaponTree)
 	item2.RecoilModifier = -2
 	item2.ErgonomicsModifier = 2
 
-	item3 := ConstructItem("item3", "Item3")
+	item3 := ConstructItem("item3", "Item3", rootWeaponTree)
 	item3.RecoilModifier = -3
 	item3.ErgonomicsModifier = 3
 
-	item1ChildSlot := ConstructSlot("child-slot1", "Child Slot1")
-	item1ChildSlotItem := ConstructItem("child-item1", "Child Item1")
+	item1ChildSlot := ConstructSlot("child-slot1", "Child Slot1", rootWeaponTree)
+	item1ChildSlotItem := ConstructItem("child-item1", "Child Item1", rootWeaponTree)
 	item1ChildSlotItem.RecoilModifier = -4
 	item1ChildSlotItem.ErgonomicsModifier = 4
 	item1ChildSlot.AddChildItem(item1ChildSlotItem)
 	item1.AddChildSlot(item1ChildSlot)
 
-	slot1 := ConstructSlot("slot1", "Slot1")
+	slot1 := ConstructSlot("slot1", "Slot1", rootWeaponTree)
 	slot1.AddChildItem(item1)
 	slot1.AddChildItem(item2)
 
-	slot2 := ConstructSlot("slot2", "Slot2")
+	slot2 := ConstructSlot("slot2", "Slot2", rootWeaponTree)
 	slot2.AddChildItem(item3)
 
 	weapon.AddChildSlot(slot1)
@@ -174,34 +175,35 @@ func TestFindBestRecoilTree(t *testing.T) {
 }
 
 func TestFindBestErgoTree(t *testing.T) {
-	weapon := ConstructItem("test-item", "Test Item")
+	rootWeaponTree := &WeaponTree{}
+	weapon := ConstructItem("test-item", "Test Item", rootWeaponTree)
 	weapon.RecoilModifier = -10
 	weapon.ErgonomicsModifier = 10
 
-	item1 := ConstructItem("item1", "Item1")
+	item1 := ConstructItem("item1", "Item1", rootWeaponTree)
 	item1.RecoilModifier = -1
 	item1.ErgonomicsModifier = 1
 
-	item2 := ConstructItem("item2", "Item2")
+	item2 := ConstructItem("item2", "Item2", rootWeaponTree)
 	item2.RecoilModifier = -2
 	item2.ErgonomicsModifier = 2
 
-	item3 := ConstructItem("item3", "Item3")
+	item3 := ConstructItem("item3", "Item3", rootWeaponTree)
 	item3.RecoilModifier = -3
 	item3.ErgonomicsModifier = 3
 
-	item1ChildSlot := ConstructSlot("child-slot1", "Child Slot1")
-	item1ChildSlotItem := ConstructItem("child-item1", "Child Item1")
+	item1ChildSlot := ConstructSlot("child-slot1", "Child Slot1", rootWeaponTree)
+	item1ChildSlotItem := ConstructItem("child-item1", "Child Item1", rootWeaponTree)
 	item1ChildSlotItem.RecoilModifier = -4
 	item1ChildSlotItem.ErgonomicsModifier = 4
 	item1ChildSlot.AddChildItem(item1ChildSlotItem)
 	item1.AddChildSlot(item1ChildSlot)
 
-	slot1 := ConstructSlot("slot1", "Slot1")
+	slot1 := ConstructSlot("slot1", "Slot1", rootWeaponTree)
 	slot1.AddChildItem(item1)
 	slot1.AddChildItem(item2)
 
-	slot2 := ConstructSlot("slot2", "Slot2")
+	slot2 := ConstructSlot("slot2", "Slot2", rootWeaponTree)
 	slot2.AddChildItem(item3)
 
 	weapon.AddChildSlot(slot1)

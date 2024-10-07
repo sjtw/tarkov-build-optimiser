@@ -29,31 +29,6 @@ func GenerateOptimumWeaponBuilds(db *sql.DB, weapon Item, constraints models.Eva
 	return nil
 }
 
-func CreateWeaponPossibilityTree(db *sql.DB, id string) (*Item, error) {
-	w, err := models.GetWeaponById(db, id)
-	if err != nil {
-		log.Error().Err(err).Msgf("Failed to get weapon %s", id)
-		return nil, err
-	}
-	weapon := &Item{
-		ID:                 id,
-		Name:               w.Name,
-		RecoilModifier:     w.RecoilModifier,
-		ErgonomicsModifier: w.ErgonomicsModifier,
-		Slots:              []*ItemSlot{},
-		parentSlot:         nil,
-		Type:               "weapon",
-	}
-
-	err = weapon.PopulateSlots(db, []string{"Sight", "Ubgl"})
-	if err != nil {
-		log.Error().Err(err).Msgf("Failed to populate slots for weapon %s", w.ID)
-		return nil, err
-	}
-
-	return weapon, nil
-}
-
 type SubtreeGetter interface {
 	Get(itemId string, buildType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error)
 }
