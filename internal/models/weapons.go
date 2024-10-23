@@ -156,47 +156,6 @@ func GetWeaponsShort(db *sql.DB) ([]WeaponShort, error) {
 	return weapons, nil
 }
 
-func GetWeapons(db *sql.DB) ([]Weapon, error) {
-	query := `
-		select w.name,
-					w.item_id             as id,
-					w.recoil_modifier     as recoil_modifier,
-					w.ergonomics_modifier as ergonomics_modifier,
-					jsonb_agg(jsonb_build_object('slot_id', ws.slot_id, 'name', ws.name, 'allowed_items', (
-							select jsonb_agg(jsonb_build_object('item_id', sai.item_id, 'name', sai.name))
-							from slot_allowed_items sai
-							where sai.slot_id = ws.slot_id
-					)))                   as slots
-		from weapons w
-						join slots ws on w.item_id = ws.item_id
-		group by w.name, w.item_id, w.recoil_modifier, w.ergonomics_modifier;
-	`
-
-	rows, err := db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var weapons []Weapon
-	for rows.Next() {
-		weapon := Weapon{}
-		var slotsStr string
-		err := rows.Scan(&weapon.Name, &weapon.ID, &weapon.RecoilModifier, &weapon.ErgonomicsModifier, &slotsStr)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := json.Unmarshal([]byte(slotsStr), &weapon.Slots); err != nil {
-			return nil, err
-		}
-
-		weapons = append(weapons, weapon)
-	}
-
-	return weapons, nil
-}
-
 func Purge(db *sql.DB) error {
 	_, err := db.Exec(`DELETE FROM weapons;`)
 	if err != nil {
@@ -219,6 +178,16 @@ func Purge(db *sql.DB) error {
 	}
 
 	_, err = db.Exec(`DELETE FROM trader_offers;`)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(`DELETE FROM optimum_builds;`)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(`DELETE FROM conflicting_items;`)
 	if err != nil {
 		return err
 	}

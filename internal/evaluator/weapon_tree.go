@@ -18,10 +18,15 @@ type WeaponTreeConstraints struct {
 }
 
 type WeaponTree struct {
-	Item        *Item
-	db          *sql.DB
-	dataService TreeDataProvider
-	constraints WeaponTreeConstraints
+	Item                 *Item
+	db                   *sql.DB
+	dataService          TreeDataProvider
+	constraints          WeaponTreeConstraints
+	allowedItemConflicts map[string]string
+}
+
+func (wt *WeaponTree) AddItemConflicts(itemId string, conflictId string) {
+	wt.allowedItemConflicts[itemId] = conflictId
 }
 
 func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) {
