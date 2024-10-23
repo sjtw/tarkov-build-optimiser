@@ -22,8 +22,10 @@ type WeaponTree struct {
 	db          *sql.DB
 	dataService TreeDataProvider
 	constraints WeaponTreeConstraints
-	// TODO: evaluator should use AllowedItemConflicts this to generate all zero-conflict candidate item sets
+	// all itemIDs which conflict globally with other itemIDs
 	AllowedItemConflicts map[string]map[string]bool
+	// all candidate items for this weapon
+	CandidateItems map[string]bool
 }
 
 func (wt *WeaponTree) AddItemConflicts(itemId string, conflictIDs []string) {
@@ -36,6 +38,10 @@ func (wt *WeaponTree) AddItemConflicts(itemId string, conflictIDs []string) {
 	}
 }
 
+func (wt *WeaponTree) AddCandidateItem(itemID string) {
+	wt.CandidateItems[itemID] = true
+}
+
 func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) {
 	weaponTree := &WeaponTree{
 		dataService: data,
@@ -43,6 +49,7 @@ func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) 
 			ignoredSlotNames: map[string]bool{"Scope": true, "Ubgl": true},
 		},
 		AllowedItemConflicts: map[string]map[string]bool{},
+		CandidateItems:       map[string]bool{},
 	}
 
 	w, err := data.GetWeaponById(id)

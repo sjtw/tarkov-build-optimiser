@@ -113,7 +113,10 @@ func (slot *ItemSlot) PopulateAllowedItems() error {
 			// must add first - add child maintains the parent relationship
 			slot.AddChildItem(item)
 
-			slot.RootWeaponTree.AddItemConflicts(item.ID, item.ConflictingItems)
+			if len(item.ConflictingItems) > 0 {
+				slot.RootWeaponTree.AddItemConflicts(item.ID, item.ConflictingItems)
+			}
+			slot.RootWeaponTree.AddCandidateItem(item.ID)
 
 			err := item.PopulateSlots()
 			if err != nil {
