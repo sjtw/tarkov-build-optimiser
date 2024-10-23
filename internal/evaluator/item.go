@@ -11,6 +11,7 @@ type Item struct {
 	ErgonomicsModifier int         `json:"ergonomics_modifier" bson:"ergonomics_modifier"`
 	Slots              []*ItemSlot `json:"slots" bson:"slots"`
 	Type               string      `json:"type" bson:"type"`
+	ConflictingItems   []string    `json:"conflicting_items" bson:"conflicting_items"`
 	parentSlot         *ItemSlot
 	RootItem           *Item
 	RootWeaponTree     *WeaponTree
@@ -18,10 +19,11 @@ type Item struct {
 
 func ConstructItem(id string, name string, rootWeaponTree *WeaponTree) *Item {
 	return &Item{
-		ID:             id,
-		Name:           name,
-		Slots:          make([]*ItemSlot, 0),
-		RootWeaponTree: rootWeaponTree,
+		ID:               id,
+		Name:             name,
+		Slots:            make([]*ItemSlot, 0),
+		RootWeaponTree:   rootWeaponTree,
+		ConflictingItems: make([]string, 0),
 	}
 }
 

@@ -107,10 +107,14 @@ func (slot *ItemSlot) PopulateAllowedItems() error {
 		item.RecoilModifier = modProperties.RecoilModifier
 		item.ErgonomicsModifier = modProperties.ErgonomicsModifier
 		item.Type = "weapon_mod"
+		item.ConflictingItems = modProperties.ConflictingItems
 
 		if slot.IsItemValidChild(item) {
 			// must add first - add child maintains the parent relationship
 			slot.AddChildItem(item)
+
+			slot.RootWeaponTree.AddItemConflicts(item.ID, item.ConflictingItems)
+
 			err := item.PopulateSlots()
 			if err != nil {
 				log.Error().Err(err).Msgf("Failed to populate slot %s with item: %s", slot.ID, item.ID)
