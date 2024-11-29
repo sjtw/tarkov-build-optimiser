@@ -15,9 +15,9 @@ type EvaluationResult struct {
 }
 
 type WeaponPossibilityResult struct {
-	Item *evaluator.Item
-	Id   string
-	Ok   bool
+	Weapon *evaluator.WeaponTree
+	Id     string
+	Ok     bool
 }
 
 func processEvaluationTasks(dataProvider evaluator.EvaluationDataProvider, tasks []evaluator.Task, workerCount int) []EvaluationResult {
@@ -36,7 +36,7 @@ func processEvaluationTasks(dataProvider evaluator.EvaluationDataProvider, tasks
 			for task := range taskChan {
 				result, err := ev.EvaluateTask(task)
 				if err != nil {
-					log.Error().Err(err).Msgf("Failed to generate weapon builds for %s", task.Weapon.ID)
+					log.Error().Err(err).Msgf("Failed to generate weapon builds for %s", task.Weapon.Item.ID)
 					resultsChan <- EvaluationResult{
 						Task:   task,
 						Result: models.ItemEvaluationResult{},
@@ -71,23 +71,23 @@ func processEvaluationTasks(dataProvider evaluator.EvaluationDataProvider, tasks
 	return results
 }
 
-func createEvaluationTasks(weaponPossibilities []WeaponPossibilityResult, evaluationTypes []string) []evaluator.Task {
+func createEvaluationTasks(weaponCandidateTrees []WeaponPossibilityResult, evaluationTypes []string) []evaluator.Task {
 	tasks := make([]evaluator.Task, 0)
 
 	traderLevelVariations := evaluator.GenerateTraderLevelVariations(models.TraderNames)
 
-	evaluatedWeapons := make([]*evaluator.Item, 0)
-	for i := 0; i < len(weaponPossibilities); i++ {
-		w := weaponPossibilities[i]
+	for i := 0; i < len(weaponCandidateTrees); i++ {
+		w := weaponCandidateTrees[i]
 
-		if w.Ok == false || w.Item == nil {
-			log.Debug().Msgf("Skipping [%s] [%s] - weapon possibility result is invalid.", w.Id, w.Item.Name)
+		if w.Ok == false || w.Weapon == nil {
+			log.Debug().Msgf("Skipping [%s] [%s] - weapon possibility result is invalid.", w.Id, w.Weapon.Item.Name)
 			continue
 		}
 
 		log.Debug().Msgf("Creating task variations for weapon %s", w.Id)
 
-		evaluatedWeapons = append(evaluatedWeapons, weaponPossibilities[i].Item)
+		candidateItemSets := evaluator.GenerateNonConflictingCandidateSets(w.Weapon.CandidateItems, w.Weapon.AllowedItemConflicts)
+		log.Info().Msgf("Weapon %s has %d candidate item sets", w.Id, len(candidateItemSets))
 
 		for j := 0; j < len(traderLevelVariations); j++ {
 			constraints := models.EvaluationConstraints{
@@ -97,7 +97,7 @@ func createEvaluationTasks(weaponPossibilities []WeaponPossibilityResult, evalua
 			for k := 0; k < len(evaluationTypes); k++ {
 				task := evaluator.Task{
 					Constraints:    constraints,
-					Weapon:         *w.Item,
+					Weapon:         *w.Weapon,
 					EvaluationType: evaluationTypes[k],
 				}
 				tasks = append(tasks, task)
@@ -108,7 +108,7 @@ func createEvaluationTasks(weaponPossibilities []WeaponPossibilityResult, evalua
 	return tasks
 }
 
-func createWeaponCandidateTree(weaponIds []string, dataProvider evaluator.TreeDataProvider) []WeaponPossibilityResult {
+func createWeaponCandidateTrees(weaponIds []string, dataProvider evaluator.TreeDataProvider) []WeaponPossibilityResult {
 	results := make([]WeaponPossibilityResult, 0)
 
 	for i := 0; i < len(weaponIds); i++ {
@@ -119,9 +119,9 @@ func createWeaponCandidateTree(weaponIds []string, dataProvider evaluator.TreeDa
 		}
 
 		results = append(results, WeaponPossibilityResult{
-			Item: weapon.Item,
-			Id:   weaponIds[i],
-			Ok:   err == nil,
+			Weapon: weapon,
+			Id:     weaponIds[i],
+			Ok:     err == nil,
 		})
 	}
 

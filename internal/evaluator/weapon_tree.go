@@ -89,7 +89,6 @@ func GenerateNonConflictingCandidateSets(candidates map[string]bool, conflicts m
 		bans := map[string]bool{}
 		for candidateID, _ := range candidates {
 			if _, ok := resolved[candidateID]; ok {
-				candidates[candidateID] = false
 				continue
 			}
 

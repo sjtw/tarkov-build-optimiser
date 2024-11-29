@@ -18,7 +18,7 @@ type EvaluationDataProvider interface {
 
 type Task struct {
 	Constraints    models.EvaluationConstraints
-	Weapon         Item
+	Weapon         WeaponTree
 	EvaluationType string
 }
 
@@ -33,15 +33,56 @@ func CreateEvaluator(dataService EvaluationDataProvider) *Evaluator {
 }
 
 func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error) {
-	result, err := e.evaluate(&task.Weapon, task.EvaluationType, task.Constraints)
-	if err != nil {
-		return models.ItemEvaluationResult{}, err
+	candidateSets := make([][]string, 0)
+
+	if len(task.Weapon.AllowedItemConflicts) > 0 {
+		// generate all valid variations of candidates, including the weapon ID
+		generatedSets := GenerateNonConflictingCandidateSets(task.Weapon.CandidateItems, task.Weapon.AllowedItemConflicts)
+		for _, generatedSet := range generatedSets {
+			prependedSet := make([]string, len(generatedSet))
+			prependedSet = append(prependedSet, task.Weapon.Item.ID)
+
+			for _, id := range generatedSet {
+				prependedSet = append(prependedSet, id)
+			}
+			candidateSets = append(candidateSets, prependedSet)
+		}
+	} else {
+		// the weapon has no possible conflicts, so we can use all candidate items from the candidate tree
+		set := make([]string, len(task.Weapon.CandidateItems)+1)
+		// prepend the weapon id itself
+		set = append(set, task.Weapon.Item.ID)
+		for id, _ := range task.Weapon.CandidateItems {
+			set = append(set, id)
+		}
+		candidateSets = append(candidateSets, set)
 	}
 
-	return *result, nil
+	optimum := models.ItemEvaluationResult{}
+	optimumSum := 0
+	for _, candidateItems := range candidateSets {
+		result, err := e.evaluate(task.Weapon.Item, task.EvaluationType, task.Constraints, candidateItems)
+		if err != nil {
+			return models.ItemEvaluationResult{}, err
+		}
+
+		if task.EvaluationType == "recoil" {
+			if result.RecoilSum < optimumSum {
+				optimumSum = result.RecoilSum
+				optimum = *result
+			}
+		} else {
+			if result.ErgonomicsSum > optimumSum {
+				optimumSum = result.ErgonomicsSum
+				optimum = *result
+			}
+		}
+	}
+
+	return optimum, nil
 }
 
-func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error) {
+func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (*models.ItemEvaluationResult, error) {
 	outItem := &models.ItemEvaluationResult{
 		ID:                 item.ID,
 		Name:               item.Name,
@@ -88,6 +129,19 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		for j := 0; j < len(item.Slots[i].AllowedItems); j++ {
 			log.Debug().Msgf("Evaluating slot %d for item [%s]", j, item.ID)
 			ai := item.Slots[i].AllowedItems[j]
+
+			isCandidate := false
+			for _, candidateID := range candidates {
+				if candidateID == item.ID {
+					isCandidate = true
+				}
+			}
+
+			if !isCandidate {
+				log.Info().Msgf("Candidate item [%s] is not a whitelisted candidate for this evaluation", item.ID)
+				continue
+			}
+
 			offers, err := e.dataService.GetTraderOffer(ai.ID)
 			if err != nil {
 				log.Error().Err(err).Msgf("Failed to get trader offer for item [%s]", item.ID)
@@ -100,7 +154,7 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 				continue
 			}
 
-			highestItem, err := e.evaluate(ai, evaluationType, constraints)
+			highestItem, err := e.evaluate(ai, evaluationType, constraints, candidates)
 			if err != nil {
 				log.Debug().Msg("Failed to evaluate highest item")
 				return nil, err
