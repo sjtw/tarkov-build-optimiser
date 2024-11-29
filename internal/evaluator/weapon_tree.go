@@ -78,3 +78,39 @@ func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) 
 
 	return weaponTree, nil
 }
+
+func GenerateNonConflictingCandidateSets(candidates map[string]bool, conflicts map[string]map[string]bool) [][]string {
+	candidateIDSets := make([][]string, 0)
+	resolved := map[string]bool{}
+
+	conflictCount := len(conflicts)
+	for conflictCount > 0 {
+		candidateIDSet := make([]string, 0)
+		bans := map[string]bool{}
+		for candidateID, _ := range candidates {
+			if _, ok := resolved[candidateID]; ok {
+				candidates[candidateID] = false
+				continue
+			}
+
+			if _, ok := bans[candidateID]; ok {
+				continue
+			}
+
+			if _, ok := conflicts[candidateID]; ok {
+				resolved[candidateID] = true
+
+				for bannedID, _ := range conflicts[candidateID] {
+					bans[bannedID] = true
+				}
+
+				conflictCount--
+			}
+
+			candidateIDSet = append(candidateIDSet, candidateID)
+		}
+		candidateIDSets = append(candidateIDSets, candidateIDSet)
+	}
+
+	return candidateIDSets
+}

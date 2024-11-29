@@ -108,7 +108,7 @@ func createEvaluationTasks(weaponPossibilities []WeaponPossibilityResult, evalua
 	return tasks
 }
 
-func createWeaponPossibilities(weaponIds []string, dataProvider evaluator.TreeDataProvider) []WeaponPossibilityResult {
+func createWeaponCandidateTree(weaponIds []string, dataProvider evaluator.TreeDataProvider) []WeaponPossibilityResult {
 	results := make([]WeaponPossibilityResult, 0)
 
 	for i := 0; i < len(weaponIds); i++ {

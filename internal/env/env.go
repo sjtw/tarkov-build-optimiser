@@ -32,7 +32,7 @@ var (
 func getInt(key string, def int) int {
 	value, err := strconv.Atoi(os.Getenv(key))
 	if err != nil {
-		log.Error().Err(err).Msgf("Failed to convert env var %s to integer", key)
+		log.Warn().Err(err).Msgf("Failed to convert env var %s to integer", key)
 		return def
 	}
 	return value

@@ -53,11 +53,17 @@ func main() {
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
 
 	dataService := evaluator.CreateDataService(dbClient.Conn)
-	weaponPossibilities := createWeaponPossibilities(weaponIds, dataService)
-	log.Info().Msgf("Generated %d weapon possibility trees.", len(weaponPossibilities))
+	candidateTree := createWeaponCandidateTree(weaponIds, dataService)
+	log.Info().Msgf("Generated %d weapon possibility trees.", len(candidateTree))
+
+	for i := 0; i < len(candidateTree); i++ {
+		if len(candidateTree[i].Item.ConflictingItems) > 0 {
+			log.Info().Msgf("conflicted item at index %d", i)
+		}
+	}
 
 	log.Info().Msg("Creating evaluation tasks.")
-	tasks := createEvaluationTasks(weaponPossibilities, []string{"recoil", "ergonomics"})
+	tasks := createEvaluationTasks(candidateTree, []string{"recoil", "ergonomics"})
 	log.Info().Msgf("Scheduled %d evaluation tasks.", len(tasks))
 
 	log.Info().Msg("Processing evaluation tasks.")
