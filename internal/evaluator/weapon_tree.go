@@ -22,6 +22,24 @@ type WeaponTree struct {
 	db          *sql.DB
 	dataService TreeDataProvider
 	constraints WeaponTreeConstraints
+	// all itemIDs which conflict globally with other itemIDs
+	AllowedItemConflicts map[string]map[string]bool
+	// all candidate items for this weapon
+	CandidateItems map[string]bool
+}
+
+func (wt *WeaponTree) AddItemConflicts(itemId string, conflictIDs []string) {
+	if _, ok := wt.AllowedItemConflicts[itemId]; !ok {
+		wt.AllowedItemConflicts[itemId] = map[string]bool{}
+	}
+
+	for _, conflictId := range conflictIDs {
+		wt.AllowedItemConflicts[itemId][conflictId] = true
+	}
+}
+
+func (wt *WeaponTree) AddCandidateItem(itemID string) {
+	wt.CandidateItems[itemID] = true
 }
 
 func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) {
@@ -30,6 +48,8 @@ func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) 
 		constraints: WeaponTreeConstraints{
 			ignoredSlotNames: map[string]bool{"Scope": true, "Ubgl": true},
 		},
+		AllowedItemConflicts: map[string]map[string]bool{},
+		CandidateItems:       map[string]bool{},
 	}
 
 	w, err := data.GetWeaponById(id)
@@ -57,4 +77,39 @@ func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) 
 	weaponTree.Item = item
 
 	return weaponTree, nil
+}
+
+func GenerateNonConflictingCandidateSets(candidates map[string]bool, conflicts map[string]map[string]bool) [][]string {
+	candidateIDSets := make([][]string, 0)
+	resolved := map[string]bool{}
+
+	conflictCount := len(conflicts)
+	for conflictCount > 0 {
+		candidateIDSet := make([]string, 0)
+		bans := map[string]bool{}
+		for candidateID, _ := range candidates {
+			if _, ok := resolved[candidateID]; ok {
+				continue
+			}
+
+			if _, ok := bans[candidateID]; ok {
+				continue
+			}
+
+			if _, ok := conflicts[candidateID]; ok {
+				resolved[candidateID] = true
+
+				for bannedID, _ := range conflicts[candidateID] {
+					bans[bannedID] = true
+				}
+
+				conflictCount--
+			}
+
+			candidateIDSet = append(candidateIDSet, candidateID)
+		}
+		candidateIDSets = append(candidateIDSets, candidateIDSet)
+	}
+
+	return candidateIDSets
 }

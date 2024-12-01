@@ -4,11 +4,14 @@ go 1.22
 
 require (
 	github.com/Khan/genqlient v0.7.0
-	github.com/jackc/pgx/v4 v4.18.3
+	//github.com/jackc/pgx/v4 v4.18.3
 	github.com/labstack/echo/v4 v4.12.0
+	github.com/lib/pq v1.10.2
 	github.com/pressly/goose/v3 v3.21.1
 	github.com/stretchr/testify v1.9.0
 )
+
+require github.com/jackc/pgx/v4 v4.12.1-0.20210724153913-640aa07df17c
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

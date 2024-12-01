@@ -53,11 +53,11 @@ func main() {
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
 
 	dataService := evaluator.CreateDataService(dbClient.Conn)
-	weaponPossibilities := createWeaponPossibilities(weaponIds, dataService)
-	log.Info().Msgf("Generated %d weapon possibility trees.", len(weaponPossibilities))
+	candidateTree := createWeaponCandidateTrees(weaponIds, dataService)
+	log.Info().Msgf("Generated %d weapon candidate trees.", len(candidateTree))
 
 	log.Info().Msg("Creating evaluation tasks.")
-	tasks := createEvaluationTasks(weaponPossibilities, []string{"recoil", "ergonomics"})
+	tasks := createEvaluationTasks(candidateTree, []string{"recoil", "ergonomics"})
 	log.Info().Msgf("Scheduled %d evaluation tasks.", len(tasks))
 
 	log.Info().Msg("Processing evaluation tasks.")

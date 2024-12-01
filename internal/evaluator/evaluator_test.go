@@ -124,7 +124,8 @@ func TestFindBestRecoilTree(t *testing.T) {
 	}
 
 	evaluator := CreateEvaluator(dataProvider)
-	build, err := evaluator.evaluate(weapon, "recoil", constraints)
+	candidates := []string{"weapon1", "item1", "item2", "item3", "child-item1"}
+	build, err := evaluator.evaluate(weapon, "recoil", constraints, candidates)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +173,7 @@ func TestFindBestRecoilTree(t *testing.T) {
 
 func TestFindBestErgoTree(t *testing.T) {
 	rootWeaponTree := &WeaponTree{}
-	weapon := ConstructItem("test-item", "Test Item", rootWeaponTree)
+	weapon := ConstructItem("weapon1", "Test Item", rootWeaponTree)
 	weapon.RecoilModifier = -10
 	weapon.ErgonomicsModifier = 10
 
@@ -213,7 +214,8 @@ func TestFindBestErgoTree(t *testing.T) {
 	}
 	evaluator := CreateEvaluator(dataProvider)
 
-	build, err := evaluator.evaluate(weapon, "recoil", constraints)
+	candidates := []string{"weapon1", "item1", "item2", "item3", "child-item1"}
+	build, err := evaluator.evaluate(weapon, "recoil", constraints, candidates)
 
 	if err != nil {
 		t.Fatal(err)

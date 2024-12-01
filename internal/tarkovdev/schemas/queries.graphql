@@ -5,6 +5,14 @@ query GetWeaponMods {
     ergonomicsModifier
     recoilModifier
     types
+    conflictingItems {
+        id
+        name
+    }
+    category {
+      name
+      id
+    }
     properties {
       ... on ItemPropertiesWeaponMod {
         __typename
@@ -78,6 +86,10 @@ query GetWeapons {
     ergonomicsModifier
     recoilModifier
     types
+    conflictingItems {
+        id
+        name
+    }
     properties {
       ... on ItemPropertiesWeapon {
         __typename

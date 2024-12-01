@@ -105,6 +105,11 @@ func getModsFromTarkovDev(api *tarkovdev.Api) ([]models.WeaponMod, error) {
 			Name:               mod.Name,
 			ErgonomicsModifier: int(mod.ErgonomicsModifier),
 			RecoilModifier:     int(mod.RecoilModifier),
+			ConflictingItems:   make([]string, 0, len(mod.ConflictingItems)),
+		}
+
+		for j := 0; j < len(mod.ConflictingItems); j++ {
+			newMod.ConflictingItems = append(newMod.ConflictingItems, mod.ConflictingItems[j].Id)
 		}
 
 		var slots []models.Slot

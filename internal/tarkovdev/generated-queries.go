@@ -254,12 +254,14 @@ func (v *GetItemPricesResponse) GetItems() []GetItemPricesItemsItem { return v.I
 
 // GetWeaponModsItemsItem includes the requested fields of the GraphQL type Item.
 type GetWeaponModsItemsItem struct {
-	Name               string                           `json:"name"`
-	Id                 string                           `json:"id"`
-	ErgonomicsModifier float64                          `json:"ergonomicsModifier"`
-	RecoilModifier     float64                          `json:"recoilModifier"`
-	Types              []ItemType                       `json:"types"`
-	Properties         GetWeaponModsItemsItemProperties `json:"-"`
+	Name               string                                       `json:"name"`
+	Id                 string                                       `json:"id"`
+	ErgonomicsModifier float64                                      `json:"ergonomicsModifier"`
+	RecoilModifier     float64                                      `json:"recoilModifier"`
+	Types              []ItemType                                   `json:"types"`
+	ConflictingItems   []GetWeaponModsItemsItemConflictingItemsItem `json:"conflictingItems"`
+	Category           GetWeaponModsItemsItemCategory               `json:"category"`
+	Properties         GetWeaponModsItemsItemProperties             `json:"-"`
 }
 
 // GetName returns GetWeaponModsItemsItem.Name, and is useful for accessing the field via an interface.
@@ -276,6 +278,14 @@ func (v *GetWeaponModsItemsItem) GetRecoilModifier() float64 { return v.RecoilMo
 
 // GetTypes returns GetWeaponModsItemsItem.Types, and is useful for accessing the field via an interface.
 func (v *GetWeaponModsItemsItem) GetTypes() []ItemType { return v.Types }
+
+// GetConflictingItems returns GetWeaponModsItemsItem.ConflictingItems, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItem) GetConflictingItems() []GetWeaponModsItemsItemConflictingItemsItem {
+	return v.ConflictingItems
+}
+
+// GetCategory returns GetWeaponModsItemsItem.Category, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItem) GetCategory() GetWeaponModsItemsItemCategory { return v.Category }
 
 // GetProperties returns GetWeaponModsItemsItem.Properties, and is useful for accessing the field via an interface.
 func (v *GetWeaponModsItemsItem) GetProperties() GetWeaponModsItemsItemProperties {
@@ -326,6 +336,10 @@ type __premarshalGetWeaponModsItemsItem struct {
 
 	Types []ItemType `json:"types"`
 
+	ConflictingItems []GetWeaponModsItemsItemConflictingItemsItem `json:"conflictingItems"`
+
+	Category GetWeaponModsItemsItemCategory `json:"category"`
+
 	Properties json.RawMessage `json:"properties"`
 }
 
@@ -345,6 +359,8 @@ func (v *GetWeaponModsItemsItem) __premarshalJSON() (*__premarshalGetWeaponModsI
 	retval.ErgonomicsModifier = v.ErgonomicsModifier
 	retval.RecoilModifier = v.RecoilModifier
 	retval.Types = v.Types
+	retval.ConflictingItems = v.ConflictingItems
+	retval.Category = v.Category
 	{
 
 		dst := &retval.Properties
@@ -359,6 +375,30 @@ func (v *GetWeaponModsItemsItem) __premarshalJSON() (*__premarshalGetWeaponModsI
 	}
 	return &retval, nil
 }
+
+// GetWeaponModsItemsItemCategory includes the requested fields of the GraphQL type ItemCategory.
+type GetWeaponModsItemsItemCategory struct {
+	Name string `json:"name"`
+	Id   string `json:"id"`
+}
+
+// GetName returns GetWeaponModsItemsItemCategory.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemCategory) GetName() string { return v.Name }
+
+// GetId returns GetWeaponModsItemsItemCategory.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemCategory) GetId() string { return v.Id }
+
+// GetWeaponModsItemsItemConflictingItemsItem includes the requested fields of the GraphQL type Item.
+type GetWeaponModsItemsItemConflictingItemsItem struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns GetWeaponModsItemsItemConflictingItemsItem.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemConflictingItemsItem) GetId() string { return v.Id }
+
+// GetName returns GetWeaponModsItemsItemConflictingItemsItem.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponModsItemsItemConflictingItemsItem) GetName() string { return v.Name }
 
 // GetWeaponModsItemsItemProperties includes the requested fields of the GraphQL interface ItemProperties.
 //
@@ -1315,13 +1355,14 @@ func (v *GetWeaponModsResponse) GetItems() []GetWeaponModsItemsItem { return v.I
 
 // GetWeaponsItemsItem includes the requested fields of the GraphQL type Item.
 type GetWeaponsItemsItem struct {
-	Typename           string                        `json:"__typename"`
-	Name               string                        `json:"name"`
-	Id                 string                        `json:"id"`
-	ErgonomicsModifier float64                       `json:"ergonomicsModifier"`
-	RecoilModifier     float64                       `json:"recoilModifier"`
-	Types              []ItemType                    `json:"types"`
-	Properties         GetWeaponsItemsItemProperties `json:"-"`
+	Typename           string                                    `json:"__typename"`
+	Name               string                                    `json:"name"`
+	Id                 string                                    `json:"id"`
+	ErgonomicsModifier float64                                   `json:"ergonomicsModifier"`
+	RecoilModifier     float64                                   `json:"recoilModifier"`
+	Types              []ItemType                                `json:"types"`
+	ConflictingItems   []GetWeaponsItemsItemConflictingItemsItem `json:"conflictingItems"`
+	Properties         GetWeaponsItemsItemProperties             `json:"-"`
 }
 
 // GetTypename returns GetWeaponsItemsItem.Typename, and is useful for accessing the field via an interface.
@@ -1341,6 +1382,11 @@ func (v *GetWeaponsItemsItem) GetRecoilModifier() float64 { return v.RecoilModif
 
 // GetTypes returns GetWeaponsItemsItem.Types, and is useful for accessing the field via an interface.
 func (v *GetWeaponsItemsItem) GetTypes() []ItemType { return v.Types }
+
+// GetConflictingItems returns GetWeaponsItemsItem.ConflictingItems, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItem) GetConflictingItems() []GetWeaponsItemsItemConflictingItemsItem {
+	return v.ConflictingItems
+}
 
 // GetProperties returns GetWeaponsItemsItem.Properties, and is useful for accessing the field via an interface.
 func (v *GetWeaponsItemsItem) GetProperties() GetWeaponsItemsItemProperties { return v.Properties }
@@ -1391,6 +1437,8 @@ type __premarshalGetWeaponsItemsItem struct {
 
 	Types []ItemType `json:"types"`
 
+	ConflictingItems []GetWeaponsItemsItemConflictingItemsItem `json:"conflictingItems"`
+
 	Properties json.RawMessage `json:"properties"`
 }
 
@@ -1411,6 +1459,7 @@ func (v *GetWeaponsItemsItem) __premarshalJSON() (*__premarshalGetWeaponsItemsIt
 	retval.ErgonomicsModifier = v.ErgonomicsModifier
 	retval.RecoilModifier = v.RecoilModifier
 	retval.Types = v.Types
+	retval.ConflictingItems = v.ConflictingItems
 	{
 
 		dst := &retval.Properties
@@ -1425,6 +1474,18 @@ func (v *GetWeaponsItemsItem) __premarshalJSON() (*__premarshalGetWeaponsItemsIt
 	}
 	return &retval, nil
 }
+
+// GetWeaponsItemsItemConflictingItemsItem includes the requested fields of the GraphQL type Item.
+type GetWeaponsItemsItemConflictingItemsItem struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns GetWeaponsItemsItemConflictingItemsItem.Id, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemConflictingItemsItem) GetId() string { return v.Id }
+
+// GetName returns GetWeaponsItemsItemConflictingItemsItem.Name, and is useful for accessing the field via an interface.
+func (v *GetWeaponsItemsItemConflictingItemsItem) GetName() string { return v.Name }
 
 // GetWeaponsItemsItemProperties includes the requested fields of the GraphQL interface ItemProperties.
 //
@@ -2254,6 +2315,14 @@ query GetWeaponMods {
 		ergonomicsModifier
 		recoilModifier
 		types
+		conflictingItems {
+			id
+			name
+		}
+		category {
+			name
+			id
+		}
 		properties {
 			__typename
 			... on ItemPropertiesWeaponMod {
@@ -2353,6 +2422,10 @@ query GetWeapons {
 		ergonomicsModifier
 		recoilModifier
 		types
+		conflictingItems {
+			id
+			name
+		}
 		properties {
 			__typename
 			... on ItemPropertiesWeapon {

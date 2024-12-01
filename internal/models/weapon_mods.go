@@ -2,17 +2,17 @@ package models
 
 import (
 	"database/sql"
-	"errors"
-	"fmt"
+	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 )
 
 type WeaponMod struct {
-	ID                 string `json:"item_id"`
-	Name               string `json:"name"`
-	ErgonomicsModifier int    `json:"ergonomics_modifier"`
-	RecoilModifier     int    `json:"recoil_modifier"`
-	Slots              []Slot `json:"slots"`
+	ID                 string   `json:"item_id"`
+	Name               string   `json:"name"`
+	ErgonomicsModifier int      `json:"ergonomics_modifier"`
+	RecoilModifier     int      `json:"recoil_modifier"`
+	Slots              []Slot   `json:"slots"`
+	ConflictingItems   []string `json:"conflicting_items"`
 }
 
 func UpsertMod(tx *sql.Tx, mod WeaponMod) error {
@@ -36,6 +36,11 @@ func UpsertMod(tx *sql.Tx, mod WeaponMod) error {
 		return err
 	}
 
+	err = upsertManyConflictingItems(tx, mod.ID, mod.ConflictingItems)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -51,38 +56,17 @@ func UpsertManyMod(tx *sql.Tx, mods []WeaponMod) error {
 	return nil
 }
 
-func GetWeaponModById(db *sql.DB, id string) (*WeaponMod, error) {
-	rows, err := db.Query(`select item_id, name, ergonomics_modifier, recoil_modifier from weapon_mods where item_id = $1;`, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	weaponMods := make([]*WeaponMod, 0)
-	for rows.Next() {
-		weaponMod := &WeaponMod{}
-		err := rows.Scan(&weaponMod.ID, &weaponMod.Name, &weaponMod.ErgonomicsModifier, &weaponMod.RecoilModifier)
-		if err != nil {
-			return nil, err
-		}
-		weaponMods = append(weaponMods, weaponMod)
-	}
-
-	if len(weaponMods) == 0 {
-		msg := fmt.Sprintf("No results for %s", id)
-		return nil, errors.New(msg)
-	}
-
-	if len(weaponMods) > 1 {
-		msg := fmt.Sprintf("Expected 1 result for weapon mod %s, got %d", id, len(weaponMods))
-		return nil, errors.New(msg)
-	}
-
-	return weaponMods[0], nil
-}
-
 func GetAllWeaponMods(db *sql.DB) ([]*WeaponMod, error) {
-	rows, err := db.Query(`select item_id, name, ergonomics_modifier, recoil_modifier from weapon_mods;`)
+	rows, err := db.Query(`
+		select wm.item_id,
+			   wm.name,
+			   wm.ergonomics_modifier,
+			   wm.recoil_modifier,
+			   COALESCE(array_agg(ci.conflicting_item_id) FILTER (WHERE ci.conflicting_item_id IS NOT NULL),
+						'{}') AS conflicting_items
+		from weapon_mods wm
+				 left join conflicting_items ci on wm.item_id = ci.item_id
+		group by wm.item_id, wm.name, wm.ergonomics_modifier, wm.recoil_modifier;`)
 	if err != nil {
 		return nil, err
 	}
@@ -91,10 +75,11 @@ func GetAllWeaponMods(db *sql.DB) ([]*WeaponMod, error) {
 	weaponMods := make([]*WeaponMod, 0)
 	for rows.Next() {
 		weaponMod := &WeaponMod{}
-		err := rows.Scan(&weaponMod.ID, &weaponMod.Name, &weaponMod.ErgonomicsModifier, &weaponMod.RecoilModifier)
+		err := rows.Scan(&weaponMod.ID, &weaponMod.Name, &weaponMod.ErgonomicsModifier, &weaponMod.RecoilModifier, pq.Array(&weaponMod.ConflictingItems))
 		if err != nil {
 			return nil, err
 		}
+
 		weaponMods = append(weaponMods, weaponMod)
 	}
 
