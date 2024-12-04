@@ -11,7 +11,7 @@ func validateConstraints(offers []models.TraderOffer, constraints models.Evaluat
 		o := offers[i]
 		if o.Trader == "" && o.MinTraderLevel == 0 {
 			// TODO: I think this can be assumed to be a preset item? Worth checking for edge cases nonetheless
-			return true
+			return false
 		}
 
 		for j := i + 1; j < len(constraints.TraderLevels); j++ {
