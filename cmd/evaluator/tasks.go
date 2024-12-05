@@ -86,9 +86,6 @@ func createEvaluationTasks(weaponCandidateTrees []WeaponPossibilityResult, evalu
 
 		log.Debug().Msgf("Creating task variations for weapon %s", w.Id)
 
-		candidateItemSets := evaluator.GenerateNonConflictingCandidateSets(w.Weapon.CandidateItems, w.Weapon.AllowedItemConflicts)
-		log.Info().Msgf("Weapon %s has %d candidate item sets", w.Id, len(candidateItemSets))
-
 		for j := 0; j < len(traderLevelVariations); j++ {
 			constraints := models.EvaluationConstraints{
 				TraderLevels: traderLevelVariations[j],
