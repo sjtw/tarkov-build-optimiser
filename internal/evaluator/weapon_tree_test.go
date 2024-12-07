@@ -2,43 +2,87 @@ package evaluator
 
 import (
 	"github.com/stretchr/testify/assert"
+	"sort"
+	"strings"
 	"testing"
 )
 
+// Tests the correct candidate sets are generated given a SYMMETRICAL
+// conflict map.
 func TestGenerateNonConflictingCandidateSets(t *testing.T) {
 	candidates := map[string]bool{
-		"1": true,
-		"2": true,
-		"3": true,
-		"4": true,
-		"5": true,
-		"6": true,
+		"A": true,
+		"B": true,
+		"C": true,
+		"D": true,
 	}
-
 	conflicts := map[string]map[string]bool{
-		"1": map[string]bool{"2": true, "3": true},
-		"2": map[string]bool{"1": true, "3": true},
-		"3": map[string]bool{"1": true, "2": true},
+		"A": {"B": true},
+		"B": {"A": true, "C": true},
+		"C": {"B": true},
 	}
 
-	sets := GenerateNonConflictingCandidateSets(candidates, conflicts)
-	assert.Equal(t, 3, len(sets))
+	result := GenerateNonConflictingCandidateSets(candidates, conflicts)
 
-	counts := map[string]int{}
-	for _, set := range sets {
-		for _, id := range set {
-			if _, ok := counts[id]; ok {
-				counts[id]++
-			} else {
-				counts[id] = 1
-			}
+	expected := map[string]bool{
+		"ACD": false,
+		// items with zero conflicts (D in this case) must be present in all candidate sets
+		"BD": false,
+	}
+
+	for _, r := range result {
+		sort.Strings(r)
+		key := strings.Join(r, "")
+		if _, exists := expected[key]; !exists {
+			t.Errorf("Unexpected result: %s", key)
+		} else {
+			expected[key] = true
 		}
 	}
 
-	assert.Equal(t, 1, counts["1"])
-	assert.Equal(t, 1, counts["2"])
-	assert.Equal(t, 1, counts["3"])
-	assert.Equal(t, 3, counts["4"])
-	assert.Equal(t, 3, counts["5"])
-	assert.Equal(t, 3, counts["6"])
+	for key, found := range expected {
+		assert.Equal(t, true, found, "Expected set %s was not found", key)
+	}
+
+	assert.Equal(t, len(expected), len(result), "Unexpected number of result sets")
+}
+
+func TestGenerateNonSymmetricalNonConflictingCandidateSets(t *testing.T) {
+	candidates := map[string]bool{
+		"A": true,
+		"B": true,
+		"C": true,
+		"D": true,
+	}
+	// C is omitted entirely as its conflicts are inherent
+	// this replicates some holes in the tarkov.dev data where a conflict is
+	// only represented in one direction. stocks & pistol grips with integrated stock
+	// for example.
+	conflicts := map[string]map[string]bool{
+		"A": {"B": true},
+		"C": {"B": true},
+	}
+
+	result := GenerateNonConflictingCandidateSets(candidates, conflicts)
+
+	expected := map[string]bool{
+		"ACD": false,
+		"BD":  false,
+	}
+
+	for _, r := range result {
+		sort.Strings(r)
+		key := strings.Join(r, "")
+		if _, exists := expected[key]; !exists {
+			t.Errorf("Unexpected result: %s", key)
+		} else {
+			expected[key] = true
+		}
+	}
+
+	for key, found := range expected {
+		assert.Equal(t, true, found, "Expected set %s was not found", key)
+	}
+
+	assert.Equal(t, len(expected), len(result), "Unexpected number of result sets")
 }

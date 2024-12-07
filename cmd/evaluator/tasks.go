@@ -74,7 +74,15 @@ func processEvaluationTasks(dataProvider evaluator.EvaluationDataProvider, tasks
 func createEvaluationTasks(weaponCandidateTrees []WeaponPossibilityResult, evaluationTypes []string) []evaluator.Task {
 	tasks := make([]evaluator.Task, 0)
 
-	traderLevelVariations := evaluator.GenerateTraderLevelVariations(models.TraderNames)
+	//traderLevelVariations := evaluator.GenerateTraderLevelVariations(models.TraderNames)
+	traderLevelVariations := make([][]models.TraderLevel, 1)
+	traderLevelVariations[0] = make([]models.TraderLevel, 5)
+	for i := 0; i < 5; i++ {
+		traderLevelVariations[0][i] = models.TraderLevel{
+			Name:  models.TraderNames[i],
+			Level: 4,
+		}
+	}
 
 	for i := 0; i < len(weaponCandidateTrees); i++ {
 		w := weaponCandidateTrees[i]

@@ -14,15 +14,16 @@ type EvaluationConstraints struct {
 }
 
 type ItemEvaluationResult struct {
-	ID                 string                  `json:"id"`
-	Name               string                  `json:"name"`
-	EvaluationType     string                  `json:"evaluation_type"`
-	IsSubtree          bool                    `json:"is_subtree"`
-	RecoilModifier     int                     `json:"recoil_modifier"`
-	ErgonomicsModifier int                     `json:"ergonomics_modifier"`
-	Slots              []*SlotEvaluationResult `json:"slots"`
-	RecoilSum          int                     `json:"recoil_sum"`
-	ErgonomicsSum      int                     `json:"ergonomics_sum"`
+	ID                 string                 `json:"id"`
+	Name               string                 `json:"name"`
+	EvaluationType     string                 `json:"evaluation_type"`
+	IsSubtree          bool                   `json:"is_subtree"`
+	RecoilModifier     int                    `json:"recoil_modifier"`
+	ErgonomicsModifier int                    `json:"ergonomics_modifier"`
+	Slots              []SlotEvaluationResult `json:"slots"`
+	RecoilSum          int                    `json:"recoil_sum"`
+	ErgonomicsSum      int                    `json:"ergonomics_sum"`
+	AssignedItemIDs    []string               `json:"item_ids"`
 }
 
 type SlotEvaluationResult struct {

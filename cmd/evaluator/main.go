@@ -38,7 +38,7 @@ func main() {
 	if flags.TestRun {
 		log.Info().Msg("Using test weapon IDs")
 		weaponIds = []string{
-			"5447a9cd4bdc2dbd208b4567",
+			"5644bd2b4bdc2d3b4c8b4572",
 			//"5448bd6b4bdc2dfc2f8b4569",
 			//"54491c4f4bdc2db1078b4568",
 		}

@@ -79,37 +79,71 @@ func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) 
 	return weaponTree, nil
 }
 
+// GenerateNonConflictingCandidateSets - generates all maximal, non-conflicting sets of candidate item IDs given
+// the candidate list and conflict maps.
 func GenerateNonConflictingCandidateSets(candidates map[string]bool, conflicts map[string]map[string]bool) [][]string {
-	candidateIDSets := make([][]string, 0)
-	resolved := map[string]bool{}
-
-	conflictCount := len(conflicts)
-	for conflictCount > 0 {
-		candidateIDSet := make([]string, 0)
-		bans := map[string]bool{}
-		for candidateID, _ := range candidates {
-			if _, ok := resolved[candidateID]; ok {
-				continue
-			}
-
-			if _, ok := bans[candidateID]; ok {
-				continue
-			}
-
-			if _, ok := conflicts[candidateID]; ok {
-				resolved[candidateID] = true
-
-				for bannedID, _ := range conflicts[candidateID] {
-					bans[bannedID] = true
-				}
-
-				conflictCount--
-			}
-
-			candidateIDSet = append(candidateIDSet, candidateID)
+	// Some items do not have symmetrical conflicts (for example pistol grips with integrated buttstocks conflict
+	// with most stocks, however there is no conflict in the other direction. By removing all conflicts are symmetrical
+	// up-front we never need to be concerned with the order items are checked/added to a build.
+	symmetricConflicts := make(map[string]map[string]bool)
+	for candidate, conflictSet := range conflicts {
+		if _, exists := symmetricConflicts[candidate]; !exists {
+			symmetricConflicts[candidate] = make(map[string]bool)
 		}
-		candidateIDSets = append(candidateIDSets, candidateIDSet)
+
+		for conflict := range conflictSet {
+			if _, exists := symmetricConflicts[conflict]; !exists {
+				symmetricConflicts[conflict] = make(map[string]bool)
+			}
+			symmetricConflicts[candidate][conflict] = true
+			symmetricConflicts[conflict][candidate] = true
+		}
 	}
 
-	return candidateIDSets
+	result := [][]string{}
+
+	conflictsWithSet := func(candidate string, currentSet []string) bool {
+		for _, member := range currentSet {
+			if symmetricConflicts[candidate] != nil && symmetricConflicts[candidate][member] {
+				return true
+			}
+		}
+		return false
+	}
+
+	conflictFree := []string{}
+	conflictingCandidates := []string{}
+	for candidate := range candidates {
+		if len(symmetricConflicts[candidate]) == 0 {
+			conflictFree = append(conflictFree, candidate)
+		} else {
+			conflictingCandidates = append(conflictingCandidates, candidate)
+		}
+	}
+
+	remaining := conflictingCandidates
+
+	for len(remaining) > 0 {
+		currentSet := []string{}
+		newRemaining := []string{}
+
+		for _, candidate := range remaining {
+			if !conflictsWithSet(candidate, currentSet) {
+				currentSet = append(currentSet, candidate)
+			} else {
+				newRemaining = append(newRemaining, candidate)
+			}
+		}
+
+		for _, candidate := range conflictFree {
+			if !conflictsWithSet(candidate, currentSet) {
+				currentSet = append(currentSet, candidate)
+			}
+		}
+
+		result = append(result, currentSet)
+		remaining = newRemaining
+	}
+
+	return result
 }

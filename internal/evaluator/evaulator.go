@@ -39,7 +39,7 @@ func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error)
 		// generate all valid variations of candidates, including the weapon ID
 		generatedSets := GenerateNonConflictingCandidateSets(task.Weapon.CandidateItems, task.Weapon.AllowedItemConflicts)
 		for _, generatedSet := range generatedSets {
-			prependedSet := make([]string, len(generatedSet))
+			prependedSet := make([]string, 0)
 			prependedSet = append(prependedSet, task.Weapon.Item.ID)
 
 			for _, id := range generatedSet {
@@ -52,7 +52,7 @@ func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error)
 		set := make([]string, len(task.Weapon.CandidateItems)+1)
 		// prepend the weapon id itself
 		set = append(set, task.Weapon.Item.ID)
-		for id, _ := range task.Weapon.CandidateItems {
+		for id := range task.Weapon.CandidateItems {
 			set = append(set, id)
 		}
 		candidateSets = append(candidateSets, set)
@@ -60,7 +60,8 @@ func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error)
 
 	optimum := models.ItemEvaluationResult{}
 	optimumSum := 0
-	for _, candidateItems := range candidateSets {
+	for index, candidateItems := range candidateSets {
+		log.Info().Msgf("index %d", index)
 		result, err := e.evaluate(task.Weapon.Item, task.EvaluationType, task.Constraints, candidateItems)
 		if err != nil {
 			return models.ItemEvaluationResult{}, err
@@ -83,13 +84,38 @@ func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error)
 }
 
 func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (*models.ItemEvaluationResult, error) {
+	a := "6087e2a5232e5a31c233d552"
+	hasA := false
+	b := "619b69037b9de8162902673e"
+	hasB := false
+	for _, cand := range candidates {
+		if cand == a {
+			hasA = true
+		}
+		if cand == b {
+			hasB = true
+		}
+	}
+
+	if hasA && hasB {
+		log.Info().Msg("THIS SHOUDL NOT HAPPEN")
+	}
+
+	if item.ID == a {
+		log.Info().Msg("checking A")
+	}
+
+	if item.ID == b {
+		log.Info().Msg("checking B")
+	}
+
 	outItem := &models.ItemEvaluationResult{
 		ID:                 item.ID,
 		Name:               item.Name,
 		EvaluationType:     evaluationType,
 		RecoilModifier:     item.RecoilModifier,
 		ErgonomicsModifier: item.ErgonomicsModifier,
-		Slots:              make([]*models.SlotEvaluationResult, len(item.Slots)),
+		Slots:              make([]models.SlotEvaluationResult, len(item.Slots)),
 		ErgonomicsSum:      item.ErgonomicsModifier,
 		RecoilSum:          item.RecoilModifier,
 	}
@@ -104,16 +130,19 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		return outItem, nil
 	}
 
-	preEvaluatedItem, err := e.dataService.GetSubtree(outItem.ID, evaluationType, constraints)
-	if err != nil {
-		log.Error().Err(err).Msgf("Failed to get subtree for evaluation. item: %s", preEvaluatedItem.ID)
-		return nil, err
-	}
+	// TODO: pre evaluated items also need to be keyed by whitelisted candidate set
+	//		else we can accidentally re-include conflicting items
 
-	if preEvaluatedItem != nil {
-		log.Debug().Msgf("Optimal [%s] evaluation for item [%s] already evaluated. returning.", outItem.EvaluationType, item.ID)
-		return preEvaluatedItem, nil
-	}
+	//preEvaluatedItem, err := e.dataService.GetSubtree(outItem.ID, evaluationType, constraints)
+	//if err != nil {
+	//	log.Error().Err(err).Msgf("Failed to get subtree for evaluation. item: %s", preEvaluatedItem.ID)
+	//	return nil, err
+	//}
+	//
+	//if preEvaluatedItem != nil {
+	//	log.Debug().Msgf("Optimal [%s] evaluation for item [%s] already evaluated. returning.", outItem.EvaluationType, item.ID)
+	//	return preEvaluatedItem, nil
+	//}
 
 	for i := 0; i < len(item.Slots); i++ {
 		log.Debug().Msgf("Evaluating slot %d for item [%s]", i, item.ID)
@@ -199,12 +228,14 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 			}
 		}
 
-		outItem.Slots[i] = outSlot
+		outItem.Slots[i] = *outSlot
 		outItem.RecoilSum += slotRecoil
 		outItem.ErgonomicsSum += slotErgo
 	}
 
-	e.dataService.SaveBuild(outItem, constraints)
+	if !outItem.IsSubtree {
+		e.dataService.SaveBuild(outItem, constraints)
+	}
 
 	log.Debug().Msgf("Output item %v", outItem)
 
