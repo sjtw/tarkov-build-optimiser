@@ -83,7 +83,7 @@ func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) 
 // the candidate list and conflict maps.
 func GenerateNonConflictingCandidateSets(candidates map[string]bool, conflicts map[string]map[string]bool) [][]string {
 	// Some items do not have symmetrical conflicts (for example pistol grips with integrated buttstocks conflict
-	// with most stocks, however there is no conflict in the other direction. By removing all conflicts are symmetrical
+	// with most stocks, however there is no conflict in the other direction. By ensuring all conflicts are symmetrical
 	// up-front we never need to be concerned with the order items are checked/added to a build.
 	symmetricConflicts := make(map[string]map[string]bool)
 	for candidate, conflictSet := range conflicts {
