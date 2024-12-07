@@ -49,21 +49,6 @@ func constraintsToTraderMap(constraints EvaluationConstraints) map[string]int {
 	return tradersMap
 }
 
-// TODO: stop using []TraderLevel and use map[string]int instead
-func TraderMapToTraderLevels(tradersMap map[string]int) []TraderLevel {
-	levels := []TraderLevel{}
-
-	for i := 0; i < len(TraderNames); i++ {
-		traderLevel := TraderLevel{
-			Name:  TraderNames[i],
-			Level: tradersMap[TraderNames[i]],
-		}
-		levels = append(levels, traderLevel)
-	}
-
-	return levels
-}
-
 func SerialiseLevels(levels []TraderLevel) string {
 	str := ""
 	for i := 0; i < len(levels); i++ {
