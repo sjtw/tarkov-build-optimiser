@@ -84,31 +84,6 @@ func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error)
 }
 
 func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (*models.ItemEvaluationResult, error) {
-	a := "6087e2a5232e5a31c233d552"
-	hasA := false
-	b := "619b69037b9de8162902673e"
-	hasB := false
-	for _, cand := range candidates {
-		if cand == a {
-			hasA = true
-		}
-		if cand == b {
-			hasB = true
-		}
-	}
-
-	if hasA && hasB {
-		log.Info().Msg("THIS SHOUDL NOT HAPPEN")
-	}
-
-	if item.ID == a {
-		log.Info().Msg("checking A")
-	}
-
-	if item.ID == b {
-		log.Info().Msg("checking B")
-	}
-
 	outItem := &models.ItemEvaluationResult{
 		ID:                 item.ID,
 		Name:               item.Name,
@@ -161,7 +136,7 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 
 			isCandidate := false
 			for _, candidateID := range candidates {
-				if candidateID == item.ID {
+				if candidateID == ai.ID {
 					isCandidate = true
 				}
 			}
@@ -169,6 +144,8 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 			if !isCandidate {
 				log.Info().Msgf("Candidate item [%s] is not a whitelisted candidate for this evaluation", item.ID)
 				continue
+			} else {
+				log.Info().Msgf("Candidate item [%s] is a valid candidate for this evaluation", item.ID)
 			}
 
 			offers, err := e.dataService.GetTraderOffer(ai.ID)

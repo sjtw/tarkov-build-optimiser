@@ -240,16 +240,20 @@ func TestFindBestErgoTree(t *testing.T) {
 	assert.Len(t, build.Slots[1].Item.Slots, 0)
 }
 
+// Replicates a bug where conflicting items can be added due to the candidate
+// array not being fully taken into account
 func TestCandidatesRestrictItems(t *testing.T) {
 	rootWeaponTree := &WeaponTree{}
 	weapon := ConstructItem("weapon1", "Weapon1", rootWeaponTree)
 	weapon.RecoilModifier = -10
 	weapon.ErgonomicsModifier = 10
 
+	// doesn't get chosen, item2 is better because item1 relies on child item to improve stats over item2
 	item1 := ConstructItem("item1", "Item1", rootWeaponTree)
 	item1.RecoilModifier = -1
 	item1.ErgonomicsModifier = 1
 
+	// gets chosen
 	item2 := ConstructItem("item2", "Item2", rootWeaponTree)
 	item2.RecoilModifier = -2
 	item2.ErgonomicsModifier = 2
@@ -289,23 +293,7 @@ func TestCandidatesRestrictItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, build.RecoilSum, -18)
 
-	assert.Len(t, build.Slots, 2)
-	assert.NotNil(t, build.Slots[0])
-
-	assert.Equal(t, build.Slots[0].Item.RecoilSum, -5)
-
-	assert.NotNil(t, build.Slots[0].Item)
-	assert.Equal(t, item1.ID, build.Slots[0].Item.ID)
-	assert.Len(t, build.Slots[0].Item.Slots, 1)
-	assert.Equal(t, item1ChildSlot.ID, build.Slots[0].Item.Slots[0].ID)
-	// we haven't included child-item1 in the candidate array - it MUST NOT be present
-	assert.Nil(t, build.Slots[0].Item.Slots[0].Item)
-	//assert.Equal(t, item1ChildSlotItem.RecoilModifier, build.Slots[0].Item.Slots[0].Item.RecoilSum)
-
-	assert.NotNil(t, build.Slots[1])
-	assert.Equal(t, -3, build.Slots[1].Item.RecoilSum)
-	assert.Equal(t, item3.ID, build.Slots[1].Item.ID)
-	assert.Len(t, build.Slots[1].Item.Slots, 0)
+	assert.Len(t, build.Slots[0].Item.Slots, 0)
+	assert.Equal(t, build.Slots[0].Item.ID, item2.ID)
 }
