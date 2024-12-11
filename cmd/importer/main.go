@@ -63,4 +63,9 @@ func main() {
 		log.Fatal().Err(err).Msg("failed to import trader offers.")
 	}
 	log.Debug().Msg("All trader offers imported OK.")
+
+	err = models.PurgeOptimumBuilds(dbClient.Conn)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to purge optimal builds after importing.")
+	}
 }
