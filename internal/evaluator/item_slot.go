@@ -82,10 +82,6 @@ func (slot *ItemSlot) PopulateAllowedItems() error {
 		return err
 	}
 
-	if _, ok := slot.RootWeaponTree.constraints.ignoredSlotNames[slot.Name]; ok {
-		return nil
-	}
-
 	for i := 0; i < len(allowedItems); i++ {
 		allowedItem := allowedItems[i]
 
@@ -95,11 +91,6 @@ func (slot *ItemSlot) PopulateAllowedItems() error {
 		}
 
 		if modProperties == nil {
-			continue
-		}
-
-		// if the mod has no effect on recoil or ergonomics, we don't care about it
-		if modProperties.RecoilModifier == 0 && modProperties.ErgonomicsModifier == 0 {
 			continue
 		}
 

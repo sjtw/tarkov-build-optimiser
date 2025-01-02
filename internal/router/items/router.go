@@ -13,6 +13,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// getTraderLevelParams parses the trader level parameters from the query string, returning a slice of TraderLevel structs
+// for each trader level parameter found in the query string. If a parameter for a trader is found, level is set to 4 (max).
 func getTraderLevelParams(c echo.Context) ([]models.TraderLevel, error) {
 	traderLevels := make([]models.TraderLevel, 0)
 
@@ -55,6 +57,10 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 	e.GET("/weapons/:item_id/calculate", func(c echo.Context) error {
 		constraints := models.EvaluationConstraints{
 			TraderLevels: []models.TraderLevel{},
+			IgnoredSlotNames: map[string]bool{
+				"Scope": true,
+				"Ubgl":  true,
+			},
 		}
 
 		itemId := c.Param("item_id")
@@ -65,25 +71,27 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		}
 
 		constraints.TraderLevels = traderLevels
+		//build, err := models.GetOptimumBuild(db, itemId, buildType, constraints)
+		//if err != nil {
+		//	return err
+		//}
 
-		build, err := models.GetOptimumBuild(db, itemId, buildType, constraints)
-		if err != nil {
-			return err
-		}
-
-		if build != nil {
-			log.Info().Msg("Returning pre-generated build")
-			return c.JSON(200, build)
-		}
+		//if build != nil {
+		//	log.Info().Msg("Returning pre-generated build")
+		//	return c.JSON(200, build)
+		//}
 
 		log.Info().Msg("No pre-generated build - calculating")
 
 		dataService := evaluator.CreateDataService(db)
-		weapon, err := evaluator.ConstructWeaponTree(itemId, dataService)
+		weaponTree, err := evaluator.ConstructWeaponTree(itemId, dataService)
+		if err != nil {
+			return c.String(500, err.Error())
+		}
 		e := evaluator.CreateEvaluator(dataService)
 		result, err := e.EvaluateTask(evaluator.Task{
 			Constraints:    constraints,
-			Weapon:         *weapon,
+			WeaponTree:     *weaponTree,
 			EvaluationType: buildType,
 		})
 		if err != nil {

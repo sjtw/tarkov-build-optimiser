@@ -18,7 +18,7 @@ type EvaluationDataProvider interface {
 
 type Task struct {
 	Constraints    models.EvaluationConstraints
-	Weapon         WeaponTree
+	WeaponTree     WeaponTree
 	EvaluationType string
 }
 
@@ -32,27 +32,43 @@ func CreateEvaluator(dataService EvaluationDataProvider) *Evaluator {
 	}
 }
 
+func (e *Evaluator) filterCandidateItemsByTraderAvailability(candidates map[string]bool, traderLevels []models.TraderLevel) (map[string]bool, error) {
+	filteredCandidates := map[string]bool{}
+
+	for itemId := range candidates {
+		offers, err := e.dataService.GetTraderOffer(itemId)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to get trader offer for item [%s]", itemId)
+			return nil, err
+		}
+
+		valid := validateTraderLevels(offers, traderLevels)
+		if valid {
+			filteredCandidates[itemId] = true
+		}
+	}
+
+	return filteredCandidates, nil
+}
+
 func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error) {
+	filteredCandidates, err := e.filterCandidateItemsByTraderAvailability(task.WeaponTree.CandidateItems, task.Constraints.TraderLevels)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to filter candidate items by trader availability")
+		return models.ItemEvaluationResult{}, err
+	}
+
 	candidateSets := make([][]string, 0)
 
-	if len(task.Weapon.AllowedItemConflicts) > 0 {
-		// generate all valid variations of candidates, including the weapon ID
-		generatedSets := GenerateNonConflictingCandidateSets(task.Weapon.CandidateItems, task.Weapon.AllowedItemConflicts)
-		for _, generatedSet := range generatedSets {
-			prependedSet := make([]string, 0)
-			prependedSet = append(prependedSet, task.Weapon.Item.ID)
+	// perform trader level filtering
 
-			for _, id := range generatedSet {
-				prependedSet = append(prependedSet, id)
-			}
-			candidateSets = append(candidateSets, prependedSet)
-		}
+	if len(task.WeaponTree.AllowedItemConflicts) > 0 {
+		// generate all valid variations of candidates, including the weapon ID
+		candidateSets = GenerateNonConflictingCandidateSets(filteredCandidates, task.WeaponTree.AllowedItemConflicts)
 	} else {
 		// the weapon has no possible conflicts, so we can use all candidate items from the candidate tree
-		set := make([]string, len(task.Weapon.CandidateItems)+1)
-		// prepend the weapon id itself
-		set = append(set, task.Weapon.Item.ID)
-		for id := range task.Weapon.CandidateItems {
+		set := make([]string, len(filteredCandidates))
+		for id := range task.WeaponTree.CandidateItems {
 			set = append(set, id)
 		}
 		candidateSets = append(candidateSets, set)
@@ -62,7 +78,7 @@ func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error)
 	optimumSum := 0
 	for index, candidateItems := range candidateSets {
 		log.Info().Msgf("index %d", index)
-		result, err := e.evaluate(task.Weapon.Item, task.EvaluationType, task.Constraints, candidateItems)
+		result, err := e.evaluate(task.WeaponTree.Item, task.EvaluationType, task.Constraints, candidateItems)
 		if err != nil {
 			return models.ItemEvaluationResult{}, err
 		}
@@ -128,8 +144,17 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 			Item: nil,
 		}
 
+		if isIgnoredSlotName(item.Slots[i].Name, constraints.IgnoredSlotNames) {
+			outItem.Slots[i] = *outSlot
+			continue
+		}
+
 		slotErgo := 0
 		slotRecoil := 0
+		if outSlot.Name == "Gas Block" {
+			log.Debug().Msgf("Gas Tube slot")
+		}
+
 		for j := 0; j < len(item.Slots[i].AllowedItems); j++ {
 			log.Debug().Msgf("Evaluating slot %d for item [%s]", j, item.ID)
 			ai := item.Slots[i].AllowedItems[j]
@@ -146,18 +171,6 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 				continue
 			} else {
 				log.Info().Msgf("Candidate item [%s] is a valid candidate for this evaluation", item.ID)
-			}
-
-			offers, err := e.dataService.GetTraderOffer(ai.ID)
-			if err != nil {
-				log.Error().Err(err).Msgf("Failed to get trader offer for item [%s]", item.ID)
-				return nil, err
-			}
-
-			valid := validateConstraints(offers, constraints)
-			if valid != true {
-				log.Debug().Msg("item does not meet build constraints, skipping")
-				continue
 			}
 
 			highestItem, err := e.evaluate(ai, evaluationType, constraints, candidates)
@@ -217,4 +230,78 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 	log.Debug().Msgf("Output item %v", outItem)
 
 	return outItem, nil
+}
+
+func isIgnoredSlotName(slotName string, ignoredSlots map[string]bool) bool {
+	_, exists := ignoredSlots[slotName]
+	return exists
+}
+
+func conflictsWithSet(conflictMap map[string]map[string]bool, candidate string, currentSet []string) bool {
+	for _, member := range currentSet {
+		if conflictMap[candidate] != nil && conflictMap[candidate][member] {
+			return true
+		}
+	}
+	return false
+}
+
+// GenerateNonConflictingCandidateSets - generates all maximal, non-conflicting sets of candidate item IDs given
+// the candidate list and conflict maps.
+func GenerateNonConflictingCandidateSets(candidates map[string]bool, conflicts map[string]map[string]bool) [][]string {
+	// Some items do not have symmetrical conflicts (for example pistol grips with integrated buttstocks conflict)
+	// with most stocks, however there is no conflict in the other direction. By ensuring all conflicts are symmetrical
+	// up-front we never need to be concerned with the order items are checked/added to a build.
+	symmetricConflicts := make(map[string]map[string]bool)
+	for candidateId, conflictSet := range conflicts {
+		if _, exists := symmetricConflicts[candidateId]; !exists {
+			symmetricConflicts[candidateId] = make(map[string]bool)
+		}
+
+		for conflictId := range conflictSet {
+			if _, exists := symmetricConflicts[conflictId]; !exists {
+				symmetricConflicts[conflictId] = make(map[string]bool)
+			}
+			symmetricConflicts[candidateId][conflictId] = true
+			symmetricConflicts[conflictId][candidateId] = true
+		}
+	}
+
+	result := [][]string{}
+
+	conflictFree := []string{}
+	conflictingCandidates := []string{}
+	for candidate := range candidates {
+		if len(symmetricConflicts[candidate]) == 0 {
+			conflictFree = append(conflictFree, candidate)
+		} else {
+			conflictingCandidates = append(conflictingCandidates, candidate)
+		}
+	}
+
+	remaining := conflictingCandidates
+
+	for len(remaining) > 0 {
+		currentSet := []string{}
+		newRemaining := []string{}
+
+		for _, candidate := range remaining {
+			if !conflictsWithSet(symmetricConflicts, candidate, currentSet) {
+				currentSet = append(currentSet, candidate)
+			} else {
+				newRemaining = append(newRemaining, candidate)
+			}
+		}
+
+		for _, candidate := range conflictFree {
+			if !conflictsWithSet(symmetricConflicts, candidate, currentSet) {
+				currentSet = append(currentSet, candidate)
+			}
+		}
+
+		result = append(result, currentSet)
+		remaining = newRemaining
+	}
+
+	return result
 }

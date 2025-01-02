@@ -6,7 +6,7 @@ import (
 	"tarkov-build-optimiser/internal/models"
 )
 
-func validateConstraints(offers []models.TraderOffer, constraints models.EvaluationConstraints) bool {
+func validateTraderLevels(offers []models.TraderOffer, levels []models.TraderLevel) bool {
 	for i := 0; i < len(offers); i++ {
 		o := offers[i]
 		if o.Trader == "" && o.MinTraderLevel == 0 {
@@ -14,8 +14,8 @@ func validateConstraints(offers []models.TraderOffer, constraints models.Evaluat
 			return false
 		}
 
-		for j := i + 1; j < len(constraints.TraderLevels); j++ {
-			tc := constraints.TraderLevels[j]
+		for j := i + 1; j < len(levels); j++ {
+			tc := levels[j]
 			if offers[i].Trader == tc.Name && tc.Level >= offers[i].MinTraderLevel {
 				return true
 			}
@@ -25,6 +25,7 @@ func validateConstraints(offers []models.TraderOffer, constraints models.Evaluat
 	return false
 }
 
+// GenerateTraderLevelVariations generates all possible combinations of trader levels for the given trader names
 func GenerateTraderLevelVariations(traderNames []string) [][]models.TraderLevel {
 	traderCount := len(traderNames)
 	maxLevel := 4
@@ -45,6 +46,8 @@ func GenerateTraderLevelVariations(traderNames []string) [][]models.TraderLevel 
 	return traders
 }
 
+// createTraderLevelHash creates a hash string from the given trader level combinations
+// TODO: include game data version in the hash for keying stored builds?
 func createTraderLevelHash(traders []models.TraderLevel) string {
 	result := ""
 	for _, trader := range traders {
