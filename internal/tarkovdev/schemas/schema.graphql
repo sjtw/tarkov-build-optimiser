@@ -1,4 +1,3 @@
-# noinspection SpellCheckingInspection
 type Achievement {
   adjustedPlayersCompletedPercent: Float
   description: String
@@ -447,6 +446,7 @@ enum ItemCategoryName {
   FaceCover
   Flashhider
   Flashlight
+  Flyer
   Food
   FoodAndDrink
   Foregrip
@@ -472,6 +472,7 @@ enum ItemCategoryName {
   Machinegun
   Magazine
   Map
+  MarkOfTheUnheard
   MarksmanRifle
   MechanicalKey
   MedicalItem
@@ -941,6 +942,7 @@ type LootContainerPosition {
 type Map {
   accessKeys: [Item]!
   accessKeysMinPlayerLevel: Int
+  artillery: MapArtillerySettings
   bosses: [BossSpawn]!
   description: String
   enemies: [String]
@@ -962,6 +964,18 @@ type Map {
   tarkovDataId: ID
   transits: [MapTransit]
   wiki: String
+}
+
+type MapArtillerySettings {
+  zones: [MapArtilleryZone]
+}
+
+type MapArtilleryZone {
+  bottom: Float
+  outline: [MapPosition]
+  position: MapPosition
+  radius: Float @deprecated(reason: "Use outline instead.")
+  top: Float
 }
 
 type MapExtract {
@@ -1074,6 +1088,7 @@ type PriceRequirement {
 type Query {
   achievements(lang: LanguageCode, limit: Int, offset: Int): [Achievement]!
   ammo(gameMode: GameMode, lang: LanguageCode, limit: Int, offset: Int): [Ammo]
+  archivedItemPrices(id: ID!, limit: Int, offset: Int): [historicalPricePoint]!
   armorMaterials(lang: LanguageCode): [ArmorMaterial]!
   barters(gameMode: GameMode, lang: LanguageCode, limit: Int, offset: Int): [Barter]
   bosses(gameMode: GameMode, lang: LanguageCode, limit: Int, name: [String!], offset: Int): [MobInfo]
@@ -1087,6 +1102,7 @@ type Query {
   item(gameMode: GameMode, id: ID, lang: LanguageCode, normalizedName: String): Item
   itemByNormalizedName(normalizedName: String!): Item @deprecated(reason: "Use item instead.")
   itemCategories(lang: LanguageCode, limit: Int, offset: Int): [ItemCategory]!
+  itemPrices(id: ID!, limit: Int, offset: Int): [historicalPricePoint]!
   items(bsgCategory: String, bsgCategoryId: String, bsgCategoryIds: [String], categoryNames: [ItemCategoryName], gameMode: GameMode, handbookCategoryNames: [HandbookCategoryName], ids: [ID], lang: LanguageCode, limit: Int, name: String, names: [String], offset: Int, type: ItemType, types: [ItemType]): [Item]!
   itemsByBsgCategoryId(bsgCategoryId: String!): [Item]! @deprecated(reason: "Use items instead.")
   itemsByIDs(ids: [ID]!): [Item] @deprecated(reason: "Use items instead.")
@@ -1263,6 +1279,8 @@ type StimEffect {
 }
 
 type Task {
+  availableDelaySecondsMax: Int
+  availableDelaySecondsMin: Int
   descriptionMessageId: String
   experience: Int!
   factionName: String
@@ -1615,6 +1633,8 @@ interface Vendor {
 }
 
 type historicalPricePoint {
+  offerCount: Int
+  offerCountMin: Int
   price: Int
   priceMin: Int
   timestamp: String

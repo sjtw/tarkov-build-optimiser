@@ -32,24 +32,6 @@ services:
         condition: service_healthy
     restart: no
 
-  importer:
-    build:
-      context: .
-      dockerfile: docker/importer.Dockerfile
-    container_name: tarkov-build-optimiser-importer
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      migrations:
-        condition: service_completed_successfully
-    restart: no
-
-
   evaluator:
     build:
       context: .
@@ -64,6 +46,23 @@ services:
       postgres:
         condition: service_healthy
       importer:
+        condition: service_completed_successfully
+    restart: no
+
+  importer:
+    build:
+      context: .
+      dockerfile: docker/importer.Dockerfile
+    container_name: tarkov-build-optimiser-importer
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrations:
         condition: service_completed_successfully
     restart: no
 

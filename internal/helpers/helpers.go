@@ -26,6 +26,14 @@ func ContainsSlot(slots []models.Slot, slot models.Slot) bool {
 	return false
 }
 
+func CloneMap[T any](m map[string]T) map[string]T {
+	newMap := make(map[string]T)
+	for k, v := range m {
+		newMap[k] = v
+	}
+	return newMap
+}
+
 func ExtractKeyFromMap(key string, m map[string]interface{}, receiver interface{}) error {
 	value, ok := m[key]
 	if !ok {

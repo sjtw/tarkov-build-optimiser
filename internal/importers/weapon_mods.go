@@ -106,6 +106,8 @@ func getModsFromTarkovDev(api *tarkovdev.Api) ([]models.WeaponMod, error) {
 			ErgonomicsModifier: int(mod.ErgonomicsModifier),
 			RecoilModifier:     int(mod.RecoilModifier),
 			ConflictingItems:   make([]string, 0, len(mod.ConflictingItems)),
+			CategoryID:         mod.Category.Id,
+			CategoryName:       mod.Category.Name,
 		}
 
 		for j := 0; j < len(mod.ConflictingItems); j++ {

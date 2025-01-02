@@ -7,13 +7,18 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rs/zerolog/log"
+	"time"
 )
 
 type EvaluationConstraints struct {
-	TraderLevels []TraderLevel
+	TraderLevels     []TraderLevel
+	IgnoredSlotNames []string
+	IgnoredItemIDs   []string
 }
 
 type ItemEvaluationResult struct {
+	BuildID            int                    `json:"build_id"`
+	Status             string                 `json:"status"`
 	ID                 string                 `json:"id"`
 	Name               string                 `json:"name"`
 	EvaluationType     string                 `json:"evaluation_type"`
@@ -23,13 +28,30 @@ type ItemEvaluationResult struct {
 	Slots              []SlotEvaluationResult `json:"slots"`
 	RecoilSum          int                    `json:"recoil_sum"`
 	ErgonomicsSum      int                    `json:"ergonomics_sum"`
-	AssignedItemIDs    []string               `json:"item_ids"`
 }
 
 type SlotEvaluationResult struct {
-	ID   string                `json:"id"`
-	Name string                `json:"name"`
-	Item *ItemEvaluationResult `json:"item"`
+	ID      string               `json:"id"`
+	Name    string               `json:"name"`
+	Item    ItemEvaluationResult `json:"item"`
+	IsEmpty bool                 `json:"empty"`
+}
+
+// MarshalJSON - custom JSON marshalling for SlotEvaluationResult to handle empty slots
+func (s *SlotEvaluationResult) MarshalJSON() ([]byte, error) {
+	if s.IsEmpty {
+		return json.Marshal(map[string]interface{}{
+			"id":   s.ID,
+			"name": s.Name,
+			"item": nil,
+		})
+	}
+
+	return json.Marshal(map[string]interface{}{
+		"id":   s.ID,
+		"name": s.Name,
+		"item": s.Item,
+	})
 }
 
 type TraderLevel struct {
@@ -58,56 +80,103 @@ func SerialiseLevels(levels []TraderLevel) string {
 	return str
 }
 
-func UpsertOptimumBuild(db *sql.DB, build *ItemEvaluationResult, constraints EvaluationConstraints) error {
+type EvaluatorStatus int
+
+const (
+	EvaluationPending EvaluatorStatus = iota // iota automatically increments starting from 0
+	EvaluationInProgress
+	EvaluationCompleted
+	EvaluationFailed
+)
+
+func (s EvaluatorStatus) ToString() string {
+	return [...]string{"Pending", "InProgress", "Completed", "Failed"}[s]
+}
+
+func CreatePendingOptimumBuild(db *sql.DB, id string, evaluationType string, constraints EvaluationConstraints) (int, error) {
+	tradersMap := constraintsToTraderMap(constraints)
+
+	query := `INSERT INTO optimum_builds (
+			item_id,
+			build_type,
+			jaeger_level,
+			prapor_level,
+			peacekeeper_level,
+			mechanic_level,
+			skier_level,
+			evaluation_start,
+			status
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		returning build_id;`
+	var buildID int
+	err := db.QueryRow(
+		query,
+		id,
+		evaluationType,
+		tradersMap["Jaeger"],
+		tradersMap["Prapor"],
+		tradersMap["Peacekeeper"],
+		tradersMap["Mechanic"],
+		tradersMap["Skier"],
+		time.Now(),
+		EvaluationPending.ToString(),
+	).Scan(&buildID)
+	if err != nil {
+		return -1, err
+	}
+
+	return buildID, nil
+}
+
+func SetBuildInProgress(db *sql.DB, buildID int) error {
+	query := `UPDATE optimum_builds
+		SET status = $1
+		WHERE build_id = $2;`
+	_, err := db.Exec(query, EvaluationInProgress.ToString(), buildID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func SetBuildFailed(db *sql.DB, buildID int) error {
+	query := `UPDATE optimum_builds
+		SET status = $1
+		WHERE build_id = $2;`
+	_, err := db.Exec(query, EvaluationFailed.ToString(), buildID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func SetBuildCompleted(db *sql.DB, buildID int, build *ItemEvaluationResult) error {
 	serialisedBuild, err := json.Marshal(build)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to marshal build")
 		return err
 	}
 
-	tradersMap := constraintsToTraderMap(constraints)
-
-	query := `INSERT INTO optimum_builds (
-			item_id,
-			build,
-			build_type,
-			is_subtree,
-            recoil_sum,
-			ergonomics_sum,
-            name,
-			jaeger_level,
-			prapor_level,
-			peacekeeper_level,
-			mechanic_level,
-			skier_level
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		ON CONFLICT (
-		    item_id,
-		    build_type,
-		    jaeger_level,
-		    prapor_level,
-		    peacekeeper_level,
-		    mechanic_level,
-		    skier_level
-		) DO UPDATE SET
-			build = $2,
-			recoil_sum = $5,
-			ergonomics_sum = $6;`
+	query := `update optimum_builds set
+			build = $1,
+			is_subtree = $2,
+            recoil_sum = $3,
+			ergonomics_sum = $4,
+			status = $5,
+			evaluation_end = $6
+		where build_id = $7;`
 	_, err = db.Exec(
 		query,
-		build.ID,
 		serialisedBuild,
-		build.EvaluationType,
 		build.IsSubtree,
 		build.RecoilSum,
 		build.ErgonomicsSum,
-		build.Name,
-		tradersMap["Jaeger"],
-		tradersMap["Prapor"],
-		tradersMap["Peacekeeper"],
-		tradersMap["Mechanic"],
-		tradersMap["Skier"])
+		EvaluationCompleted.ToString(),
+		time.Now(),
+		buildID)
 	if err != nil {
 		return err
 	}
@@ -173,15 +242,17 @@ func GetEvaluatedSubtree(ctx context.Context, db *sql.DB, itemId string, buildTy
 	return &results[0], nil
 }
 
-func GetOptimumBuild(db *sql.DB, itemId string, buildType string, constraints EvaluationConstraints) (*ItemEvaluationResult, error) {
+func GetOptimumBuildByConstraints(db *sql.DB, itemId string, buildType string, constraints EvaluationConstraints) (*ItemEvaluationResult, error) {
 	tradersMap := constraintsToTraderMap(constraints)
 
 	query := `
 		SELECT
-			build
+		    build_id,
+			build,
+			status
 		FROM optimum_builds
-		WHERE is_subtree = false
-			AND item_id = $1
+		WHERE
+		    item_id = $1
 			AND build_type = $2
 			AND jaeger_level = $3
 			AND prapor_level = $4
@@ -204,18 +275,23 @@ func GetOptimumBuild(db *sql.DB, itemId string, buildType string, constraints Ev
 	defer rows.Close()
 
 	var results []ItemEvaluationResult
+	var buildID int
+	var status string
 	for rows.Next() {
 		result := ItemEvaluationResult{}
-		var build string
-		err := rows.Scan(&build)
+		var build sql.NullString
+		err := rows.Scan(&buildID, &build, &status)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := json.Unmarshal([]byte(build), &result); err != nil {
-			return nil, err
+		if build.Valid {
+			if err := json.Unmarshal([]byte(build.String), &result); err != nil {
+				return nil, err
+			}
 		}
 
+		result.BuildID = buildID
 		results = append(results, result)
 	}
 
@@ -227,6 +303,8 @@ func GetOptimumBuild(db *sql.DB, itemId string, buildType string, constraints Ev
 		msg := fmt.Sprintf("Multiple Optimum Builds found for: itemId: %s, buildType: %s, constraints: %v", itemId, buildType, constraints)
 		return nil, errors.New(msg)
 	}
+
+	results[0].Status = status
 
 	return &results[0], nil
 }

@@ -21,6 +21,17 @@ func upsertConflictingItem(tx *sql.Tx, itemID string, conflictingItemID string) 
 	if err != nil {
 		return err
 	}
+
+	// bit of a hack to ensure all item conflicts are bidirectional as some aren't for some reason
+	_, err = tx.Exec(
+		query,
+		conflictingItemID,
+		itemID,
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

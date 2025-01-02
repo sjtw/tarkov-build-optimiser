@@ -23,6 +23,7 @@ func main() {
 
 	err = r.Start(":8080")
 	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to start server")
 		return
 	}
 }

@@ -8,11 +8,11 @@ A tool for calculating optimal weapon builds in Escape from Tarkov.
 - [x] write a couple of tests to make sure optimum builds are actually optimum
 - [x] do step 1. but restricted by trader availability
 - [x] API for querying optimised builds
-- [ ] Resolve item conflicts
+- [x] Resolve item conflicts
 - [ ] create something to convert an `optimum_build` json into the structure used by totovbuilder.com import feature.
 - [ ] provide cost effective alternatives
 - [ ] allow a budget to be provided
-- [ ] Make a UI
+- [x] Make a UI
 - [ ] Finish UI maybe
 
 ## Prerequisites
@@ -77,16 +77,6 @@ If you only want to cache the results from tarkov.dev, without repopulating the 
 ```
 task importer:start:cache-only
 ```
-
-#### Evaluator
-
-Once the importer is finished, you should be able to run the evaluator. This creates up to two weapon builds for each weapon, with one prioritising ergonomics, the other prioritising recoil.
-
-```
-task evaluator:start
-```
-
-This can take a while as it exhaustively optimises each fork in the weapon builds tree. Once finished the `optimum_builds` table should be populated with the best builds for each individual weapon in the game.
 
 #### Syncing tarkov.dev GraphQL API schema
 

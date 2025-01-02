@@ -1,4 +1,4 @@
-package evaluator
+package candidate_tree
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestItem_GetParentSlot_NoParent(t *testing.T) {
-	rootWeapon := &WeaponTree{}
+	rootWeapon := &CandidateTree{}
 	item := ConstructItem("item1", "Item1", rootWeapon)
 	parentSlot := item.GetParentSlot()
 
@@ -14,7 +14,7 @@ func TestItem_GetParentSlot_NoParent(t *testing.T) {
 }
 
 func TestItem_GetParentSlot_WithParent(t *testing.T) {
-	rootWeapon := &WeaponTree{}
+	rootWeapon := &CandidateTree{}
 	item := ConstructItem("item1", "Item1", rootWeapon)
 	slot := ConstructSlot("slot1", "Slot1", rootWeapon)
 	item.SetParentSlot(slot)

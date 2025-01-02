@@ -1,4 +1,4 @@
-package evaluator
+package candidate_tree
 
 import (
 	"github.com/stretchr/testify/assert"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestSlot_GetParentItem_NoParent(t *testing.T) {
-	rootWeapon := &WeaponTree{}
+	rootWeapon := &CandidateTree{}
 	item := ConstructItem("item1", "Item1", rootWeapon)
 	parent := item.GetParentSlot()
 
@@ -14,7 +14,7 @@ func TestSlot_GetParentItem_NoParent(t *testing.T) {
 }
 
 func TestSlot_GetParentItem_WithParent(t *testing.T) {
-	rootWeapon := &WeaponTree{}
+	rootWeapon := &CandidateTree{}
 	item := ConstructItem("item1", "Item1", rootWeapon)
 	slot := ConstructSlot("slot1", "Slot1", rootWeapon)
 
@@ -26,7 +26,7 @@ func TestSlot_GetParentItem_WithParent(t *testing.T) {
 }
 
 func TestSlot_GetAncestors(t *testing.T) {
-	rootWeapon := &WeaponTree{}
+	rootWeapon := &CandidateTree{}
 	item1 := ConstructItem("item1", "Item1", rootWeapon)
 	item2 := ConstructItem("item2", "Item2", rootWeapon)
 	item3 := ConstructItem("item3", "Item3", rootWeapon)
@@ -35,9 +35,9 @@ func TestSlot_GetAncestors(t *testing.T) {
 	slot3 := ConstructSlot("slot3", "Slot3", rootWeapon)
 
 	item1.AddChildSlot(slot1)
-	slot1.AddChildItem(item2)
+	slot1.AddAllowedItem(item2)
 	item2.AddChildSlot(slot2)
-	slot2.AddChildItem(item3)
+	slot2.AddAllowedItem(item3)
 	item3.AddChildSlot(slot3)
 
 	ancestors := slot3.GetAncestorIds()
@@ -51,7 +51,7 @@ func TestSlot_GetAncestors(t *testing.T) {
 }
 
 func TestSlot_GetAncestorItems(t *testing.T) {
-	rootWeapon := &WeaponTree{}
+	rootWeapon := &CandidateTree{}
 	item1 := ConstructItem("item1", "Item1", rootWeapon)
 	item2 := ConstructItem("item2", "Item2", rootWeapon)
 	item3 := ConstructItem("item3", "Item3", rootWeapon)
@@ -60,9 +60,9 @@ func TestSlot_GetAncestorItems(t *testing.T) {
 	slot3 := ConstructSlot("slot3", "Slot3", rootWeapon)
 
 	item1.AddChildSlot(slot1)
-	slot1.AddChildItem(item2)
+	slot1.AddAllowedItem(item2)
 	item2.AddChildSlot(slot2)
-	slot2.AddChildItem(item3)
+	slot2.AddAllowedItem(item3)
 	item3.AddChildSlot(slot3)
 
 	ancestors := slot3.GetAncestorItems()
