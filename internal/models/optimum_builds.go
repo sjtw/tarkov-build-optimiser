@@ -24,13 +24,30 @@ type ItemEvaluationResult struct {
 	Slots              []SlotEvaluationResult `json:"slots"`
 	RecoilSum          int                    `json:"recoil_sum"`
 	ErgonomicsSum      int                    `json:"ergonomics_sum"`
-	AssignedItemIDs    []string               `json:"item_ids"`
 }
 
 type SlotEvaluationResult struct {
-	ID   string                `json:"id"`
-	Name string                `json:"name"`
-	Item *ItemEvaluationResult `json:"item"`
+	ID      string               `json:"id"`
+	Name    string               `json:"name"`
+	Item    ItemEvaluationResult `json:"item"`
+	IsEmpty bool                 `json:"empty"`
+}
+
+// MarshalJSON - custom JSON marshalling for SlotEvaluationResult to handle empty slots
+func (s *SlotEvaluationResult) MarshalJSON() ([]byte, error) {
+	if s.IsEmpty {
+		return json.Marshal(map[string]interface{}{
+			"id":   s.ID,
+			"name": s.Name,
+			"item": nil,
+		})
+	}
+
+	return json.Marshal(map[string]interface{}{
+		"id":   s.ID,
+		"name": s.Name,
+		"item": s.Item,
+	})
 }
 
 type TraderLevel struct {

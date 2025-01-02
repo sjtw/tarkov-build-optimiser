@@ -16,7 +16,7 @@ type EvaluationDataProvider interface {
 	SaveBuild(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints)
 }
 
-type Task struct {
+type WeaponEvaluationTask struct {
 	Constraints    models.EvaluationConstraints
 	WeaponTree     WeaponTree
 	EvaluationType string
@@ -51,7 +51,7 @@ func (e *Evaluator) filterCandidateItemsByTraderAvailability(candidates map[stri
 	return filteredCandidates, nil
 }
 
-func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error) {
+func (e *Evaluator) EvaluateWeaponEvaluationTask(task WeaponEvaluationTask) (models.ItemEvaluationResult, error) {
 	filteredCandidates, err := e.filterCandidateItemsByTraderAvailability(task.WeaponTree.CandidateItems, task.Constraints.TraderLevels)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to filter candidate items by trader availability")
@@ -60,11 +60,9 @@ func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error)
 
 	candidateSets := make([][]string, 0)
 
-	// perform trader level filtering
-
 	if len(task.WeaponTree.AllowedItemConflicts) > 0 {
 		// generate all valid variations of candidates, including the weapon ID
-		candidateSets = GenerateNonConflictingCandidateSets(filteredCandidates, task.WeaponTree.AllowedItemConflicts)
+		candidateSets = generateNonConflictingCandidateSets(filteredCandidates, task.WeaponTree.AllowedItemConflicts)
 	} else {
 		// the weapon has no possible conflicts, so we can use all candidate items from the candidate tree
 		set := make([]string, len(filteredCandidates))
@@ -78,7 +76,7 @@ func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error)
 	optimumSum := 0
 	for index, candidateItems := range candidateSets {
 		log.Info().Msgf("index %d", index)
-		result, err := e.evaluate(task.WeaponTree.Item, task.EvaluationType, task.Constraints, candidateItems)
+		result, err := e.evaluateItem(task.WeaponTree.Item, task.EvaluationType, task.Constraints, candidateItems)
 		if err != nil {
 			return models.ItemEvaluationResult{}, err
 		}
@@ -86,21 +84,110 @@ func (e *Evaluator) EvaluateTask(task Task) (models.ItemEvaluationResult, error)
 		if task.EvaluationType == "recoil" {
 			if result.RecoilSum < optimumSum {
 				optimumSum = result.RecoilSum
-				optimum = *result
+				optimum = result
 			}
 		} else {
 			if result.ErgonomicsSum > optimumSum {
 				optimumSum = result.ErgonomicsSum
-				optimum = *result
+				optimum = result
 			}
 		}
 	}
 
+	optimum.IsSubtree = false
+
 	return optimum, nil
 }
 
-func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (*models.ItemEvaluationResult, error) {
-	outItem := &models.ItemEvaluationResult{
+func (e *Evaluator) evaluateSlot(slotId string, slotName string, allowedItems []*Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.SlotEvaluationResult, error) {
+	slotEvaluationResult := models.SlotEvaluationResult{
+		ID:      slotId,
+		Name:    slotName,
+		Item:    models.ItemEvaluationResult{},
+		IsEmpty: true,
+	}
+
+	if isIgnoredSlotName(slotName, constraints.IgnoredSlotNames) {
+		return slotEvaluationResult, nil
+	}
+
+	var bestItem models.ItemEvaluationResult
+	bestErgoSum := 0
+	bestRecoilSum := 0
+	if slotEvaluationResult.Name == "Gas Block" {
+		log.Debug().Msgf("Gas Tube slot")
+	}
+
+	for j := 0; j < len(allowedItems); j++ {
+		log.Debug().Msgf("Evaluating slot %s", slotName)
+		ai := allowedItems[j]
+
+		isCandidate := false
+		for _, candidateID := range candidates {
+			if candidateID == ai.ID {
+				isCandidate = true
+			}
+		}
+
+		if !isCandidate {
+			log.Info().Msgf("Candidate item [%s] is not a whitelisted candidate for this evaluation", ai.ID)
+			continue
+		} else {
+			log.Info().Msgf("Candidate item [%s] is a valid candidate for this evaluation", ai.ID)
+		}
+
+		evaluatedAllowedItem, err := e.evaluateItem(ai, evaluationType, constraints, candidates)
+		if err != nil {
+			log.Debug().Msg("Failed to evaluate highest item")
+			return slotEvaluationResult, err
+		}
+
+		log.Debug().Msgf("Evaluation type %s", evaluationType)
+		if evaluationType == "ergonomics" {
+			if evaluatedAllowedItem.ErgonomicsSum > bestErgoSum {
+				log.Debug().Msgf("item %v IS new highest sum", evaluatedAllowedItem)
+				bestErgoSum = evaluatedAllowedItem.ErgonomicsSum
+				bestRecoilSum = evaluatedAllowedItem.RecoilSum
+				bestItem = evaluatedAllowedItem
+			} else if evaluatedAllowedItem.RecoilSum < bestRecoilSum {
+				log.Debug().Msgf("Item %v does not improve ergonomics, but improves recoil over empty slot.", evaluatedAllowedItem)
+				bestErgoSum = evaluatedAllowedItem.ErgonomicsSum
+				bestRecoilSum = evaluatedAllowedItem.RecoilSum
+				bestItem = evaluatedAllowedItem
+			} else {
+				log.Debug().Msgf("item %v does not improve stats", evaluatedAllowedItem)
+			}
+		} else if evaluationType == "recoil" {
+			if evaluatedAllowedItem.RecoilSum < bestRecoilSum {
+				log.Debug().Msgf("item %v IS new highest sum", evaluatedAllowedItem)
+				bestErgoSum = evaluatedAllowedItem.ErgonomicsSum
+				bestRecoilSum = evaluatedAllowedItem.RecoilSum
+				bestItem = evaluatedAllowedItem
+			} else if evaluatedAllowedItem.ErgonomicsSum > bestErgoSum {
+				log.Debug().Msgf("Item %v does not improve recoil, but improves ergo over empty slot.", evaluatedAllowedItem)
+				bestErgoSum = evaluatedAllowedItem.ErgonomicsSum
+				bestRecoilSum = evaluatedAllowedItem.RecoilSum
+				bestItem = evaluatedAllowedItem
+			} else {
+				log.Debug().Msgf("item %v does not improve stats", bestItem)
+			}
+		} else {
+			msg := fmt.Sprintf("Invalid evaluation type [%s]", evaluationType)
+			log.Error().Msg(msg)
+			return slotEvaluationResult, errors.New(msg)
+		}
+	}
+
+	slotEvaluationResult.Item = bestItem
+	if slotEvaluationResult.Item.ID != "" {
+		slotEvaluationResult.IsEmpty = false
+	}
+
+	return slotEvaluationResult, nil
+}
+
+func (e *Evaluator) evaluateItem(item *Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.ItemEvaluationResult, error) {
+	outItem := models.ItemEvaluationResult{
 		ID:                 item.ID,
 		Name:               item.Name,
 		EvaluationType:     evaluationType,
@@ -109,12 +196,7 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 		Slots:              make([]models.SlotEvaluationResult, len(item.Slots)),
 		ErgonomicsSum:      item.ErgonomicsModifier,
 		RecoilSum:          item.RecoilModifier,
-	}
-
-	if item.Type == "weapon" {
-		outItem.IsSubtree = false
-	} else {
-		outItem.IsSubtree = true
+		IsSubtree:          true,
 	}
 
 	if item.Slots == nil {
@@ -138,93 +220,19 @@ func (e *Evaluator) evaluate(item *Item, evaluationType string, constraints mode
 	for i := 0; i < len(item.Slots); i++ {
 		log.Debug().Msgf("Evaluating slot %d for item [%s]", i, item.ID)
 
-		outSlot := &models.SlotEvaluationResult{
-			ID:   item.Slots[i].ID,
-			Name: item.Slots[i].Name,
-			Item: nil,
+		if item.Slots[i].Name == "Mount" {
+			log.Info().Msgf("Mount slot")
 		}
 
-		if isIgnoredSlotName(item.Slots[i].Name, constraints.IgnoredSlotNames) {
-			outItem.Slots[i] = *outSlot
-			continue
+		slotResult, err := e.evaluateSlot(item.Slots[i].ID, item.Slots[i].Name, item.Slots[i].AllowedItems, evaluationType, constraints, candidates)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to evaluate slot %s", item.Slots[i].ID)
+			return models.ItemEvaluationResult{}, err
 		}
 
-		slotErgo := 0
-		slotRecoil := 0
-		if outSlot.Name == "Gas Block" {
-			log.Debug().Msgf("Gas Tube slot")
-		}
-
-		for j := 0; j < len(item.Slots[i].AllowedItems); j++ {
-			log.Debug().Msgf("Evaluating slot %d for item [%s]", j, item.ID)
-			ai := item.Slots[i].AllowedItems[j]
-
-			isCandidate := false
-			for _, candidateID := range candidates {
-				if candidateID == ai.ID {
-					isCandidate = true
-				}
-			}
-
-			if !isCandidate {
-				log.Info().Msgf("Candidate item [%s] is not a whitelisted candidate for this evaluation", item.ID)
-				continue
-			} else {
-				log.Info().Msgf("Candidate item [%s] is a valid candidate for this evaluation", item.ID)
-			}
-
-			highestItem, err := e.evaluate(ai, evaluationType, constraints, candidates)
-			if err != nil {
-				log.Debug().Msg("Failed to evaluate highest item")
-				return nil, err
-			}
-
-			recoilSum := highestItem.RecoilSum
-			ergoSum := highestItem.ErgonomicsSum
-
-			log.Debug().Msgf("Evaluation type %s", evaluationType)
-			if evaluationType == "ergonomics" {
-				if ergoSum > slotErgo {
-					log.Debug().Msgf("item %v IS new highest sum", highestItem)
-					slotErgo = ergoSum
-					slotRecoil = recoilSum
-					outSlot.Item = highestItem
-				} else if outSlot.Item == nil && recoilSum < slotRecoil {
-					log.Debug().Msgf("Item %v does not improve ergonomics, but improves recoil over empty slot.", highestItem)
-					slotErgo = ergoSum
-					slotRecoil = recoilSum
-					outSlot.Item = highestItem
-				} else {
-					log.Debug().Msgf("item %v does not improve stats", highestItem)
-				}
-			} else if evaluationType == "recoil" {
-				if recoilSum < slotRecoil {
-					log.Debug().Msgf("item %v IS new highest sum", highestItem)
-					slotErgo = ergoSum
-					slotRecoil = recoilSum
-					outSlot.Item = highestItem
-				} else if outSlot.Item == nil && ergoSum > slotErgo {
-					log.Debug().Msgf("Item %v does not improve recoil, but improves ergo over empty slot.", highestItem)
-					slotErgo = ergoSum
-					slotRecoil = recoilSum
-					outSlot.Item = highestItem
-				} else {
-					log.Debug().Msgf("item %v does not improve stats", highestItem)
-				}
-			} else {
-				msg := fmt.Sprintf("Invalid evaluation type [%s]", evaluationType)
-				log.Error().Msg(msg)
-				return nil, errors.New(msg)
-			}
-		}
-
-		outItem.Slots[i] = *outSlot
-		outItem.RecoilSum += slotRecoil
-		outItem.ErgonomicsSum += slotErgo
-	}
-
-	if !outItem.IsSubtree {
-		e.dataService.SaveBuild(outItem, constraints)
+		outItem.Slots[i] = slotResult
+		outItem.RecoilSum += slotResult.Item.RecoilSum
+		outItem.ErgonomicsSum += slotResult.Item.ErgonomicsSum
 	}
 
 	log.Debug().Msgf("Output item %v", outItem)
@@ -248,7 +256,7 @@ func conflictsWithSet(conflictMap map[string]map[string]bool, candidate string, 
 
 // GenerateNonConflictingCandidateSets - generates all maximal, non-conflicting sets of candidate item IDs given
 // the candidate list and conflict maps.
-func GenerateNonConflictingCandidateSets(candidates map[string]bool, conflicts map[string]map[string]bool) [][]string {
+func generateNonConflictingCandidateSets(candidates map[string]bool, conflicts map[string]map[string]bool) [][]string {
 	// Some items do not have symmetrical conflicts (for example pistol grips with integrated buttstocks conflict)
 	// with most stocks, however there is no conflict in the other direction. By ensuring all conflicts are symmetrical
 	// up-front we never need to be concerned with the order items are checked/added to a build.

@@ -89,7 +89,7 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 			return c.String(500, err.Error())
 		}
 		e := evaluator.CreateEvaluator(dataService)
-		result, err := e.EvaluateTask(evaluator.Task{
+		result, err := e.EvaluateWeaponEvaluationTask(evaluator.WeaponEvaluationTask{
 			Constraints:    constraints,
 			WeaponTree:     *weaponTree,
 			EvaluationType: buildType,

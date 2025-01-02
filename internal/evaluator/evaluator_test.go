@@ -127,7 +127,7 @@ func TestFindBestRecoilTree(t *testing.T) {
 
 	evaluator := CreateEvaluator(dataProvider)
 	candidates := []string{"weapon1", "item1", "item2", "item3", "child-item1"}
-	build, err := evaluator.evaluate(weapon, "recoil", constraints, candidates)
+	build, err := evaluator.evaluateItem(weapon, "recoil", constraints, candidates)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func TestFindBestErgoTree(t *testing.T) {
 	evaluator := CreateEvaluator(dataProvider)
 
 	candidates := []string{"weapon1", "item1", "item2", "item3", "child-item1"}
-	build, err := evaluator.evaluate(weapon, "recoil", constraints, candidates)
+	build, err := evaluator.evaluateItem(weapon, "recoil", constraints, candidates)
 
 	if err != nil {
 		t.Fatal(err)
@@ -291,7 +291,7 @@ func TestCandidatesRestrictItems(t *testing.T) {
 
 	evaluator := CreateEvaluator(dataProvider)
 	candidates := []string{"weapon1", "item1", "item2", "item3"}
-	build, err := evaluator.evaluate(weapon, "recoil", constraints, candidates)
+	build, err := evaluator.evaluateItem(weapon, "recoil", constraints, candidates)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,8 +316,7 @@ func TestGenerateNonSymmetricalNonConflictingCandidateSets(t *testing.T) {
 		"C": {"B": true},
 	}
 
-	result := GenerateNonConflictingCandidateSets(candidates, conflicts)
-
+	result := generateNonConflictingCandidateSets(candidates, conflicts)
 	expected := map[string]bool{
 		"ACD": false,
 		"BD":  false,
@@ -355,7 +354,7 @@ func TestGenerateNonConflictingCandidateSets(t *testing.T) {
 		"C": {"B": true},
 	}
 
-	result := GenerateNonConflictingCandidateSets(candidates, conflicts)
+	result := generateNonConflictingCandidateSets(candidates, conflicts)
 
 	expected := map[string]bool{
 		"ACD": false,

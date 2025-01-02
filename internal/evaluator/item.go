@@ -69,9 +69,6 @@ func (item *Item) PopulateSlots() error {
 		slot := ConstructSlot(s.ID, s.Name, item.RootWeaponTree)
 
 		item.AddChildSlot(slot)
-		if slot.Name == "Gas Block" {
-			log.Info().Msgf("Gas block slot %s", slot.ID)
-		}
 		err := slot.PopulateAllowedItems()
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to populate slot %s", s.ID)
