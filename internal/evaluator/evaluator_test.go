@@ -246,8 +246,8 @@ func TestFindBestBuild(t *testing.T) {
 	rootItem := &weapon_tree.Item{
 		Name:               "Weapon",
 		ID:                 "item-weapon",
-		RecoilModifier:     -0.0,
-		ErgonomicsModifier: -0.0,
+		RecoilModifier:     -0,
+		ErgonomicsModifier: -0,
 		ConflictingItems:   []string{},
 		Slots: []*weapon_tree.ItemSlot{
 			{
@@ -257,8 +257,8 @@ func TestFindBestBuild(t *testing.T) {
 					{
 						Name:               "Buffer_Tube",
 						ID:                 "item-buffer-tube",
-						RecoilModifier:     -5.0,
-						ErgonomicsModifier: -5.0,
+						RecoilModifier:     -5,
+						ErgonomicsModifier: -5,
 						ConflictingItems:   []string{"item-ADAR-stock"},
 						Slots: []*weapon_tree.ItemSlot{
 							{
@@ -268,8 +268,8 @@ func TestFindBestBuild(t *testing.T) {
 									{
 										Name:               "good stock",
 										ID:                 "item-good-stock",
-										RecoilModifier:     -22.0,
-										ErgonomicsModifier: -22.0,
+										RecoilModifier:     -22,
+										ErgonomicsModifier: 10,
 										ConflictingItems:   []string{"item-ADAR-stock", "non-existent-item"},
 										Slots:              []*weapon_tree.ItemSlot{},
 									},
@@ -280,8 +280,16 @@ func TestFindBestBuild(t *testing.T) {
 					{
 						Name:               "bad stock",
 						ID:                 "item-bad-stock",
-						RecoilModifier:     -5.0,
-						ErgonomicsModifier: -5.0,
+						RecoilModifier:     -5,
+						ErgonomicsModifier: 5,
+						ConflictingItems:   []string{"item-ADAR-stock"},
+						Slots:              []*weapon_tree.ItemSlot{},
+					},
+					{
+						Name:               "great stock - not allowed",
+						ID:                 "item-great-stock",
+						RecoilModifier:     -25,
+						ErgonomicsModifier: 8,
 						ConflictingItems:   []string{"item-ADAR-stock"},
 						Slots:              []*weapon_tree.ItemSlot{},
 					},
@@ -294,8 +302,8 @@ func TestFindBestBuild(t *testing.T) {
 					{
 						Name:               "Base_Receiver",
 						ID:                 "item-base-receiver",
-						RecoilModifier:     -0.0,
-						ErgonomicsModifier: -0.0,
+						RecoilModifier:     0,
+						ErgonomicsModifier: 0,
 						ConflictingItems:   []string{},
 						Slots: []*weapon_tree.ItemSlot{
 							{
@@ -305,8 +313,8 @@ func TestFindBestBuild(t *testing.T) {
 									{
 										Name:               "ACOG",
 										ID:                 "item-acog",
-										RecoilModifier:     -100.0,
-										ErgonomicsModifier: -100.0,
+										RecoilModifier:     -100,
+										ErgonomicsModifier: 100,
 										ConflictingItems:   []string{},
 										Slots:              []*weapon_tree.ItemSlot{},
 									},
@@ -351,24 +359,24 @@ func TestFindBestBuild(t *testing.T) {
 					{
 						Name:               "ADAR_Stock",
 						ID:                 "item-ADAR-stock",
-						RecoilModifier:     -20.0,
-						ErgonomicsModifier: -20.0,
+						RecoilModifier:     -20,
+						ErgonomicsModifier: -20,
 						ConflictingItems:   []string{"Buffer_Tube", "good stock"},
 						Slots:              []*weapon_tree.ItemSlot{},
 					},
 					{
 						Name:               "bad grip",
 						ID:                 "item-bad-grip",
-						RecoilModifier:     -5.0,
-						ErgonomicsModifier: -5.0,
+						RecoilModifier:     -5,
+						ErgonomicsModifier: 1,
 						ConflictingItems:   []string{},
 						Slots:              []*weapon_tree.ItemSlot{},
 					},
 					{
 						Name:               "bad grip 2",
 						ID:                 "item-bad-grip-2",
-						RecoilModifier:     -5.0,
-						ErgonomicsModifier: -5.0,
+						RecoilModifier:     -5,
+						ErgonomicsModifier: 2,
 						ConflictingItems:   []string{},
 						Slots:              []*weapon_tree.ItemSlot{},
 					},
@@ -401,15 +409,23 @@ func TestFindBestBuild(t *testing.T) {
 	assert.Equal(t, evaluation.ID, "item-weapon")
 	assert.Len(t, evaluation.Slots, 3)
 
-	// stock
+	// stock -> buffer tube
 	assert.Equal(t, "item-buffer-tube", evaluation.Slots[0].Item.ID)
+	assert.Equal(t, -5, evaluation.Slots[0].Item.RecoilModifier)
+	assert.Equal(t, -5, evaluation.Slots[0].Item.ErgonomicsModifier)
 	assert.Len(t, evaluation.Slots[0].Item.Slots, 1)
+
+	// stock  -> buffer tube -> stock
 	assert.NotNil(t, evaluation.Slots[0].Item.Slots[0].Item)
 	assert.Equal(t, "item-good-stock", evaluation.Slots[0].Item.Slots[0].Item.ID)
+	assert.Equal(t, -22, evaluation.Slots[0].Item.Slots[0].Item.RecoilModifier)
+	assert.Equal(t, 10, evaluation.Slots[0].Item.Slots[0].Item.ErgonomicsModifier)
 
 	// receiver
 	assert.NotNil(t, evaluation.Slots[1].Item)
 	assert.Equal(t, "item-base-receiver", evaluation.Slots[1].Item.ID)
+	assert.Equal(t, 0, evaluation.Slots[1].Item.RecoilModifier)
+	assert.Equal(t, 0, evaluation.Slots[1].Item.ErgonomicsModifier)
 
 	assert.Len(t, evaluation.Slots[1].Item.Slots, 3)
 
@@ -419,6 +435,8 @@ func TestFindBestBuild(t *testing.T) {
 	// receiver foregrip
 	assert.NotNil(t, evaluation.Slots[1].Item.Slots[1].Item)
 	assert.Equal(t, "item-bad-foregrip", evaluation.Slots[1].Item.Slots[1].Item.ID)
+	assert.Equal(t, 0, evaluation.Slots[1].Item.Slots[1].Item.RecoilModifier)
+	assert.Equal(t, 1, evaluation.Slots[1].Item.Slots[1].Item.ErgonomicsModifier)
 
 	// receiver mount
 	assert.Nil(t, evaluation.Slots[1].Item.Slots[2].Item)
@@ -426,5 +444,7 @@ func TestFindBestBuild(t *testing.T) {
 	// pistol grip
 	assert.NotNil(t, evaluation.Slots[2].Item)
 	assert.Equal(t, "item-bad-grip", evaluation.Slots[2].Item.ID)
+	assert.Equal(t, -5, evaluation.Slots[2].Item.RecoilModifier)
+	assert.Equal(t, 1, evaluation.Slots[2].Item.ErgonomicsModifier)
 	assert.Len(t, evaluation.Slots[2].Item.Slots, 0)
 }

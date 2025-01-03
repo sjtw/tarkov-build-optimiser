@@ -103,6 +103,7 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 		result.Slots = append(result.Slots, slot)
 	}
 
+	// ensure the item & slot maps are up to date with the current state of the weapon tree
 	b.WeaponTree.UpdateAllowedItems()
 	b.WeaponTree.UpdateAllowedItemSlots()
 	remainingItems := make([]OptimalItem, len(b.OptimalItems))
@@ -124,9 +125,11 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 			source := b.WeaponTree.GetAllowedItem(remainingItems[i].ID)
 
 			evaluated := &ItemEvaluation{
-				ID:    source.ID,
-				Name:  source.Name,
-				Slots: make([]*SlotEvaluation, len(source.Slots)),
+				ID:                 source.ID,
+				Name:               source.Name,
+				RecoilModifier:     source.RecoilModifier,
+				ErgonomicsModifier: source.ErgonomicsModifier,
+				Slots:              make([]*SlotEvaluation, len(source.Slots)),
 			}
 
 			for j := 0; j < len(source.Slots); j++ {
