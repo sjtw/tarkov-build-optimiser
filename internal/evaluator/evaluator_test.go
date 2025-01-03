@@ -243,7 +243,7 @@ func TestFindBestErgoTree(t *testing.T) {
 
 func TestFindBestBuild(t *testing.T) {
 	// TODO - use construction functions and mock data provider to construct this
-	weapon := &weapon_tree.Item{
+	rootItem := &weapon_tree.Item{
 		Name:               "Weapon",
 		ID:                 "item-weapon",
 		RecoilModifier:     0.0,
@@ -326,10 +326,14 @@ func TestFindBestBuild(t *testing.T) {
 		},
 	}
 
+	weapon := &weapon_tree.WeaponTree{
+		Item: rootItem,
+	}
+
 	initialExcluded := make(map[string]bool)
 
 	// Start traversal and get the best build
-	bestBuild := findBestBuild(weapon.Slots, []OptimalItem{}, "recoil", 0.0, initialExcluded)
+	bestBuild := findBestBuild(weapon, []OptimalItem{}, "recoil", 0.0, initialExcluded)
 
 	assert.NotNil(t, bestBuild)
 
@@ -337,4 +341,15 @@ func TestFindBestBuild(t *testing.T) {
 		assert.NotEqual(t, "item-ADAR-stock", item.ID)
 		assert.NotEqual(t, "item-bad-stock", item.ID)
 	}
+
+	evaluation := bestBuild.ToEvaluatedWeapon()
+	assert.Equal(t, evaluation.ID, "item-weapon")
+	assert.Len(t, evaluation.Slots, 3)
+	assert.Equal(t, "item-buffer-tube", evaluation.Slots[0].Item.ID)
+	assert.Len(t, evaluation.Slots[0].Item.Slots, 1)
+	assert.Equal(t, "item-good-stock", evaluation.Slots[0].Item.Slots[0].Item.ID)
+	assert.Equal(t, "item-base-receiver", evaluation.Slots[1].Item.ID)
+	assert.Len(t, evaluation.Slots[1].Item.Slots, 0)
+	assert.Equal(t, "item-bad-grip", evaluation.Slots[2].Item.ID)
+	assert.Len(t, evaluation.Slots[2].Item.Slots, 0)
 }

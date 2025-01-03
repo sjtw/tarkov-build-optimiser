@@ -33,8 +33,11 @@ func (slot *ItemSlot) GetParentItem() *Item {
 }
 
 func (slot *ItemSlot) GetDescendantAllowedItems() []*Item {
-	descendants := make([]*Item, len(slot.AllowedItems))
+	descendants := make([]*Item, 0, len(slot.AllowedItems))
 	descendants = append(descendants, slot.AllowedItems...)
+	if slot.AllowedItems == nil {
+		return make([]*Item, 0)
+	}
 	for _, ai := range slot.AllowedItems {
 		aiSlots := ai.GetDescendantSlots()
 		for _, s := range aiSlots {
