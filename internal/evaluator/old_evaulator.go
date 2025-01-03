@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"tarkov-build-optimiser/internal/models"
+	"tarkov-build-optimiser/internal/weapon_tree"
 )
-
-type Data struct {
-}
 
 type EvaluationDataProvider interface {
 	GetSubtree(itemId string, buildType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error)
@@ -16,9 +14,11 @@ type EvaluationDataProvider interface {
 	SaveBuild(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints)
 }
 
+// WeaponEvaluationTask represents a task for evaluation. contains the weapon tree & additional constraints to be
+// taken into account during evaluation.
 type WeaponEvaluationTask struct {
 	Constraints    models.EvaluationConstraints
-	WeaponTree     WeaponTree
+	WeaponTree     weapon_tree.WeaponTree
 	EvaluationType string
 }
 
@@ -74,9 +74,10 @@ func (e *Evaluator) EvaluateWeaponEvaluationTask(task WeaponEvaluationTask) (mod
 
 	optimum := models.ItemEvaluationResult{}
 	optimumSum := 0
+	results := make([]models.ItemEvaluationResult, len(candidateSets))
 	for index, candidateItems := range candidateSets {
 		log.Info().Msgf("index %d", index)
-		result, err := e.evaluateItem(task.WeaponTree.Item, task.EvaluationType, task.Constraints, candidateItems)
+		result, err := e.evaluateWeapon(task.WeaponTree.Item, task.EvaluationType, task.Constraints, candidateItems)
 		if err != nil {
 			return models.ItemEvaluationResult{}, err
 		}
@@ -92,6 +93,8 @@ func (e *Evaluator) EvaluateWeaponEvaluationTask(task WeaponEvaluationTask) (mod
 				optimum = result
 			}
 		}
+
+		results[index] = result
 	}
 
 	optimum.IsSubtree = false
@@ -99,7 +102,10 @@ func (e *Evaluator) EvaluateWeaponEvaluationTask(task WeaponEvaluationTask) (mod
 	return optimum, nil
 }
 
-func (e *Evaluator) evaluateSlot(slotId string, slotName string, allowedItems []*Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.SlotEvaluationResult, error) {
+func (e *Evaluator) evaluateSlot(slotId string, slotName string, allowedItems []*weapon_tree.Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.SlotEvaluationResult, error) {
+	if slotName == "Barrel" {
+		log.Info().Msgf("Barrel slot")
+	}
 	slotEvaluationResult := models.SlotEvaluationResult{
 		ID:      slotId,
 		Name:    slotName,
@@ -114,8 +120,13 @@ func (e *Evaluator) evaluateSlot(slotId string, slotName string, allowedItems []
 	var bestItem models.ItemEvaluationResult
 	bestErgoSum := 0
 	bestRecoilSum := 0
-	if slotEvaluationResult.Name == "Gas Block" {
-		log.Debug().Msgf("Gas Tube slot")
+
+	if slotName == "Stock" {
+		log.Info().Msgf("Stock slot")
+	}
+
+	if slotName == "Barrel" {
+		log.Info().Msgf("Barrel slot")
 	}
 
 	for j := 0; j < len(allowedItems); j++ {
@@ -186,7 +197,11 @@ func (e *Evaluator) evaluateSlot(slotId string, slotName string, allowedItems []
 	return slotEvaluationResult, nil
 }
 
-func (e *Evaluator) evaluateItem(item *Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.ItemEvaluationResult, error) {
+func (e *Evaluator) evaluateWeapon(item *weapon_tree.Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.ItemEvaluationResult, error) {
+	return e.evaluateItem(item, evaluationType, constraints, candidates)
+}
+
+func (e *Evaluator) evaluateItem(item *weapon_tree.Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.ItemEvaluationResult, error) {
 	outItem := models.ItemEvaluationResult{
 		ID:                 item.ID,
 		Name:               item.Name,
@@ -240,9 +255,14 @@ func (e *Evaluator) evaluateItem(item *Item, evaluationType string, constraints 
 	return outItem, nil
 }
 
-func isIgnoredSlotName(slotName string, ignoredSlots map[string]bool) bool {
-	_, exists := ignoredSlots[slotName]
-	return exists
+func isIgnoredSlotName(slotName string, ignoredSlots []string) bool {
+	for _, ignoredSlot := range ignoredSlots {
+		if slotName == ignoredSlot {
+			return true
+		}
+	}
+
+	return false
 }
 
 func conflictsWithSet(conflictMap map[string]map[string]bool, candidate string, currentSet []string) bool {

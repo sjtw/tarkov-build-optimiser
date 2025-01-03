@@ -1,4 +1,4 @@
-package evaluator
+package weapon_tree
 
 import (
 	"github.com/rs/zerolog/log"
@@ -46,6 +46,19 @@ func (item *Item) AddChildSlot(slot *ItemSlot) {
 
 func (item *Item) SetParentSlot(slot *ItemSlot) {
 	item.parentSlot = slot
+}
+
+func (item *Item) GetDescendantSlots() []*ItemSlot {
+	descendants := make([]*ItemSlot, len(item.Slots))
+	descendants = append(descendants, item.Slots...)
+	for _, childSlots := range item.Slots {
+		items := childSlots.GetDescendantAllowedItems()
+		for _, item := range items {
+			descendants = append(descendants, item.GetDescendantSlots()...)
+		}
+	}
+
+	return descendants
 }
 
 func (item *Item) GetAncestorIds() []string {

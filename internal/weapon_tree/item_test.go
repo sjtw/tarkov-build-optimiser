@@ -1,4 +1,4 @@
-package evaluator
+package weapon_tree
 
 import (
 	"github.com/stretchr/testify/assert"

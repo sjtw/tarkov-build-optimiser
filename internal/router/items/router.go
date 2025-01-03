@@ -9,6 +9,7 @@ import (
 	"strings"
 	"tarkov-build-optimiser/internal/evaluator"
 	"tarkov-build-optimiser/internal/models"
+	"tarkov-build-optimiser/internal/weapon_tree"
 
 	"github.com/labstack/echo/v4"
 )
@@ -56,11 +57,8 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 
 	e.GET("/weapons/:item_id/calculate", func(c echo.Context) error {
 		constraints := models.EvaluationConstraints{
-			TraderLevels: []models.TraderLevel{},
-			IgnoredSlotNames: map[string]bool{
-				"Scope": true,
-				"Ubgl":  true,
-			},
+			TraderLevels:     []models.TraderLevel{},
+			IgnoredSlotNames: []string{"Scope", "Ubgl"},
 		}
 
 		itemId := c.Param("item_id")
@@ -83,8 +81,8 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 
 		log.Info().Msg("No pre-generated build - calculating")
 
-		dataService := evaluator.CreateDataService(db)
-		weaponTree, err := evaluator.ConstructWeaponTree(itemId, dataService)
+		dataService := weapon_tree.CreateDataService(db)
+		weaponTree, err := weapon_tree.ConstructWeaponTree(itemId, dataService)
 		if err != nil {
 			return c.String(500, err.Error())
 		}

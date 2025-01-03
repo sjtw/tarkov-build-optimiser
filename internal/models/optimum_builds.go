@@ -11,7 +11,7 @@ import (
 
 type EvaluationConstraints struct {
 	TraderLevels     []TraderLevel
-	IgnoredSlotNames map[string]bool
+	IgnoredSlotNames []string
 }
 
 type ItemEvaluationResult struct {

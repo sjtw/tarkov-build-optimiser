@@ -1,4 +1,4 @@
-package evaluator
+package weapon_tree
 
 import (
 	"context"
@@ -37,48 +37,11 @@ func (tds *DataService) GetSlotsByItemID(id string) ([]models.Slot, error) {
 }
 
 func (tds *DataService) GetWeaponModById(id string) (*models.WeaponMod, error) {
-	tds.modMu.Lock()
-	mod, ok := tds.weaponModCache[id]
-	tds.modMu.Unlock()
-	if ok && mod != nil {
-		return mod, nil
-	}
-
-	mods, err := models.GetAllWeaponMods(tds.db)
-	if err != nil {
-		return nil, err
-	}
-
-	tds.modMu.Lock()
-	for _, m := range mods {
-		if m.ID == id {
-			mod = m
-		}
-		tds.weaponModCache[m.ID] = m
-	}
-	tds.modMu.Unlock()
-
-	return mod, nil
+	return models.GetWeaponModById(tds.db, id)
 }
 
 func (tds *DataService) GetAllowedItemsBySlotID(id string) ([]*models.AllowedItem, error) {
-	tds.allowedItemBySlotIDMu.Lock()
-	items, ok := tds.allowedItemBySlotIDCache[id]
-	tds.allowedItemBySlotIDMu.Unlock()
-	if ok && items != nil {
-		return items, nil
-	}
-
-	allItems, err := models.GetAllAllowedItems(tds.db)
-	if err != nil {
-		return nil, err
-	}
-
-	tds.allowedItemBySlotIDMu.Lock()
-	tds.allowedItemBySlotIDCache = allItems
-	tds.allowedItemBySlotIDMu.Unlock()
-
-	return allItems[id], nil
+	return models.GetAllowedItemsBySlotID(tds.db, id)
 }
 
 func serialiseBuildKey(itemId string, buildType string, constraints models.EvaluationConstraints) string {

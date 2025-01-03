@@ -2,10 +2,9 @@ package evaluator
 
 import (
 	"github.com/stretchr/testify/assert"
-	"sort"
-	"strings"
 	"sync"
 	"tarkov-build-optimiser/internal/models"
+	"tarkov-build-optimiser/internal/weapon_tree"
 	"testing"
 )
 
@@ -83,35 +82,35 @@ func (saver *MockBuildSaver) SaveBuild(build *models.ItemEvaluationResult, const
 }
 
 func TestFindBestRecoilTree(t *testing.T) {
-	rootWeaponTree := &WeaponTree{}
-	weapon := ConstructItem("weapon1", "Weapon1", rootWeaponTree)
+	rootWeaponTree := &weapon_tree.WeaponTree{}
+	weapon := weapon_tree.ConstructItem("weapon1", "Weapon1", rootWeaponTree)
 	weapon.RecoilModifier = -10
 	weapon.ErgonomicsModifier = 10
 
-	item1 := ConstructItem("item1", "Item1", rootWeaponTree)
+	item1 := weapon_tree.ConstructItem("item1", "Item1", rootWeaponTree)
 	item1.RecoilModifier = -1
 	item1.ErgonomicsModifier = 1
 
-	item2 := ConstructItem("item2", "Item2", rootWeaponTree)
+	item2 := weapon_tree.ConstructItem("item2", "Item2", rootWeaponTree)
 	item2.RecoilModifier = -2
 	item2.ErgonomicsModifier = 2
 
-	item3 := ConstructItem("item3", "Item3", rootWeaponTree)
+	item3 := weapon_tree.ConstructItem("item3", "Item3", rootWeaponTree)
 	item3.RecoilModifier = -3
 	item3.ErgonomicsModifier = 3
 
-	item1ChildSlot := ConstructSlot("child-slot1", "Child Slot1", rootWeaponTree)
-	item1ChildSlotItem := ConstructItem("child-item1", "Child Item1", rootWeaponTree)
+	item1ChildSlot := weapon_tree.ConstructSlot("child-slot1", "Child Slot1", rootWeaponTree)
+	item1ChildSlotItem := weapon_tree.ConstructItem("child-item1", "Child Item1", rootWeaponTree)
 	item1ChildSlotItem.RecoilModifier = -4
 	item1ChildSlotItem.ErgonomicsModifier = 4
 	item1ChildSlot.AddChildItem(item1ChildSlotItem)
 	item1.AddChildSlot(item1ChildSlot)
 
-	slot1 := ConstructSlot("slot1", "Slot1", rootWeaponTree)
+	slot1 := weapon_tree.ConstructSlot("slot1", "Slot1", rootWeaponTree)
 	slot1.AddChildItem(item1)
 	slot1.AddChildItem(item2)
 
-	slot2 := ConstructSlot("slot2", "Slot2", rootWeaponTree)
+	slot2 := weapon_tree.ConstructSlot("slot2", "Slot2", rootWeaponTree)
 	slot2.AddChildItem(item3)
 
 	weapon.AddChildSlot(slot1)
@@ -127,7 +126,7 @@ func TestFindBestRecoilTree(t *testing.T) {
 
 	evaluator := CreateEvaluator(dataProvider)
 	candidates := []string{"weapon1", "item1", "item2", "item3", "child-item1"}
-	build, err := evaluator.evaluateItem(weapon, "recoil", constraints, candidates)
+	build, err := evaluator.evaluateWeapon(weapon, "recoil", constraints, candidates)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,35 +173,35 @@ func TestFindBestRecoilTree(t *testing.T) {
 }
 
 func TestFindBestErgoTree(t *testing.T) {
-	rootWeaponTree := &WeaponTree{}
-	weapon := ConstructItem("weapon1", "Test Item", rootWeaponTree)
+	rootWeaponTree := &weapon_tree.WeaponTree{}
+	weapon := weapon_tree.ConstructItem("weapon1", "Test Item", rootWeaponTree)
 	weapon.RecoilModifier = -10
 	weapon.ErgonomicsModifier = 10
 
-	item1 := ConstructItem("item1", "Item1", rootWeaponTree)
+	item1 := weapon_tree.ConstructItem("item1", "Item1", rootWeaponTree)
 	item1.RecoilModifier = -1
 	item1.ErgonomicsModifier = 1
 
-	item2 := ConstructItem("item2", "Item2", rootWeaponTree)
+	item2 := weapon_tree.ConstructItem("item2", "Item2", rootWeaponTree)
 	item2.RecoilModifier = -2
 	item2.ErgonomicsModifier = 2
 
-	item3 := ConstructItem("item3", "Item3", rootWeaponTree)
+	item3 := weapon_tree.ConstructItem("item3", "Item3", rootWeaponTree)
 	item3.RecoilModifier = -3
 	item3.ErgonomicsModifier = 3
 
-	item1ChildSlot := ConstructSlot("child-slot1", "Child Slot1", rootWeaponTree)
-	item1ChildSlotItem := ConstructItem("child-item1", "Child Item1", rootWeaponTree)
+	item1ChildSlot := weapon_tree.ConstructSlot("child-slot1", "Child Slot1", rootWeaponTree)
+	item1ChildSlotItem := weapon_tree.ConstructItem("child-item1", "Child Item1", rootWeaponTree)
 	item1ChildSlotItem.RecoilModifier = -4
 	item1ChildSlotItem.ErgonomicsModifier = 4
 	item1ChildSlot.AddChildItem(item1ChildSlotItem)
 	item1.AddChildSlot(item1ChildSlot)
 
-	slot1 := ConstructSlot("slot1", "Slot1", rootWeaponTree)
+	slot1 := weapon_tree.ConstructSlot("slot1", "Slot1", rootWeaponTree)
 	slot1.AddChildItem(item1)
 	slot1.AddChildItem(item2)
 
-	slot2 := ConstructSlot("slot2", "Slot2", rootWeaponTree)
+	slot2 := weapon_tree.ConstructSlot("slot2", "Slot2", rootWeaponTree)
 	slot2.AddChildItem(item3)
 
 	weapon.AddChildSlot(slot1)
@@ -217,7 +216,7 @@ func TestFindBestErgoTree(t *testing.T) {
 	evaluator := CreateEvaluator(dataProvider)
 
 	candidates := []string{"weapon1", "item1", "item2", "item3", "child-item1"}
-	build, err := evaluator.evaluateItem(weapon, "recoil", constraints, candidates)
+	build, err := evaluator.evaluateWeapon(weapon, "recoil", constraints, candidates)
 
 	if err != nil {
 		t.Fatal(err)
@@ -242,139 +241,100 @@ func TestFindBestErgoTree(t *testing.T) {
 	assert.Len(t, build.Slots[1].Item.Slots, 0)
 }
 
-// Replicates a bug where conflicting items can be added due to the candidate
-// array not being fully taken into account
-func TestCandidatesRestrictItems(t *testing.T) {
-	rootWeaponTree := &WeaponTree{}
-	weapon := ConstructItem("weapon1", "Weapon1", rootWeaponTree)
-	weapon.RecoilModifier = -10
-	weapon.ErgonomicsModifier = 10
-
-	// doesn't get chosen, item2 is better because item1 relies on child item to improve stats over item2
-	item1 := ConstructItem("item1", "Item1", rootWeaponTree)
-	item1.RecoilModifier = -1
-	item1.ErgonomicsModifier = 1
-
-	// gets chosen
-	item2 := ConstructItem("item2", "Item2", rootWeaponTree)
-	item2.RecoilModifier = -2
-	item2.ErgonomicsModifier = 2
-
-	item3 := ConstructItem("item3", "Item3", rootWeaponTree)
-	item3.RecoilModifier = -3
-	item3.ErgonomicsModifier = 3
-
-	item1ChildSlot := ConstructSlot("child-slot1", "Child Slot1", rootWeaponTree)
-	item1ChildSlotItem := ConstructItem("child-item1", "Child Item1", rootWeaponTree)
-	item1ChildSlotItem.RecoilModifier = -4
-	item1ChildSlotItem.ErgonomicsModifier = 4
-	item1ChildSlot.AddChildItem(item1ChildSlotItem)
-	item1.AddChildSlot(item1ChildSlot)
-
-	slot1 := ConstructSlot("slot1", "Slot1", rootWeaponTree)
-	slot1.AddChildItem(item1)
-	slot1.AddChildItem(item2)
-
-	slot2 := ConstructSlot("slot2", "Slot2", rootWeaponTree)
-	slot2.AddChildItem(item3)
-
-	weapon.AddChildSlot(slot1)
-	weapon.AddChildSlot(slot2)
-
-	constraints := createMockConstraints()
-
-	buildSaver := &MockBuildSaver{}
-	dataProvider := &MockEvaluationDataProvider{
-		GetTraderOfferFunc: getTraders,
-		SaveBuildFunc:      buildSaver.SaveBuild,
+func TestFindBestBuild(t *testing.T) {
+	// TODO - use construction functions and mock data provider to construct this
+	weapon := &weapon_tree.Item{
+		Name:               "Weapon",
+		ID:                 "item-weapon",
+		RecoilModifier:     0.0,
+		ErgonomicsModifier: 0.0,
+		ConflictingItems:   []string{},
+		Slots: []*weapon_tree.ItemSlot{
+			{
+				Name: "stock",
+				ID:   "slot-stock",
+				AllowedItems: []*weapon_tree.Item{
+					{
+						Name:               "Buffer_Tube",
+						ID:                 "item-buffer-tube",
+						RecoilModifier:     5.0,
+						ErgonomicsModifier: 5.0,
+						ConflictingItems:   []string{"item-ADAR-stock"},
+						Slots: []*weapon_tree.ItemSlot{
+							{
+								Name: "stock",
+								ID:   "slot-buffer-stock",
+								AllowedItems: []*weapon_tree.Item{
+									{
+										Name:               "good stock",
+										ID:                 "item-good-stock",
+										RecoilModifier:     22.0,
+										ErgonomicsModifier: 22.0,
+										ConflictingItems:   []string{"item-ADAR-stock"},
+										Slots:              []*weapon_tree.ItemSlot{},
+									},
+								},
+							},
+						},
+					},
+					{
+						Name:               "bad stock",
+						ID:                 "item-bad-stock",
+						RecoilModifier:     5.0,
+						ErgonomicsModifier: 5.0,
+						ConflictingItems:   []string{"item-ADAR-stock"},
+						Slots:              []*weapon_tree.ItemSlot{},
+					},
+				},
+			},
+			{
+				Name: "receiver",
+				ID:   "slot-receiver",
+				AllowedItems: []*weapon_tree.Item{
+					{
+						Name:               "Base_Receiver",
+						ID:                 "item-base-receiver",
+						RecoilModifier:     0.0,
+						ErgonomicsModifier: 0.0,
+						ConflictingItems:   []string{},
+						Slots:              []*weapon_tree.ItemSlot{},
+					},
+				},
+			},
+			{
+				Name: "pistol grip",
+				ID:   "slot-pistol-grip",
+				AllowedItems: []*weapon_tree.Item{
+					{
+						Name:               "ADAR_Stock",
+						ID:                 "item-ADAR-stock",
+						RecoilModifier:     20.0,
+						ErgonomicsModifier: 20.0,
+						ConflictingItems:   []string{"Buffer_Tube", "good stock"},
+						Slots:              []*weapon_tree.ItemSlot{},
+					},
+					{
+						Name:               "bad grip",
+						ID:                 "item-bad-grip",
+						RecoilModifier:     5.0,
+						ErgonomicsModifier: 5.0,
+						ConflictingItems:   []string{},
+						Slots:              []*weapon_tree.ItemSlot{},
+					},
+				},
+			},
+		},
 	}
 
-	evaluator := CreateEvaluator(dataProvider)
-	candidates := []string{"weapon1", "item1", "item2", "item3"}
-	build, err := evaluator.evaluateItem(weapon, "recoil", constraints, candidates)
-	if err != nil {
-		t.Fatal(err)
+	initialExcluded := make(map[string]bool)
+
+	// Start traversal and get the best build
+	bestBuild := findBestBuild(weapon.Slots, []OptimalItem{}, "recoil", 0.0, initialExcluded)
+
+	assert.NotNil(t, bestBuild)
+
+	for _, item := range bestBuild.OptimalItems {
+		assert.NotEqual(t, "item-ADAR-stock", item.ID)
+		assert.NotEqual(t, "item-bad-stock", item.ID)
 	}
-
-	assert.Len(t, build.Slots[0].Item.Slots, 0)
-	assert.Equal(t, build.Slots[0].Item.ID, item2.ID)
-}
-
-func TestGenerateNonSymmetricalNonConflictingCandidateSets(t *testing.T) {
-	candidates := map[string]bool{
-		"A": true,
-		"B": true,
-		"C": true,
-		"D": true,
-	}
-	// C is omitted entirely as its conflicts are inherent
-	// this replicates some holes in the tarkov.dev data where a conflict is
-	// only represented in one direction. stocks & pistol grips with integrated stock
-	// for example.
-	conflicts := map[string]map[string]bool{
-		"A": {"B": true},
-		"C": {"B": true},
-	}
-
-	result := generateNonConflictingCandidateSets(candidates, conflicts)
-	expected := map[string]bool{
-		"ACD": false,
-		"BD":  false,
-	}
-
-	for _, r := range result {
-		sort.Strings(r)
-		key := strings.Join(r, "")
-		if _, exists := expected[key]; !exists {
-			t.Errorf("Unexpected result: %s", key)
-		} else {
-			expected[key] = true
-		}
-	}
-
-	for key, found := range expected {
-		assert.Equal(t, true, found, "Expected set %s was not found", key)
-	}
-
-	assert.Equal(t, len(expected), len(result), "Unexpected number of result sets")
-}
-
-// Tests the correct candidate sets are generated given a SYMMETRICAL
-// conflict map.
-func TestGenerateNonConflictingCandidateSets(t *testing.T) {
-	candidates := map[string]bool{
-		"A": true,
-		"B": true,
-		"C": true,
-		"D": true,
-	}
-	conflicts := map[string]map[string]bool{
-		"A": {"B": true},
-		"B": {"A": true, "C": true},
-		"C": {"B": true},
-	}
-
-	result := generateNonConflictingCandidateSets(candidates, conflicts)
-
-	expected := map[string]bool{
-		"ACD": false,
-		// items with zero conflicts (D in this case) must be present in all candidate sets
-		"BD": false,
-	}
-
-	for _, r := range result {
-		sort.Strings(r)
-		key := strings.Join(r, "")
-		if _, exists := expected[key]; !exists {
-			t.Errorf("Unexpected result: %s", key)
-		} else {
-			expected[key] = true
-		}
-	}
-
-	for key, found := range expected {
-		assert.Equal(t, true, found, "Expected set %s was not found", key)
-	}
-
-	assert.Equal(t, len(expected), len(result), "Unexpected number of result sets")
 }

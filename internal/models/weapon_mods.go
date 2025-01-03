@@ -85,3 +85,32 @@ func GetAllWeaponMods(db *sql.DB) ([]*WeaponMod, error) {
 
 	return weaponMods, nil
 }
+
+func GetWeaponModById(db *sql.DB, id string) (*WeaponMod, error) {
+	rows, err := db.Query(`
+		select wm.item_id,
+			   wm.name,
+			   wm.ergonomics_modifier,
+			   wm.recoil_modifier,
+			   COALESCE(array_agg(ci.conflicting_item_id) FILTER (WHERE ci.conflicting_item_id IS NOT NULL),
+						'{}') AS conflicting_items
+		from weapon_mods wm
+				 left join conflicting_items ci on wm.item_id = ci.item_id
+		where wm.item_id = $1
+		group by wm.item_id, wm.name, wm.ergonomics_modifier, wm.recoil_modifier;`, id)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	weaponMod := &WeaponMod{}
+	for rows.Next() {
+		err := rows.Scan(&weaponMod.ID, &weaponMod.Name, &weaponMod.ErgonomicsModifier, &weaponMod.RecoilModifier, pq.Array(&weaponMod.ConflictingItems))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return weaponMod, nil
+}

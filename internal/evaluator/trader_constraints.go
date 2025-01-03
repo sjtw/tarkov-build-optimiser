@@ -11,12 +11,11 @@ func validateTraderLevels(offers []models.TraderOffer, levels []models.TraderLev
 		o := offers[i]
 		if o.Trader == "" && o.MinTraderLevel == 0 {
 			// TODO: I think this can be assumed to be a preset item? Worth checking for edge cases nonetheless
-			return false
+			continue
 		}
 
-		for j := i + 1; j < len(levels); j++ {
-			tc := levels[j]
-			if offers[i].Trader == tc.Name && tc.Level >= offers[i].MinTraderLevel {
+		for j := 0; j < len(levels); j++ {
+			if offers[i].Trader == levels[j].Name && levels[j].Level >= offers[i].MinTraderLevel {
 				return true
 			}
 		}

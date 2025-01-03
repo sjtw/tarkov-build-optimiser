@@ -1,18 +1,14 @@
-package evaluator
+package weapon_tree
 
 import (
 	"github.com/rs/zerolog/log"
 )
 
 type ItemSlot struct {
-	ID                 string  `json:"id" bson:"id"`
-	Name               string  `json:"name" bson:"name"`
-	AllowedItems       []*Item `json:"-"`
-	BestRecoilItem     *Item   `json:"best_recoil_item" bson:"best_recoil_item"`
-	BestRecoilModifier int     `json:"best_recoil_modifier" bson:"best_recoil_modifier"`
-	BestErgoModifier   int     `json:"best_ergo_modifier" bson:"best_ergo_modifier"`
-	BestErgoItem       *Item   `json:"best_ergo_item" bson:"best_ergo_item"`
-	parentItem         *Item
+	ID           string  `json:"id" bson:"id"`
+	Name         string  `json:"name" bson:"name"`
+	AllowedItems []*Item `json:"-"`
+	parentItem   *Item
 	// IDs of items which would potentially create a circular reference
 	// we don't want to add these to the possibility tree for obvious reasons,
 	// but we may still want to know what they are
@@ -34,6 +30,19 @@ func (slot *ItemSlot) GetParentItem() *Item {
 	}
 
 	return slot.parentItem
+}
+
+func (slot *ItemSlot) GetDescendantAllowedItems() []*Item {
+	descendants := make([]*Item, len(slot.AllowedItems))
+	descendants = append(descendants, slot.AllowedItems...)
+	for _, ai := range slot.AllowedItems {
+		aiSlots := ai.GetDescendantSlots()
+		for _, s := range aiSlots {
+			descendants = append(descendants, s.GetDescendantAllowedItems()...)
+		}
+	}
+
+	return descendants
 }
 
 func (slot *ItemSlot) AddChildItem(item *Item) {

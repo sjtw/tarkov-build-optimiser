@@ -68,7 +68,7 @@ func GetAllowedItemsBySlotID(db *sql.DB, slotID string) ([]*AllowedItem, error) 
 	allowedItems := make([]*AllowedItem, 0)
 	for rows.Next() {
 		slot := &AllowedItem{}
-		err := rows.Scan(&slot.ID, &slot.Name)
+		err := rows.Scan(&slot.ID, &slot.Name, &slot.SlotID)
 		if err != nil {
 			return nil, err
 		}
