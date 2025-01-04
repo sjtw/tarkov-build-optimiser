@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/rs/zerolog/log"
+	"strings"
 	"tarkov-build-optimiser/internal/helpers"
 	"tarkov-build-optimiser/internal/weapon_tree"
 )
@@ -161,21 +162,27 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 
 func FindBestBuild(weapon *weapon_tree.WeaponTree, focusedStat string,
 	excludedItems map[string]bool) *Build {
-	build := processSlots(weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, excludedItems, []string{})
+	pathTracker := map[string]int{}
+	build := processSlots(weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, []string{}, pathTracker)
 	build.WeaponTree = *weapon
+
+	for key, value := range pathTracker {
+		if value > 1 {
+			log.Info().Msgf("PathTracker Key: %s, Value: %d", key, value)
+		}
+	}
 
 	return build
 }
 
 // findBestBuild recursively traverses the build tree to find the optimal build.
 // It returns the best Build found in the current recursion path.
-func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalItem, focusedStat string, recoilStatSum int,
-	excludedItems map[string]bool, currentPath []string) *Build {
+func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalItem, focusedStat string, recoilStatSum int, ergoStatSum int, excludedItems map[string]bool, currentPath []string, pathTracker map[string]int) *Build {
 	if len(slotsToProcess) == 0 {
 		exclusions := make([]string, 0)
-		for excluded, is := range excludedItems {
-			if is {
-				exclusions = append(exclusions, excluded)
+		for excludedID, isExcluded := range excludedItems {
+			if isExcluded {
+				exclusions = append(exclusions, excludedID)
 			}
 		}
 		return &Build{
@@ -189,6 +196,9 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 	// Take the first slot to process
 	currentSlot := slotsToProcess[0]
 	currentPath = append(currentPath, currentSlot.ID)
+	visitCount := pathTracker[currentSlot.ID]
+	pathTracker[strings.Join(currentPath, ",")] = visitCount + 1
+
 	log.Info().Msgf("Current Path: %v", currentPath)
 	remainingSlots := slotsToProcess[1:]
 	for index, slot := range currentPath {
@@ -204,7 +214,7 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 			continue
 		}
 
-		if !canImproveStat(item, focusedStat) {
+		if !canDescendantsImproveStat(item, focusedStat) {
 			continue
 		}
 
@@ -224,14 +234,9 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 			ID:     item.ID,
 			SlotID: currentSlot.ID,
 		})
-		newRecoil := 0
-		//newErgo := 0
 
-		if focusedStat == "recoil" {
-			newRecoil = recoilStatSum + item.RecoilModifier
-		} else {
-			//newErgo = recoilStatSum + item.ErgonomicsModifier
-		}
+		newRecoil := recoilStatSum + item.RecoilModifier
+		newErgo := ergoStatSum + item.ErgonomicsModifier
 
 		newExcluded := helpers.CloneMap(excludedItems)
 		for _, conflictItem := range item.ConflictingItems {
@@ -242,28 +247,24 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 		if len(item.Slots) > 0 {
 			newSlotsToProcess = append(newSlotsToProcess, item.Slots...)
 
-			//filteredSlots := make([]*weapon_tree.ItemSlot, 0, len(newSlotsToProcess))
-			//
-			//for _, slot := range newSlotsToProcess {
-			//	if slot.Name != "Scope" && slot.Name != "Tactical" && slot.Name != "Ubgl" {
-			//		filteredSlots = append(filteredSlots, slot)
-			//	}
-			//}
-
 			newSlotsToProcess = filterSlots(newSlotsToProcess, []string{"Scope", "Tactical", "Ubgl"})
 		}
 
-		candidate := processSlots(newSlotsToProcess, newChosen, focusedStat, newRecoil, newExcluded, currentPath)
+		candidate := processSlots(newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, currentPath, pathTracker)
 
 		if candidate != nil {
-			if best == nil || candidate.RecoilSum < best.RecoilSum {
+			if best == nil {
+				best = candidate
+			}
+
+			if doesImproveStats(candidate, best, focusedStat) {
 				best = candidate
 			}
 		}
 	}
 
 	if best == nil {
-		candidate := processSlots(remainingSlots, chosenItems, focusedStat, recoilStatSum, excludedItems, currentPath)
+		candidate := processSlots(remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, currentPath, pathTracker)
 		if candidate != nil {
 			best = candidate
 		}
@@ -320,26 +321,46 @@ func conflictsWith(item *weapon_tree.Item, chosen OptimalItem) bool {
 	return false
 }
 
-// canImproveStat checks if the item or any of its descendants can improve the focused stat
-// OR if the other stat can be improved.
-func canImproveStat(item *weapon_tree.Item, focusedStat string) bool {
-	if focusedStat == "recoil" && item.RecoilModifier < 0 {
-		return true
-	}
-	if focusedStat == "ergonomics" && item.ErgonomicsModifier > 0 {
-		return true
-	}
-
-	// see if we can still maximise/minimise the other stat.
-	if item.ErgonomicsModifier > 0 || item.RecoilModifier < 0 {
+func canDescendantsImproveStat(item *weapon_tree.Item, focusedStat string) bool {
+	if canImproveStat(item, focusedStat) {
 		return true
 	}
 
 	for _, subslot := range item.Slots {
 		for _, subitem := range subslot.AllowedItems {
-			if canImproveStat(subitem, focusedStat) {
+			if canDescendantsImproveStat(subitem, focusedStat) {
 				return true
 			}
+		}
+	}
+
+	return false
+}
+
+func canImproveStat(item *weapon_tree.Item, focusedStat string) bool {
+	if focusedStat == "recoil" && item.RecoilModifier < 0 {
+		return true
+	} else if focusedStat == "ergonomics" && item.ErgonomicsModifier > 0 {
+		return true
+	} else if item.ErgonomicsModifier > 0 || item.RecoilModifier < 0 {
+		return true
+	}
+
+	return false
+}
+
+func doesImproveStats(candidate *Build, best *Build, focusedStat string) bool {
+	if focusedStat == "recoil" {
+		if candidate.RecoilSum < best.RecoilSum {
+			return true
+		} else if candidate.ErgonomicsSum > best.ErgonomicsSum {
+			return true
+		}
+	} else if focusedStat == "ergonomics" {
+		if candidate.ErgonomicsSum > best.ErgonomicsSum {
+			return true
+		} else if candidate.RecoilSum < best.RecoilSum {
+			return true
 		}
 	}
 
