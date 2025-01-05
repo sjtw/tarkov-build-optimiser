@@ -137,8 +137,39 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		//build := evaluator.FindBestBuild(weaponTree, buildType, map[string]bool{"5b7be47f5acfc400170e2dd2": true, "6269220d70b6c02e665f2635": true, "5c48a2852e221602b21d5925": true, "669a6a4a525be1d2d004b8eb": true})
 
 		excluded := map[string]bool{
-			// Magpul M-LOK 2.5 inch rail
-			"5b7be47f5acfc400170e2dd2": true,
+			//
+			////	 high hit rate items
+			//"5c791e872e2216001219c40a": true,
+			//"558032614bdc2de7118b4585": true,
+			//"5c1bc7432e221602b412949d": true,
+			//"5c7fc87d2e221644f31c0298": true,
+			//"58c157be86f77403c74b2bb6": true,
+			//"655dccfdbdcc6b5df71382b6": true,
+			//"5f6340d3ca442212f4047eb2": true,
+			//"58c157c886f774032749fb06": true,
+			//"59f8a37386f7747af3328f06": true,
+			//"661e52b5b099f32c28003586": true,
+			//"5c1bc5af2e221602b412949b": true,
+			//"5c1bc4812e22164bef5cfde7": true,
+			//"59fc48e086f77463b1118392": true,
+			//"55f84c3c4bdc2d5f408b4576": true,
+			//
+			//// high frequency rails etc
+			//"57d17e212459775a1179a0f5": true,
+			//"5c0102b20db834001d23eebc": true,
+			//"5b7be4895acfc400170e2dd5": true,
+			//"6267c6396b642f77f56f5c1c": true,
+			//"5d133067d7ad1a33013f95b4": true,
+			//"59e0bed186f774156f04ce84": true,
+			//"5a9d6d13a2750c00164f6b03": true,
+			//"5b7be46e5acfc400170e2dcf": true,
+			//// Magpul M-LOK 2.5 inch rail
+			//"5b7be47f5acfc400170e2dd2": true,
+			//// AR-15 Daniel Defense RIS II 12.25 lower handguard (Coyote Brown)
+			//"638f2003bbd47aeb9e0ff637": true,
+			//// AR-15 Daniel Defense RIS II 9.5 lower handguard (Coyote Brown)
+			//"638f1ff84822287cad04be9d": true,
+			//"5b30bc285acfc47a8608615d": true,
 		}
 		build := evaluator.FindBestBuild(weaponTree, buildType, excluded)
 		log.Info().Msg("Build evaluation complete")

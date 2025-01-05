@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/rs/zerolog/log"
+	"sort"
+	"strconv"
 	"strings"
 	"tarkov-build-optimiser/internal/helpers"
 	"tarkov-build-optimiser/internal/weapon_tree"
@@ -162,25 +164,40 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 
 func FindBestBuild(weapon *weapon_tree.WeaponTree, focusedStat string,
 	excludedItems map[string]bool) *Build {
-	pathTracker := map[string]int{}
-	build := processSlots(weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, []string{}, pathTracker)
+	uselessItems := map[string]bool{}
+	itemHits := map[string]int{}
+	memo := map[string]*Build{}
+	build := processSlots(weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, []string{}, uselessItems, memo, itemHits)
 	build.WeaponTree = *weapon
 
-	for key, value := range pathTracker {
-		if value > 1 {
-			log.Info().Msgf("PathTracker Key: %s, Value: %d", key, value)
-		}
-	}
+	//for key, value := range pathTracker {
+	//	if value > 1 {
+	//		log.Info().Msgf("PathTracker Key: %s, Value: %d", key, value)
+	//	}
+	//}
 
 	return build
 }
 
 // findBestBuild recursively traverses the build tree to find the optimal build.
 // It returns the best Build found in the current recursion path.
-func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalItem, focusedStat string, recoilStatSum int, ergoStatSum int, excludedItems map[string]bool, currentPath []string, pathTracker map[string]int) *Build {
+func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalItem, focusedStat string, recoilStatSum int, ergoStatSum int, excludedItems map[string]bool, currentPath []string, uselessItems map[string]bool, memo map[string]*Build, itemHits map[string]int) *Build {
+	//key := createMemoKey(slotsToProcess, focusedStat, recoilStatSum, ergoStatSum, excludedItems)
+	//if build, exists := memo[key]; exists {
+	//	return build
+	//}
+
+	clonedExcludedItems := helpers.CloneMap(excludedItems)
+
+	//for key, value := range pathTracker {
+	//	if value > 1 {
+	//		log.Info().Msgf("path visited > 1x: %s, Value: %d", key, value)
+	//	}
+	//}
+
 	if len(slotsToProcess) == 0 {
 		exclusions := make([]string, 0)
-		for excludedID, isExcluded := range excludedItems {
+		for excludedID, isExcluded := range clonedExcludedItems {
 			if isExcluded {
 				exclusions = append(exclusions, excludedID)
 			}
@@ -195,17 +212,16 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 
 	// Take the first slot to process
 	currentSlot := slotsToProcess[0]
-	currentPath = append(currentPath, currentSlot.ID)
-	visitCount := pathTracker[currentSlot.ID]
-	pathTracker[strings.Join(currentPath, ",")] = visitCount + 1
-
-	log.Info().Msgf("Current Path: %v", currentPath)
+	//currentPath = append(currentPath, currentSlot.ID)
+	////visitCount := pathTracker[currentSlot.ID]
+	////pathTracker[strings.Join(currentPath, ",")] = visitCount + 1
+	//
 	remainingSlots := slotsToProcess[1:]
-	for index, slot := range currentPath {
-		if index != len(currentPath)-1 && slot == currentSlot.ID {
-			log.Info().Msgf("Recursion detected: %v", currentPath)
-		}
-	}
+	//for index, slot := range currentPath {
+	//	if index != len(currentPath)-1 && slot == currentSlot.ID {
+	//		log.Info().Msgf("Recursion detected: %v", currentPath)
+	//	}
+	//}
 
 	var best *Build = nil
 
@@ -214,7 +230,12 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 			continue
 		}
 
+		if uselessItems[item.ID] {
+			continue
+		}
+
 		if !canDescendantsImproveStat(item, focusedStat) {
+			uselessItems[item.ID] = true
 			continue
 		}
 
@@ -229,6 +250,24 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 			continue
 		}
 
+		count := itemHits[item.ID]
+		itemHits[item.ID] = count + 1
+		itemHitsArray := make([]struct {
+			ID    string
+			Count int
+		}, 0, len(itemHits))
+
+		for id, count := range itemHits {
+			itemHitsArray = append(itemHitsArray, struct {
+				ID    string
+				Count int
+			}{ID: id, Count: count})
+		}
+
+		sort.Slice(itemHitsArray, func(i, j int) bool {
+			return itemHitsArray[i].Count > itemHitsArray[j].Count
+		})
+
 		newChosen := append(chosenItems, OptimalItem{
 			Name:   item.Name,
 			ID:     item.ID,
@@ -238,19 +277,19 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 		newRecoil := recoilStatSum + item.RecoilModifier
 		newErgo := ergoStatSum + item.ErgonomicsModifier
 
-		newExcluded := helpers.CloneMap(excludedItems)
-		for _, conflictItem := range item.ConflictingItems {
-			newExcluded[conflictItem] = true
-		}
-
 		newSlotsToProcess := append([]*weapon_tree.ItemSlot{}, remainingSlots...)
 		if len(item.Slots) > 0 {
 			newSlotsToProcess = append(newSlotsToProcess, item.Slots...)
 
+			//newSlotsToProcess = filterSlots(newSlotsToProcess, []string{"Scope", "Tactical", "Ubgl", "Mount", "Foregrip"})
 			newSlotsToProcess = filterSlots(newSlotsToProcess, []string{"Scope", "Tactical", "Ubgl"})
 		}
 
-		candidate := processSlots(newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, currentPath, pathTracker)
+		newExcluded := helpers.CloneMap(excludedItems)
+		for _, conflictItem := range item.ConflictingItems {
+			newExcluded[conflictItem] = true
+		}
+		candidate := processSlots(newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, currentPath, uselessItems, memo, itemHits)
 
 		if candidate != nil {
 			if best == nil {
@@ -264,7 +303,8 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 	}
 
 	if best == nil {
-		candidate := processSlots(remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, currentPath, pathTracker)
+		newExcluded := helpers.CloneMap(excludedItems)
+		candidate := processSlots(remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, newExcluded, currentPath, uselessItems, memo, itemHits)
 		if candidate != nil {
 			best = candidate
 		}
@@ -285,6 +325,8 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 			ExcludedItems:  exclusions,
 		}
 	}
+
+	//memo[key] = best
 
 	return best
 }
@@ -342,9 +384,10 @@ func canImproveStat(item *weapon_tree.Item, focusedStat string) bool {
 		return true
 	} else if focusedStat == "ergonomics" && item.ErgonomicsModifier > 0 {
 		return true
-	} else if item.ErgonomicsModifier > 0 || item.RecoilModifier < 0 {
-		return true
 	}
+	//} else if item.ErgonomicsModifier > 0 || item.RecoilModifier < 0 {
+	//	return true
+	//}
 
 	return false
 }
@@ -353,9 +396,10 @@ func doesImproveStats(candidate *Build, best *Build, focusedStat string) bool {
 	if focusedStat == "recoil" {
 		if candidate.RecoilSum < best.RecoilSum {
 			return true
-		} else if candidate.ErgonomicsSum > best.ErgonomicsSum {
-			return true
 		}
+		//} else if candidate.ErgonomicsSum > best.ErgonomicsSum {
+		//	return true
+		//}
 	} else if focusedStat == "ergonomics" {
 		if candidate.ErgonomicsSum > best.ErgonomicsSum {
 			return true
@@ -365,4 +409,32 @@ func doesImproveStats(candidate *Build, best *Build, focusedStat string) bool {
 	}
 
 	return false
+}
+
+func createMemoKey(slots []*weapon_tree.ItemSlot, focusedStat string, recoilStatSum int, ergoStatSum int, excludedItems map[string]bool) string {
+	return focusedStat + "|" +
+		serializeSlots(slots) + "|" +
+		serializeExcludedItems(excludedItems) + "|" +
+		strconv.Itoa(recoilStatSum) + "|" +
+		strconv.Itoa(ergoStatSum)
+}
+
+func serializeSlots(slots []*weapon_tree.ItemSlot) string {
+	slotIDs := make([]string, len(slots))
+	for i, slot := range slots {
+		slotIDs[i] = slot.ID
+	}
+	sort.Strings(slotIDs)
+	return strings.Join(slotIDs, ",")
+}
+
+func serializeExcludedItems(excludedItems map[string]bool) string {
+	excludedIDs := make([]string, 0, len(excludedItems))
+	for id, excluded := range excludedItems {
+		if excluded {
+			excludedIDs = append(excludedIDs, id)
+		}
+	}
+	sort.Strings(excludedIDs)
+	return strings.Join(excludedIDs, ",")
 }
