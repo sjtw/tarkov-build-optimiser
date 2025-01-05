@@ -35,9 +35,9 @@ func TestSlot_GetAncestors(t *testing.T) {
 	slot3 := ConstructSlot("slot3", "Slot3", rootWeapon)
 
 	item1.AddChildSlot(slot1)
-	slot1.AddChildItem(item2)
+	slot1.AddAllowedItem(item2)
 	item2.AddChildSlot(slot2)
-	slot2.AddChildItem(item3)
+	slot2.AddAllowedItem(item3)
 	item3.AddChildSlot(slot3)
 
 	ancestors := slot3.GetAncestorIds()
@@ -60,9 +60,9 @@ func TestSlot_GetAncestorItems(t *testing.T) {
 	slot3 := ConstructSlot("slot3", "Slot3", rootWeapon)
 
 	item1.AddChildSlot(slot1)
-	slot1.AddChildItem(item2)
+	slot1.AddAllowedItem(item2)
 	item2.AddChildSlot(slot2)
-	slot2.AddChildItem(item3)
+	slot2.AddAllowedItem(item3)
 	item3.AddChildSlot(slot3)
 
 	ancestors := slot3.GetAncestorItems()

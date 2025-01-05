@@ -5,10 +5,12 @@ import (
 )
 
 type ItemSlot struct {
-	ID           string  `json:"id" bson:"id"`
-	Name         string  `json:"name" bson:"name"`
-	AllowedItems []*Item `json:"-"`
-	parentItem   *Item
+	ID              string  `json:"id" bson:"id"`
+	Name            string  `json:"name" bson:"name"`
+	AllowedItems    []*Item `json:"-"`
+	parentItem      *Item
+	PotentialValues PotentialValues `json:"potential_values"`
+
 	// IDs of items which would potentially create a circular reference
 	// we don't want to add these to the possibility tree for obvious reasons,
 	// but we may still want to know what they are
@@ -48,9 +50,50 @@ func (slot *ItemSlot) GetDescendantAllowedItems() []*Item {
 	return descendants
 }
 
-func (slot *ItemSlot) AddChildItem(item *Item) {
+func (slot *ItemSlot) AddAllowedItem(item *Item) {
 	item.SetParentSlot(slot)
 	slot.AllowedItems = append(slot.AllowedItems, item)
+}
+
+func (slot *ItemSlot) SortAllowedItems() {
+
+}
+
+func (slot *ItemSlot) CalculatePotentialValues() {
+	potential := PotentialValues{
+		MinRecoil: 0,
+		MaxRecoil: 0,
+	}
+
+	for _, item := range slot.AllowedItems {
+		item.CalculatePotentialValues()
+
+		if len(item.Slots) == 0 {
+			potential.MinRecoil = item.PotentialValues.MinRecoil
+			potential.MaxRecoil = item.PotentialValues.MaxRecoil
+			potential.MinErgonomics = item.PotentialValues.MinErgonomics
+			potential.MaxErgonomics = item.PotentialValues.MaxErgonomics
+		} else {
+			if potential.MinRecoil > item.PotentialValues.MinRecoil {
+				potential.MinRecoil = item.PotentialValues.MinRecoil
+			}
+
+			if potential.MaxRecoil < item.PotentialValues.MaxRecoil {
+				potential.MaxRecoil = item.PotentialValues.MaxRecoil
+			}
+
+			if potential.MinErgonomics < item.PotentialValues.MinErgonomics {
+				potential.MinErgonomics = item.PotentialValues.MinErgonomics
+			}
+
+			if potential.MaxErgonomics > item.PotentialValues.MaxErgonomics {
+				potential.MaxErgonomics = item.PotentialValues.MaxErgonomics
+			}
+		}
+
+	}
+
+	slot.PotentialValues = potential
 }
 
 func (slot *ItemSlot) SetParentItem(item *Item) {
@@ -97,6 +140,39 @@ func (slot *ItemSlot) PopulateAllowedItems() error {
 	for i := 0; i < len(allowedItems); i++ {
 		allowedItem := allowedItems[i]
 
+		traderOfferValid := false
+		offer, err := slot.RootWeaponTree.dataService.GetTraderOffer(allowedItem.ID)
+		for _, traderConstraint := range slot.RootWeaponTree.Constraints.TraderLevels {
+			for _, t := range offer {
+				if traderConstraint.Name == t.Trader {
+					if traderConstraint.Level >= t.MinTraderLevel {
+						traderOfferValid = true
+						break
+					}
+				}
+			}
+			if traderOfferValid {
+				break
+			}
+		}
+
+		if !traderOfferValid {
+			log.Info().Msgf("item %s does not meet trader level constraints - not adding", allowedItem.ID)
+			continue
+		}
+
+		ignored := false
+		for _, id := range slot.RootWeaponTree.Constraints.IgnoredItemIDs {
+			if id == allowedItem.ID {
+				log.Info().Msgf("item %s is ignored - not adding as allowed item", id)
+				ignored = true
+				break
+			}
+		}
+		if ignored {
+			continue
+		}
+
 		modProperties, err := slot.RootWeaponTree.dataService.GetWeaponModById(allowedItem.ID)
 		if err != nil {
 			return nil
@@ -109,12 +185,30 @@ func (slot *ItemSlot) PopulateAllowedItems() error {
 		item := ConstructItem(allowedItem.ID, allowedItem.Name, slot.RootWeaponTree)
 		item.RecoilModifier = modProperties.RecoilModifier
 		item.ErgonomicsModifier = modProperties.ErgonomicsModifier
+		item.CategoryID = modProperties.CategoryID
+		item.CategoryName = modProperties.CategoryName
 		item.Type = "weapon_mod"
-		item.ConflictingItems = modProperties.ConflictingItems
+		item.ConflictingItems = make([]ConflictingItem, 0)
+
+		if len(modProperties.ConflictingItems) > 0 {
+			for _, id := range modProperties.ConflictingItems {
+				conflictingItem, err := slot.RootWeaponTree.dataService.GetWeaponModById(id)
+				if err != nil {
+					log.Error().Err(err).Msgf("Failed to resolve conflicting item: %s", id)
+					return err
+				}
+				item.ConflictingItems = append(item.ConflictingItems, ConflictingItem{
+					ID:           conflictingItem.ID,
+					Name:         conflictingItem.Name,
+					CategoryID:   conflictingItem.CategoryID,
+					CategoryName: conflictingItem.CategoryName,
+				})
+			}
+		}
 
 		if slot.IsItemValidChild(item) {
 			// must add first - add child maintains the parent relationship
-			slot.AddChildItem(item)
+			slot.AddAllowedItem(item)
 
 			if len(item.ConflictingItems) > 0 {
 				slot.RootWeaponTree.AddItemConflicts(item.ID, item.ConflictingItems)

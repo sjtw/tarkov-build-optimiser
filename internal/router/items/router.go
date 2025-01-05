@@ -55,54 +55,54 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		return c.JSON(200, res)
 	})
 
-	e.GET("/weapons/:item_id/calculate", func(c echo.Context) error {
-		constraints := models.EvaluationConstraints{
-			TraderLevels:     []models.TraderLevel{},
-			IgnoredSlotNames: []string{"Scope", "Ubgl"},
-		}
-
-		itemId := c.Param("item_id")
-		buildType := c.QueryParam("build_type")
-		traderLevels, err := getTraderLevelParams(c)
-		if err != nil {
-			return c.String(400, err.Error())
-		}
-
-		constraints.TraderLevels = traderLevels
-		//build, err := models.GetOptimumBuild(db, itemId, buildType, constraints)
-		//if err != nil {
-		//	return err
-		//}
-
-		//if build != nil {
-		//	log.Info().Msg("Returning pre-generated build")
-		//	return c.JSON(200, build)
-		//}
-
-		log.Info().Msg("No pre-generated build - calculating")
-
-		dataService := candidate_tree.CreateDataService(db)
-		weaponTree, err := candidate_tree.CreateWeaponCandidateTree(itemId, dataService)
-		if err != nil {
-			return c.String(500, err.Error())
-		}
-		e := evaluator.CreateEvaluator(dataService)
-		result, err := e.EvaluateWeaponEvaluationTask(evaluator.WeaponEvaluationTask{
-			Constraints:    constraints,
-			CandidateTree:  *weaponTree,
-			EvaluationType: buildType,
-		})
-		if err != nil {
-			return c.String(500, err.Error())
-		}
-
-		return c.JSON(200, result)
-	})
+	//e.GET("/weapons/:item_id/calculate", func(c echo.Context) error {
+	//	constraints := models.EvaluationConstraints{
+	//		TraderLevels:     []models.TraderLevel{},
+	//		IgnoredSlotNames: []string{"Scope", "Ubgl"},
+	//	}
+	//
+	//	itemId := c.Param("item_id")
+	//	buildType := c.QueryParam("build_type")
+	//	traderLevels, err := getTraderLevelParams(c)
+	//	if err != nil {
+	//		return c.String(400, err.Error())
+	//	}
+	//
+	//	constraints.TraderLevels = traderLevels
+	//	//build, err := models.GetOptimumBuild(db, itemId, buildType, constraints)
+	//	//if err != nil {
+	//	//	return err
+	//	//}
+	//
+	//	//if build != nil {
+	//	//	log.Info().Msg("Returning pre-generated build")
+	//	//	return c.JSON(200, build)
+	//	//}
+	//
+	//	log.Info().Msg("No pre-generated build - calculating")
+	//
+	//	dataService := candidate_tree.CreateDataService(db)
+	//	weaponTree, err := candidate_tree.CreateWeaponCandidateTree(itemId, constraints, dataService)
+	//	if err != nil {
+	//		return c.String(500, err.Error())
+	//	}
+	//	e := evaluator.CreateEvaluator(dataService)
+	//	result, err := e.EvaluateWeaponEvaluationTask(evaluator.WeaponEvaluationTask{
+	//		Constraints:    constraints,
+	//		CandidateTree:  *weaponTree,
+	//		EvaluationType: buildType,
+	//	})
+	//	if err != nil {
+	//		return c.String(500, err.Error())
+	//	}
+	//
+	//	return c.JSON(200, result)
+	//})
 
 	e.GET("/items/:item_id/calculate/", func(c echo.Context) error {
 		constraints := models.EvaluationConstraints{
 			TraderLevels:     []models.TraderLevel{},
-			IgnoredSlotNames: []string{"Scope", "Ubgl"},
+			IgnoredSlotNames: []string{"Scope", "Ubgl", "Tactical", "Mount"},
 		}
 
 		itemId := c.Param("item_id")
@@ -126,28 +126,28 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		log.Info().Msg("No pre-generated build - calculating")
 
 		dataService := candidate_tree.CreateDataService(db)
-		candidateTree, err := candidate_tree.CreateItemCandidateTree(itemId, dataService)
+		candidateTree, err := candidate_tree.CreateItemCandidateTree(itemId, constraints, dataService)
 		if err != nil {
 			return c.String(500, err.Error())
 		}
-		e := evaluator.CreateEvaluator(dataService)
-		result, err := e.EvaluateWeaponEvaluationTask(evaluator.WeaponEvaluationTask{
-			Constraints:    constraints,
-			CandidateTree:  *candidateTree,
-			EvaluationType: buildType,
-		})
-		if err != nil {
-			return c.String(500, err.Error())
-		}
+		build := evaluator.FindBestBuild(candidateTree, buildType, map[string]bool{})
+		log.Info().Msg("Build evaluation complete")
+		result, err := build.ToEvaluatedWeapon()
+		log.Info().Msg("Build converted to evaluated weapon")
 
 		return c.JSON(200, result)
 	})
 
-	e.GET("/weapons/:item_id/calculate/v2", func(c echo.Context) error {
+	e.GET("/weapons/:item_id/calculate", func(c echo.Context) error {
 		constraints := models.EvaluationConstraints{
-			TraderLevels:     []models.TraderLevel{},
-			IgnoredSlotNames: []string{"Scope", "Ubgl"},
+			TraderLevels: []models.TraderLevel{},
+			//IgnoredSlotNames: []string{"Scope", "Ubgl", "Tactical", "Mount", "Pistol Grip", "Ch. Handle", "Foregrip", "Magazine", "Gas Block", "Muzzle", "Handguard"},
+			IgnoredSlotNames: []string{"Scope", "Ubgl", "Tactical", "Mount"},
+			//IgnoredSlotNames: []string{"Scope", "Ubgl", "Tactical", "Mount", "Ch. Handle", "Magazine", "Muzzle", "Handguard"},
+			IgnoredItemIDs: []string{"5b7be4895acfc400170e2dd5"},
 		}
+
+		log.Info().Msgf("Trader Level Constraints: %v", constraints.TraderLevels)
 
 		itemId := c.Param("item_id")
 		buildType := c.QueryParam("build_type")
@@ -157,30 +157,22 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		}
 
 		constraints.TraderLevels = traderLevels
-		//build, err := models.GetOptimumBuild(db, itemId, buildType, constraints)
-		//if err != nil {
-		//	return err
-		//}
-
-		//if build != nil {
-		//	log.Info().Msg("Returning pre-generated build")
-		//	return c.JSON(200, build)
-		//}
 
 		log.Info().Msg("No pre-generated build - calculating")
 
 		dataService := candidate_tree.CreateDataService(db)
 		log.Info().Msg("Constructing weapon tree")
-		weaponTree, err := candidate_tree.CreateWeaponCandidateTree(itemId, dataService)
+		weaponTree, err := candidate_tree.CreateWeaponCandidateTree(itemId, constraints, dataService)
 		if err != nil {
 			log.Info().Msg("Weapon tree construction failed")
 			return c.String(500, err.Error())
 		}
 		log.Info().Msg("Weapon tree constructed")
 
-		//build := evaluator.FindBestBuild(weaponTree, buildType, map[string]bool{"5b7be47f5acfc400170e2dd2": true, "6269220d70b6c02e665f2635": true, "5c48a2852e221602b21d5925": true, "669a6a4a525be1d2d004b8eb": true})
-
 		excluded := map[string]bool{
+			//"5b7be4895acfc400170e2dd5": true,
+			//"5a33e75ac4a2826c6e06d759": true,
+			//"55d354084bdc2d8c2f8b4568": true,
 			//
 			////	 high hit rate items
 			//"5c791e872e2216001219c40a": true,

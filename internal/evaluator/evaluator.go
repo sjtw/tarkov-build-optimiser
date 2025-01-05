@@ -3,20 +3,27 @@ package evaluator
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/rs/zerolog/log"
 	"sort"
-	"strconv"
 	"strings"
 	"tarkov-build-optimiser/internal/candidate_tree"
 	"tarkov-build-optimiser/internal/helpers"
 )
 
+type ItemEvaluationConflicts struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Category string `json:"category"`
+}
+
 type ItemEvaluation struct {
-	ID                 string            `json:"id"`
-	Name               string            `json:"name"`
-	Slots              []*SlotEvaluation `json:"slots"`
-	RecoilModifier     int               `json:"recoil_modifier"`
-	ErgonomicsModifier int               `json:"ergonomics_modifier"`
+	ID                 string                    `json:"id"`
+	Name               string                    `json:"name"`
+	Slots              []*SlotEvaluation         `json:"slots"`
+	RecoilModifier     int                       `json:"recoil_modifier"`
+	ErgonomicsModifier int                       `json:"ergonomics_modifier"`
+	Conflicts          []ItemEvaluationConflicts `json:"conflicts"`
 }
 
 type SlotEvaluation struct {
@@ -58,10 +65,13 @@ func (se *SlotEvaluation) MarshalJSON() ([]byte, error) {
 }
 
 type EvaluatedWeapon struct {
-	ID             string            `json:"id"`
-	Name           string            `json:"name"`
-	EvaluationType string            `json:"evaluation_type"`
-	Slots          []*SlotEvaluation `json:"slots"`
+	ID             string                    `json:"id"`
+	Name           string                    `json:"name"`
+	EvaluationType string                    `json:"evaluation_type"`
+	Slots          []*SlotEvaluation         `json:"slots"`
+	Conflicts      []ItemEvaluationConflicts `json:"conflicts"`
+	RecoilSum      int                       `json:"recoil_sum"`
+	ErgonomicsSum  int                       `json:"ergonomics_sum"`
 }
 
 func (ew *EvaluatedWeapon) GetSlotById(slotID string) *SlotEvaluation {
@@ -74,9 +84,10 @@ func (ew *EvaluatedWeapon) GetSlotById(slotID string) *SlotEvaluation {
 }
 
 type OptimalItem struct {
-	Name   string
-	ID     string
-	SlotID string
+	Name         string
+	ID           string
+	SlotID       string
+	HasConflicts bool
 }
 
 // Build represents a complete weapon configuration.
@@ -87,6 +98,7 @@ type Build struct {
 	ErgonomicsSum  int `json:"ergonomics_sum"`
 	EvaluationType string
 	ExcludedItems  []string
+	HasConflicts   bool
 }
 
 func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
@@ -95,6 +107,9 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 		Name:           b.WeaponTree.Item.Name,
 		EvaluationType: b.EvaluationType,
 		Slots:          make([]*SlotEvaluation, 0, len(b.WeaponTree.Item.Slots)),
+		Conflicts:      make([]ItemEvaluationConflicts, 0),
+		RecoilSum:      b.RecoilSum,
+		ErgonomicsSum:  b.ErgonomicsSum,
 	}
 
 	for _, slot := range b.WeaponTree.Item.Slots {
@@ -133,6 +148,17 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 				RecoilModifier:     source.RecoilModifier,
 				ErgonomicsModifier: source.ErgonomicsModifier,
 				Slots:              make([]*SlotEvaluation, len(source.Slots)),
+				Conflicts:          make([]ItemEvaluationConflicts, 0),
+			}
+
+			for j := 0; j < len(source.ConflictingItems); j++ {
+				conflict := ItemEvaluationConflicts{
+					ID:       source.ConflictingItems[j].ID,
+					Name:     source.ConflictingItems[j].Name,
+					Category: source.ConflictingItems[j].CategoryName,
+				}
+				evaluated.Conflicts = append(evaluated.Conflicts, conflict)
+				result.Conflicts = append(result.Conflicts, conflict)
 			}
 
 			for j := 0; j < len(source.Slots); j++ {
@@ -164,81 +190,196 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 
 func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	excludedItems map[string]bool) *Build {
-	uselessItems := map[string]bool{}
-	itemHits := map[string]int{}
-	memo := map[string]*Build{}
-	build := processSlots(weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, []string{}, uselessItems, memo, itemHits)
-	build.WeaponTree = *weapon
+	//itemHits := map[string]int{}
+	//memo := map[string]*Build{}
 
-	//for key, value := range pathTracker {
-	//	if value > 1 {
-	//		log.Info().Msgf("PathTracker Key: %s, Value: %d", key, value)
-	//	}
+	log.Info().Msgf("Finding best build for %s", weapon.Item.Name)
+	//for index, slot := range weapon.Item.Slots {
+	//	log.Info().Msgf("Processing slot %d", index)
+	//	slots := make([]*candidate_tree.ItemSlot, 0)
+	//	slots = append(slots, slot)
+	//	build := processSlots(slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, []string{}, uselessItems, memo, itemHits)
+	//
+	//	log.Info().Msgf("Slot %d, Build: %v", index, build)
 	//}
+	//slots := []*candidate_tree.ItemSlot{
+	//	weapon.Item.Slots[0],
+	//	//weapon.Item.Slots[1],
+	//	//weapon.Item.Slots[2],
+	//	weapon.Item.Slots[3],
+	//	//weapon.Item.Slots[4],
+	//}
+
+	slotNameMap := make(map[string]*candidate_tree.ItemSlot)
+
+	for _, slot := range weapon.Item.Slots {
+		slotNameMap[slot.Name] = slot
+		//build := processSlots([]*candidate_tree.ItemSlot{slot}, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil)
+		//build.WeaponTree = *weapon
+		//evaledSlot, err := build.ToEvaluatedWeapon()
+		//if err != nil {
+		//	log.Error().Err(err).Msgf("Failed to convert build to evaluated weapon for %s", weapon.Item.Name)
+		//}
+		//log.Info().Msgf("Slot %s, Build: %v", slot.Name, evaledSlot)
+	}
+
+	weapon.UpdateAllowedItemSlots()
+	weapon.UpdateAllowedItems()
+
+	stock := slotNameMap["Stock"]
+	stockBuild := processSlots(weapon, []*candidate_tree.ItemSlot{stock}, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, map[string]*Build{})
+
+	pg := slotNameMap["Pistol Grip"]
+	pgBuild := processSlots(weapon, []*candidate_tree.ItemSlot{pg}, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, map[string]*Build{})
+
+	conflict := false
+	for _, item := range stockBuild.OptimalItems {
+		x := weapon.GetAllowedItem(item.ID)
+		for _, conflictingItem := range x.ConflictingItems {
+			for _, pgItem := range pgBuild.OptimalItems {
+				if conflictingItem.ID == pgItem.ID {
+					conflict = true
+				}
+			}
+		}
+	}
+
+	if conflict {
+		if stockBuild.RecoilSum < pgBuild.RecoilSum {
+			for _, item := range stockBuild.OptimalItems {
+				ai := weapon.GetAllowedItem(item.ID)
+				for _, conflictingItem := range ai.ConflictingItems {
+					excludedItems[conflictingItem.ID] = true
+				}
+			}
+		} else {
+			for _, item := range pgBuild.OptimalItems {
+				ai := weapon.GetAllowedItem(item.ID)
+				for _, conflictingItem := range ai.ConflictingItems {
+					excludedItems[conflictingItem.ID] = true
+				}
+			}
+		}
+	}
+
+	memo := map[string]*Build{}
+	//build := processSlots(slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, []string{}, memo, itemHits)
+	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, -35, 0, excludedItems, nil, memo)
+
+	build.WeaponTree = *weapon
 
 	return build
 }
 
-// findBestBuild recursively traverses the build tree to find the optimal build.
-// It returns the best Build found in the current recursion path.
-func processSlots(slotsToProcess []*candidate_tree.ItemSlot, chosenItems []OptimalItem, focusedStat string, recoilStatSum int, ergoStatSum int, excludedItems map[string]bool, currentPath []string, uselessItems map[string]bool, memo map[string]*Build, itemHits map[string]int) *Build {
-	//key := createMemoKey(slotsToProcess, focusedStat, recoilStatSum, ergoStatSum, excludedItems)
-	//if build, exists := memo[key]; exists {
-	//	return build
-	//}
+// conflictsWith checks if two items conflict based on the conflict map.
+func conflictsWith(item *candidate_tree.Item, chosen OptimalItem) bool {
+	for _, conflict := range item.ConflictingItems {
+		if conflict.ID == chosen.ID {
+			return true
+		}
+	}
+	return false
+}
 
-	clonedExcludedItems := helpers.CloneMap(excludedItems)
+func doesImproveStats(candidate *Build, best *Build, focusedStat string) bool {
+	if focusedStat == "recoil" {
+		if candidate.RecoilSum < best.RecoilSum {
+			return true
+		} else if candidate.RecoilSum == best.RecoilSum {
+			return candidate.ErgonomicsSum > best.ErgonomicsSum
+		}
+	} else if focusedStat == "ergonomics" {
+		if candidate.ErgonomicsSum > best.ErgonomicsSum {
+			return true
+		} else if candidate.ErgonomicsSum == best.ErgonomicsSum {
+			return candidate.RecoilSum < best.RecoilSum
+		}
+	}
 
-	//for key, value := range pathTracker {
-	//	if value > 1 {
-	//		log.Info().Msgf("path visited > 1x: %s, Value: %d", key, value)
-	//	}
-	//}
+	return false
+}
 
-	if len(slotsToProcess) == 0 {
+func getMemoKey(slotID string, excludedItems map[string]bool) string {
+	items := make([]string, 0)
+	for id, excluded := range excludedItems {
+		if excluded {
+			items = append(items, id)
+		}
+	}
+
+	sort.Strings(items)
+	return fmt.Sprintf("%s:%v", slotID, strings.Join(items, "-"))
+}
+
+// Refactored processSlots function
+func processSlots(
+	root *candidate_tree.CandidateTree,
+	slotsToProcess []*candidate_tree.ItemSlot,
+	chosenItems []OptimalItem,
+	focusedStat string,
+	recoilStatSum int,
+	ergoStatSum int,
+	excludedItems map[string]bool,
+	visitedSlots map[string]bool,
+	memo map[string]*Build,
+) *Build {
+	clonedSlots := append([]*candidate_tree.ItemSlot{}, slotsToProcess...)
+	//clonedSlots = filterSlots(clonedSlots, []string{"Tactical", "Ubgl", "Mount", "Scope"}) // No filtering
+
+	// Base case: No more slots to process
+	if len(clonedSlots) == 0 {
 		exclusions := make([]string, 0)
-		for excludedID, isExcluded := range clonedExcludedItems {
+		for excludedID, isExcluded := range excludedItems {
 			if isExcluded {
 				exclusions = append(exclusions, excludedID)
 			}
 		}
+
 		return &Build{
 			OptimalItems:   append([]OptimalItem{}, chosenItems...), // Make a copy
 			RecoilSum:      recoilStatSum,
+			ErgonomicsSum:  ergoStatSum,
 			EvaluationType: focusedStat,
 			ExcludedItems:  exclusions,
 		}
 	}
 
 	// Take the first slot to process
-	currentSlot := slotsToProcess[0]
-	//currentPath = append(currentPath, currentSlot.ID)
-	////visitCount := pathTracker[currentSlot.ID]
-	////pathTracker[strings.Join(currentPath, ",")] = visitCount + 1
-	//
-	remainingSlots := slotsToProcess[1:]
-	//for index, slot := range currentPath {
-	//	if index != len(currentPath)-1 && slot == currentSlot.ID {
-	//		log.Info().Msgf("Recursion detected: %v", currentPath)
-	//	}
-	//}
+	currentSlot := clonedSlots[0]
+	remainingSlots := clonedSlots[1:]
+
+	// Cycle Detection
+	if visitedSlots[currentSlot.ID] {
+		// Slot has already been processed in this path, skip to prevent cycle
+		return processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, visitedSlots, memo)
+	}
+
+	// Mark the current slot as visited
+	if visitedSlots == nil {
+		visitedSlots = make(map[string]bool)
+	}
+	visitedSlots[currentSlot.ID] = true
+	defer func() {
+		delete(visitedSlots, currentSlot.ID)
+	}()
 
 	var best *Build = nil
 
+	// Iterate through all allowed items for the current slot
 	for _, item := range currentSlot.AllowedItems {
+		key := getMemoKey(item.ID, excludedItems)
+		if cached, ok := memo[key]; ok {
+			best = cached
+			log.Info().Msgf("cache hit for %s", item.Name)
+			break
+		}
+
+		// Skip if the item is excluded
 		if excludedItems[item.ID] {
 			continue
 		}
 
-		if uselessItems[item.ID] {
-			continue
-		}
-
-		if !canDescendantsImproveStat(item, focusedStat) {
-			uselessItems[item.ID] = true
-			continue
-		}
-
+		// Check for conflicts with already chosen items
 		conflict := false
 		for _, chosen := range chosenItems {
 			if conflictsWith(item, chosen) {
@@ -250,191 +391,137 @@ func processSlots(slotsToProcess []*candidate_tree.ItemSlot, chosenItems []Optim
 			continue
 		}
 
-		count := itemHits[item.ID]
-		itemHits[item.ID] = count + 1
-		itemHitsArray := make([]struct {
-			ID    string
-			Count int
-		}, 0, len(itemHits))
-
-		for id, count := range itemHits {
-			itemHitsArray = append(itemHitsArray, struct {
-				ID    string
-				Count int
-			}{ID: id, Count: count})
-		}
-
-		sort.Slice(itemHitsArray, func(i, j int) bool {
-			return itemHitsArray[i].Count > itemHitsArray[j].Count
-		})
-
+		// Assign the item
 		newChosen := append(chosenItems, OptimalItem{
 			Name:   item.Name,
 			ID:     item.ID,
 			SlotID: currentSlot.ID,
 		})
 
+		//if item.ConflictingItems == nil || len(item.ConflictingItems) == 0 {
+		//	for _, chosen := range chosenItems {
+		//		// Iterate through chosenItems instead of currentSlot.AllowedItems
+		//
+		//	}
+		//}
+
+		// Update sums
 		newRecoil := recoilStatSum + item.RecoilModifier
 		newErgo := ergoStatSum + item.ErgonomicsModifier
 
-		newSlotsToProcess := append([]*candidate_tree.ItemSlot{}, remainingSlots...)
-		if len(item.Slots) > 0 {
-			newSlotsToProcess = append(newSlotsToProcess, item.Slots...)
+		// Prepare new slots to process, **prepend** any sub-slots from the current item
+		newSlotsToProcess := append([]*candidate_tree.ItemSlot{}, item.Slots...)
+		newSlotsToProcess = append(newSlotsToProcess, remainingSlots...)
 
-			//newSlotsToProcess = filterSlots(newSlotsToProcess, []string{"Scope", "Tactical", "Ubgl", "Mount", "Foregrip"})
-			newSlotsToProcess = filterSlots(newSlotsToProcess, []string{"Scope", "Tactical", "Ubgl"})
-		}
-
+		// Clone and update excludedItems for conflicts
 		newExcluded := helpers.CloneMap(excludedItems)
-		for _, conflictItem := range item.ConflictingItems {
-			newExcluded[conflictItem] = true
+		for _, c := range item.ConflictingItems {
+			newExcluded[c.ID] = true
 		}
-		candidate := processSlots(newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, currentPath, uselessItems, memo, itemHits)
 
+		// Recursive call with updated visitedSlots
+		candidate := processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, memo)
+
+		// Compare and retain the best build
 		if candidate != nil {
-			if best == nil {
-				best = candidate
-			}
-
-			if doesImproveStats(candidate, best, focusedStat) {
+			if best == nil || doesImproveStats(candidate, best, focusedStat) {
 				best = candidate
 			}
 		}
 	}
 
-	if best == nil {
-		newExcluded := helpers.CloneMap(excludedItems)
-		candidate := processSlots(remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, newExcluded, currentPath, uselessItems, memo, itemHits)
-		if candidate != nil {
-			best = candidate
+	// **Attempt to Skip the Current Slot**
+	// After trying all items, also attempt to skip assigning any item to the current slot
+	candidateSkip := processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, helpers.CloneMap(excludedItems), visitedSlots, memo)
+
+	if candidateSkip != nil {
+		if best == nil || doesImproveStats(candidateSkip, best, focusedStat) {
+			best = candidateSkip
 		}
 	}
 
-	if best == nil {
-		// Return a build even if best is nil
-		exclusions := make([]string, 0)
-		for excluded, is := range excludedItems {
-			if is {
-				exclusions = append(exclusions, excluded)
-			}
-		}
-		return &Build{
-			OptimalItems:   append([]OptimalItem{}, chosenItems...), // Make a copy
-			RecoilSum:      recoilStatSum,
-			EvaluationType: focusedStat,
-			ExcludedItems:  exclusions,
-		}
+	if best != nil {
+		key := getMemoKey(currentSlot.ID, excludedItems)
+		memo[key] = best
 	}
 
-	//memo[key] = best
-
+	// Return the best build found
 	return best
 }
 
-func filterSlots(slots []*candidate_tree.ItemSlot, excludedSlotNames []string) []*candidate_tree.ItemSlot {
-	filteredSlots := make([]*candidate_tree.ItemSlot, 0)
+type ChosenTree struct {
+	ID                 string
+	Name               string
+	HasConflicts       bool
+	Slots              map[string]*ChosenTree
+	RecoilModifier     int
+	ErgonomicsModifier int
+	RecoilSum          int
+	ErgonomicsSum      int
+	SlotID             string
+	OptimalItems       []OptimalItem
+}
 
-	if len(slots) == 0 {
-		return filteredSlots
-	}
+func getNonConflictingTrees(build *Build, itemMap map[string]*candidate_tree.Item) map[string]*ChosenTree {
+	chosenMap := map[string]*ChosenTree{}
 
-	for _, slot := range slots {
-		excluded := false
-		for _, excludedName := range excludedSlotNames {
-			if slot.Name == excludedName {
-				excluded = true
+	for _, item := range build.OptimalItems {
+		hasConflicts := false
+		if itemMap[item.ID].ConflictingItems != nil && len(itemMap[item.ID].ConflictingItems) > 0 {
+			hasConflicts = true
+		}
+
+		chosenMap[item.ID] = &ChosenTree{
+			ID:                 item.ID,
+			Name:               item.Name,
+			Slots:              map[string]*ChosenTree{},
+			HasConflicts:       hasConflicts,
+			RecoilModifier:     itemMap[item.ID].RecoilModifier,
+			ErgonomicsModifier: itemMap[item.ID].ErgonomicsModifier,
+			SlotID:             item.SlotID,
+			OptimalItems:       []OptimalItem{item},
+		}
+
+		for _, slot := range itemMap[item.ID].Slots {
+			for _, sub := range build.OptimalItems {
+				if slot.ID == sub.SlotID {
+					chosenMap[item.ID].Slots[slot.ID] = &ChosenTree{
+						ID:    sub.ID,
+						Name:  sub.Name,
+						Slots: map[string]*ChosenTree{},
+					}
+					chosenMap[item.ID].OptimalItems = append(chosenMap[item.ID].OptimalItems, sub)
+				}
 			}
 		}
-		if !excluded {
-			filteredSlots = append(filteredSlots, slot)
+	}
+
+	filtered := map[string]*ChosenTree{}
+	for _, item := range build.OptimalItems {
+		if !chosenMap[item.ID].HasConflicts && len(chosenMap[item.ID].Slots) > 0 {
+			filtered[item.ID] = chosenMap[item.ID]
 		}
 	}
 
-	return filteredSlots
-}
-
-// conflictsWith checks if two items conflict based on the conflict map.
-func conflictsWith(item *candidate_tree.Item, chosen OptimalItem) bool {
-	for _, conflict := range item.ConflictingItems {
-		if conflict == chosen.ID {
-			return true
-		}
-	}
-	return false
-}
-
-func canDescendantsImproveStat(item *candidate_tree.Item, focusedStat string) bool {
-	if canImproveStat(item, focusedStat) {
-		return true
+	for _, item := range filtered {
+		recoil, ergo := calculateSums(item, 0, 0)
+		item.RecoilSum = recoil
+		item.ErgonomicsSum = ergo
 	}
 
-	for _, subslot := range item.Slots {
-		for _, subitem := range subslot.AllowedItems {
-			if canDescendantsImproveStat(subitem, focusedStat) {
-				return true
-			}
-		}
-	}
-
-	return false
+	return filtered
 }
 
-func canImproveStat(item *candidate_tree.Item, focusedStat string) bool {
-	if focusedStat == "recoil" && item.RecoilModifier < 0 {
-		return true
-	} else if focusedStat == "ergonomics" && item.ErgonomicsModifier > 0 {
-		return true
-	}
-	//} else if item.ErgonomicsModifier > 0 || item.RecoilModifier < 0 {
-	//	return true
-	//}
-
-	return false
-}
-
-func doesImproveStats(candidate *Build, best *Build, focusedStat string) bool {
-	if focusedStat == "recoil" {
-		if candidate.RecoilSum < best.RecoilSum {
-			return true
-		}
-		//} else if candidate.ErgonomicsSum > best.ErgonomicsSum {
-		//	return true
-		//}
-	} else if focusedStat == "ergonomics" {
-		if candidate.ErgonomicsSum > best.ErgonomicsSum {
-			return true
-		} else if candidate.RecoilSum < best.RecoilSum {
-			return true
-		}
+func calculateSums(item *ChosenTree, recoilSum int, ergoSum int) (int, int) {
+	slotRecoil := 0
+	slotErgo := 0
+	for _, slot := range item.Slots {
+		slotRecoil, slotErgo = calculateSums(slot, recoilSum, ergoSum)
 	}
 
-	return false
-}
+	recoilSum += item.RecoilModifier + slotRecoil
+	ergoSum += item.ErgonomicsModifier + slotErgo
 
-func createMemoKey(slots []*candidate_tree.ItemSlot, focusedStat string, recoilStatSum int, ergoStatSum int, excludedItems map[string]bool) string {
-	return focusedStat + "|" +
-		serializeSlots(slots) + "|" +
-		serializeExcludedItems(excludedItems) + "|" +
-		strconv.Itoa(recoilStatSum) + "|" +
-		strconv.Itoa(ergoStatSum)
-}
+	return recoilSum, ergoSum
 
-func serializeSlots(slots []*candidate_tree.ItemSlot) string {
-	slotIDs := make([]string, len(slots))
-	for i, slot := range slots {
-		slotIDs[i] = slot.ID
-	}
-	sort.Strings(slotIDs)
-	return strings.Join(slotIDs, ",")
-}
-
-func serializeExcludedItems(excludedItems map[string]bool) string {
-	excludedIDs := make([]string, 0, len(excludedItems))
-	for id, excluded := range excludedItems {
-		if excluded {
-			excludedIDs = append(excludedIDs, id)
-		}
-	}
-	sort.Strings(excludedIDs)
-	return strings.Join(excludedIDs, ",")
 }

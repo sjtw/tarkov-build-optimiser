@@ -5,17 +5,36 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type ConflictingItem struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	CategoryID   string `json:"category_id"`
+	CategoryName string `json:"category_name"`
+}
+
+type PotentialValues struct {
+	MinRecoil     int `json:"min_recoil"`
+	MaxRecoil     int `json:"max_recoil"`
+	AvgRecoil     int `json:"avg_recoil"`
+	MinErgonomics int `json:"min_ergonomics"`
+	MaxErgonomics int `json:"max_ergonomics"`
+	AvgErgonomics int `json:"avg_ergonomics"`
+}
+
 type Item struct {
-	ID                 string      `json:"item_id" bson:"id"`
-	Name               string      `json:"name" bson:"name"`
-	RecoilModifier     int         `json:"recoil_modifier" bson:"recoil_modifier"`
-	ErgonomicsModifier int         `json:"ergonomics_modifier" bson:"ergonomics_modifier"`
-	Slots              []*ItemSlot `json:"slots" bson:"slots"`
-	Type               string      `json:"type" bson:"type"`
-	ConflictingItems   []string    `json:"conflicting_items" bson:"conflicting_items"`
+	ID                 string            `json:"item_id" bson:"id"`
+	Name               string            `json:"name" bson:"name"`
+	RecoilModifier     int               `json:"recoil_modifier" bson:"recoil_modifier"`
+	ErgonomicsModifier int               `json:"ergonomics_modifier" bson:"ergonomics_modifier"`
+	Slots              []*ItemSlot       `json:"slots" bson:"slots"`
+	Type               string            `json:"type" bson:"type"`
+	ConflictingItems   []ConflictingItem `json:"conflicting_items" bson:"conflicting_items"`
+	CategoryName       string            `json:"category_name"`
+	CategoryID         string            `json:"category_id"`
 	parentSlot         *ItemSlot
 	RootItem           *Item
 	Root               *CandidateTree
+	PotentialValues    PotentialValues `json:"potential_values"`
 }
 
 func ConstructItem(id string, name string, rootWeaponTree *CandidateTree) *Item {
@@ -24,7 +43,8 @@ func ConstructItem(id string, name string, rootWeaponTree *CandidateTree) *Item 
 		Name:             name,
 		Slots:            make([]*ItemSlot, 0),
 		Root:             rootWeaponTree,
-		ConflictingItems: make([]string, 0),
+		ConflictingItems: make([]ConflictingItem, 0),
+		PotentialValues:  PotentialValues{},
 	}
 }
 
@@ -68,6 +88,33 @@ func (item *Item) GetDescendantSlots() []*ItemSlot {
 	return descendants
 }
 
+func (item *Item) CalculatePotentialValues() {
+	potential := PotentialValues{
+		MinRecoil:     item.PotentialValues.MinRecoil,
+		MaxRecoil:     item.PotentialValues.MaxRecoil,
+		MinErgonomics: item.PotentialValues.MinErgonomics,
+		MaxErgonomics: item.PotentialValues.MaxErgonomics,
+	}
+
+	if len(item.Slots) == 0 {
+		potential.MinRecoil = item.RecoilModifier
+		potential.MaxRecoil = item.RecoilModifier
+		potential.MinErgonomics = item.ErgonomicsModifier
+		potential.MaxErgonomics = item.ErgonomicsModifier
+	} else {
+		for _, slot := range item.Slots {
+			slot.CalculatePotentialValues()
+
+			potential.MinRecoil += slot.PotentialValues.MinRecoil
+			potential.MaxRecoil += slot.PotentialValues.MaxRecoil
+			potential.MinErgonomics += slot.PotentialValues.MinErgonomics
+			potential.MaxErgonomics += slot.PotentialValues.MaxErgonomics
+		}
+	}
+
+	item.PotentialValues = potential
+}
+
 func (item *Item) GetAncestorIds() []string {
 	parent := item.GetParentSlot()
 	if parent == nil {
@@ -85,10 +132,25 @@ func (item *Item) PopulateSlots() error {
 	}
 
 	for i := 0; i < len(slots); i++ {
+
 		s := slots[i]
 		slot := ConstructSlot(s.ID, s.Name, item.Root)
 
 		item.AddChildSlot(slot)
+
+		ignored := false
+		for _, name := range item.Root.Constraints.IgnoredSlotNames {
+			log.Info().Msgf("slot %s is ignored - not populating with allowed items", name)
+			if slots[i].Name == name {
+				ignored = true
+				break
+			}
+		}
+
+		if ignored {
+			continue
+		}
+
 		err := slot.PopulateAllowedItems()
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to populate slot %s", s.ID)

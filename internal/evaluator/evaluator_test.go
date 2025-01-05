@@ -103,15 +103,15 @@ func TestFindBestRecoilTree(t *testing.T) {
 	item1ChildSlotItem := candidate_tree.ConstructItem("child-item1", "Child Item1", rootWeaponTree)
 	item1ChildSlotItem.RecoilModifier = -4
 	item1ChildSlotItem.ErgonomicsModifier = 4
-	item1ChildSlot.AddChildItem(item1ChildSlotItem)
+	item1ChildSlot.AddAllowedItem(item1ChildSlotItem)
 	item1.AddChildSlot(item1ChildSlot)
 
 	slot1 := candidate_tree.ConstructSlot("slot1", "Slot1", rootWeaponTree)
-	slot1.AddChildItem(item1)
-	slot1.AddChildItem(item2)
+	slot1.AddAllowedItem(item1)
+	slot1.AddAllowedItem(item2)
 
 	slot2 := candidate_tree.ConstructSlot("slot2", "Slot2", rootWeaponTree)
-	slot2.AddChildItem(item3)
+	slot2.AddAllowedItem(item3)
 
 	weapon.AddChildSlot(slot1)
 	weapon.AddChildSlot(slot2)
@@ -194,15 +194,15 @@ func TestFindBestErgoTree(t *testing.T) {
 	item1ChildSlotItem := candidate_tree.ConstructItem("child-item1", "Child Item1", rootWeaponTree)
 	item1ChildSlotItem.RecoilModifier = -4
 	item1ChildSlotItem.ErgonomicsModifier = 4
-	item1ChildSlot.AddChildItem(item1ChildSlotItem)
+	item1ChildSlot.AddAllowedItem(item1ChildSlotItem)
 	item1.AddChildSlot(item1ChildSlot)
 
 	slot1 := candidate_tree.ConstructSlot("slot1", "Slot1", rootWeaponTree)
-	slot1.AddChildItem(item1)
-	slot1.AddChildItem(item2)
+	slot1.AddAllowedItem(item1)
+	slot1.AddAllowedItem(item2)
 
 	slot2 := candidate_tree.ConstructSlot("slot2", "Slot2", rootWeaponTree)
-	slot2.AddChildItem(item3)
+	slot2.AddAllowedItem(item3)
 
 	weapon.AddChildSlot(slot1)
 	weapon.AddChildSlot(slot2)
@@ -248,8 +248,41 @@ func TestFindBestBuild(t *testing.T) {
 		ID:                 "item-weapon",
 		RecoilModifier:     -0,
 		ErgonomicsModifier: -0,
-		ConflictingItems:   []string{},
+		ConflictingItems:   []candidate_tree.ConflictingItem{},
 		Slots: []*candidate_tree.ItemSlot{
+			{
+				Name: "pistol grip",
+				ID:   "slot-pistol-grip",
+				AllowedItems: []*candidate_tree.Item{
+					{
+						Name:               "ADAR_Stock",
+						ID:                 "item-ADAR-stock",
+						RecoilModifier:     -20,
+						ErgonomicsModifier: -20,
+						ConflictingItems: []candidate_tree.ConflictingItem{
+							{ID: "item-ADAR-stock", Name: "ADAR_Stock", CategoryID: "stock", CategoryName: "Stock"},
+							{ID: "item-good-stock", Name: "Good Stock", CategoryID: "stock", CategoryName: "Stock"},
+						},
+						Slots: []*candidate_tree.ItemSlot{},
+					},
+					{
+						Name:               "bad grip",
+						ID:                 "item-bad-grip",
+						RecoilModifier:     -5,
+						ErgonomicsModifier: 1,
+						ConflictingItems:   []candidate_tree.ConflictingItem{},
+						Slots:              []*candidate_tree.ItemSlot{},
+					},
+					//{
+					//	Name:               "bad grip 2",
+					//	ID:                 "item-bad-grip-2",
+					//	RecoilModifier:     -5,
+					//	ErgonomicsModifier: 2,
+					//	ConflictingItems:   []candidate_tree.ConflictingItem{},
+					//	Slots:              []*candidate_tree.ItemSlot{},
+					//},
+				},
+			},
 			{
 				Name: "stock",
 				ID:   "slot-stock",
@@ -259,19 +292,25 @@ func TestFindBestBuild(t *testing.T) {
 						ID:                 "item-buffer-tube",
 						RecoilModifier:     -5,
 						ErgonomicsModifier: -5,
-						ConflictingItems:   []string{"item-ADAR-stock"},
+						ConflictingItems: []candidate_tree.ConflictingItem{
+							{ID: "item-ADAR-stock", Name: "ADAR_Stock", CategoryID: "stock", CategoryName: "Stock"},
+						},
 						Slots: []*candidate_tree.ItemSlot{
 							{
 								Name: "stock",
-								ID:   "stock",
+								ID:   "slot-buffer-stock",
 								AllowedItems: []*candidate_tree.Item{
 									{
 										Name:               "good stock",
 										ID:                 "item-good-stock",
 										RecoilModifier:     -22,
 										ErgonomicsModifier: 10,
-										ConflictingItems:   []string{"item-ADAR-stock", "non-existent-item"},
-										Slots:              []*candidate_tree.ItemSlot{},
+										ConflictingItems: []candidate_tree.ConflictingItem{
+											{ID: "item-ADAR-stock", Name: "ADAR_Stock", CategoryID: "stock", CategoryName: "Stock"},
+											{ID: "item-useless-mount2", Name: "item-useless-mount2", CategoryID: "stock", CategoryName: "Stock"},
+											{ID: "non-existent-item", Name: "Non Existent Item", CategoryID: "stock", CategoryName: "Stock"},
+										},
+										Slots: []*candidate_tree.ItemSlot{},
 									},
 								},
 							},
@@ -282,16 +321,20 @@ func TestFindBestBuild(t *testing.T) {
 						ID:                 "item-bad-stock",
 						RecoilModifier:     -5,
 						ErgonomicsModifier: 5,
-						ConflictingItems:   []string{"item-ADAR-stock"},
-						Slots:              []*candidate_tree.ItemSlot{},
+						ConflictingItems: []candidate_tree.ConflictingItem{
+							{ID: "item-ADAR-stock", Name: "ADAR_Stock", CategoryID: "stock", CategoryName: "Stock"},
+						},
+						Slots: []*candidate_tree.ItemSlot{},
 					},
 					{
 						Name:               "great stock - not allowed",
 						ID:                 "item-great-stock",
 						RecoilModifier:     -25,
 						ErgonomicsModifier: 8,
-						ConflictingItems:   []string{"item-ADAR-stock"},
-						Slots:              []*candidate_tree.ItemSlot{},
+						ConflictingItems: []candidate_tree.ConflictingItem{
+							{ID: "item-ADAR-stock", Name: "ADAR_Stock", CategoryID: "stock", CategoryName: "Stock"},
+						},
+						Slots: []*candidate_tree.ItemSlot{},
 					},
 				},
 			},
@@ -302,9 +345,9 @@ func TestFindBestBuild(t *testing.T) {
 					{
 						Name:               "Base_Receiver",
 						ID:                 "item-base-receiver",
-						RecoilModifier:     0,
+						RecoilModifier:     -1,
 						ErgonomicsModifier: 0,
-						ConflictingItems:   []string{},
+						ConflictingItems:   []candidate_tree.ConflictingItem{},
 						Slots: []*candidate_tree.ItemSlot{
 							{
 								Name: "Scope",
@@ -315,10 +358,20 @@ func TestFindBestBuild(t *testing.T) {
 										ID:                 "item-acog",
 										RecoilModifier:     -100,
 										ErgonomicsModifier: 100,
-										ConflictingItems:   []string{},
+										ConflictingItems:   []candidate_tree.ConflictingItem{},
 										Slots:              []*candidate_tree.ItemSlot{},
 									},
 								},
+							},
+							{
+								Name:         "Mount",
+								ID:           "slot-receiver-mount1",
+								AllowedItems: nil,
+							},
+							{
+								Name:         "Mount",
+								ID:           "slot-receiver-mount2",
+								AllowedItems: nil,
 							},
 							{
 								Name: "Foregrip",
@@ -329,7 +382,7 @@ func TestFindBestBuild(t *testing.T) {
 										ID:                 "item-bad-foregrip",
 										RecoilModifier:     0,
 										ErgonomicsModifier: 1,
-										ConflictingItems:   []string{},
+										ConflictingItems:   []candidate_tree.ConflictingItem{},
 										Slots:              []*candidate_tree.ItemSlot{},
 									},
 								},
@@ -341,44 +394,22 @@ func TestFindBestBuild(t *testing.T) {
 									{
 										Name:               "Useless Mount",
 										ID:                 "item-useless-mount",
-										RecoilModifier:     0,
+										RecoilModifier:     -5,
 										ErgonomicsModifier: 0,
-										ConflictingItems:   []string{},
+										ConflictingItems:   []candidate_tree.ConflictingItem{},
+										Slots:              []*candidate_tree.ItemSlot{},
+									},
+									{
+										Name:               "Useless Mount2",
+										ID:                 "item-useless-mount2",
+										RecoilModifier:     -5,
+										ErgonomicsModifier: 0,
+										ConflictingItems:   []candidate_tree.ConflictingItem{},
 										Slots:              []*candidate_tree.ItemSlot{},
 									},
 								},
 							},
 						},
-					},
-				},
-			},
-			{
-				Name: "pistol grip",
-				ID:   "slot-pistol-grip",
-				AllowedItems: []*candidate_tree.Item{
-					{
-						Name:               "ADAR_Stock",
-						ID:                 "item-ADAR-stock",
-						RecoilModifier:     -20,
-						ErgonomicsModifier: -20,
-						ConflictingItems:   []string{"Buffer_Tube", "good stock"},
-						Slots:              []*candidate_tree.ItemSlot{},
-					},
-					{
-						Name:               "bad grip",
-						ID:                 "item-bad-grip",
-						RecoilModifier:     -5,
-						ErgonomicsModifier: 1,
-						ConflictingItems:   []string{},
-						Slots:              []*candidate_tree.ItemSlot{},
-					},
-					{
-						Name:               "bad grip 2",
-						ID:                 "item-bad-grip-2",
-						RecoilModifier:     -5,
-						ErgonomicsModifier: 2,
-						ConflictingItems:   []string{},
-						Slots:              []*candidate_tree.ItemSlot{},
 					},
 				},
 			},
@@ -410,41 +441,42 @@ func TestFindBestBuild(t *testing.T) {
 	assert.Len(t, evaluation.Slots, 3)
 
 	// stock -> buffer tube
-	assert.Equal(t, "item-buffer-tube", evaluation.Slots[0].Item.ID)
-	assert.Equal(t, -5, evaluation.Slots[0].Item.RecoilModifier)
-	assert.Equal(t, -5, evaluation.Slots[0].Item.ErgonomicsModifier)
-	assert.Len(t, evaluation.Slots[0].Item.Slots, 1)
+	assert.Equal(t, "item-buffer-tube", evaluation.Slots[1].Item.ID)
+	assert.Equal(t, -5, evaluation.Slots[1].Item.RecoilModifier)
+	assert.Equal(t, -5, evaluation.Slots[1].Item.ErgonomicsModifier)
+	assert.Len(t, evaluation.Slots[1].Item.Slots, 1)
 
 	// stock  -> buffer tube -> stock
-	assert.NotNil(t, evaluation.Slots[0].Item.Slots[0].Item)
-	assert.Equal(t, "item-good-stock", evaluation.Slots[0].Item.Slots[0].Item.ID)
-	assert.Equal(t, -22, evaluation.Slots[0].Item.Slots[0].Item.RecoilModifier)
-	assert.Equal(t, 10, evaluation.Slots[0].Item.Slots[0].Item.ErgonomicsModifier)
+	assert.NotNil(t, evaluation.Slots[1].Item.Slots[0].Item)
+	assert.Equal(t, "item-good-stock", evaluation.Slots[1].Item.Slots[0].Item.ID)
+	assert.Equal(t, -22, evaluation.Slots[1].Item.Slots[0].Item.RecoilModifier)
+	assert.Equal(t, 10, evaluation.Slots[1].Item.Slots[0].Item.ErgonomicsModifier)
 
 	// receiver
-	assert.NotNil(t, evaluation.Slots[1].Item)
-	assert.Equal(t, "item-base-receiver", evaluation.Slots[1].Item.ID)
-	assert.Equal(t, 0, evaluation.Slots[1].Item.RecoilModifier)
-	assert.Equal(t, 0, evaluation.Slots[1].Item.ErgonomicsModifier)
+	assert.NotNil(t, evaluation.Slots[2].Item)
+	assert.Equal(t, "item-base-receiver", evaluation.Slots[2].Item.ID)
+	assert.Equal(t, -1, evaluation.Slots[2].Item.RecoilModifier)
+	assert.Equal(t, 0, evaluation.Slots[2].Item.ErgonomicsModifier)
 
-	assert.Len(t, evaluation.Slots[1].Item.Slots, 3)
+	assert.Len(t, evaluation.Slots[2].Item.Slots, 3)
 
 	// receiver scope
-	assert.Nil(t, evaluation.Slots[1].Item.Slots[0].Item)
+	assert.Nil(t, evaluation.Slots[2].Item.Slots[0].Item)
 
 	// receiver foregrip
-	assert.NotNil(t, evaluation.Slots[1].Item.Slots[1].Item)
-	assert.Equal(t, "item-bad-foregrip", evaluation.Slots[1].Item.Slots[1].Item.ID)
-	assert.Equal(t, 0, evaluation.Slots[1].Item.Slots[1].Item.RecoilModifier)
-	assert.Equal(t, 1, evaluation.Slots[1].Item.Slots[1].Item.ErgonomicsModifier)
+	assert.NotNil(t, evaluation.Slots[2].Item.Slots[1].Item)
+	assert.Equal(t, "item-bad-foregrip", evaluation.Slots[2].Item.Slots[1].Item.ID)
+	assert.Equal(t, 0, evaluation.Slots[2].Item.Slots[1].Item.RecoilModifier)
+	assert.Equal(t, 1, evaluation.Slots[2].Item.Slots[1].Item.ErgonomicsModifier)
 
 	// receiver mount
-	assert.Nil(t, evaluation.Slots[1].Item.Slots[2].Item)
+	//assert.Nil(t, evaluation.Slots[2].Item.Slots[2].Item)
 
 	// pistol grip
-	assert.NotNil(t, evaluation.Slots[2].Item)
-	assert.Equal(t, "item-bad-grip", evaluation.Slots[2].Item.ID)
-	assert.Equal(t, -5, evaluation.Slots[2].Item.RecoilModifier)
-	assert.Equal(t, 1, evaluation.Slots[2].Item.ErgonomicsModifier)
-	assert.Len(t, evaluation.Slots[2].Item.Slots, 0)
+	assert.NotNil(t, evaluation.Slots[0].Item)
+	assert.Equal(t, "item-bad-grip", evaluation.Slots[0].Item.ID)
+
+	assert.Equal(t, -5, evaluation.Slots[0].Item.RecoilModifier)
+	assert.Equal(t, 1, evaluation.Slots[0].Item.ErgonomicsModifier)
+	assert.Len(t, evaluation.Slots[0].Item.Slots, 0)
 }

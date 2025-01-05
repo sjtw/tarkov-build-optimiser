@@ -10,6 +10,7 @@ type TreeDataProvider interface {
 	GetSlotsByItemID(id string) ([]models.Slot, error)
 	GetWeaponModById(id string) (*models.WeaponMod, error)
 	GetAllowedItemsBySlotID(id string) ([]*models.AllowedItem, error)
+	GetTraderOffer(id string) ([]models.TraderOffer, error)
 }
 
 type WeaponTreeConstraints struct {
@@ -19,7 +20,6 @@ type WeaponTreeConstraints struct {
 type CandidateTree struct {
 	Item        *Item
 	dataService TreeDataProvider
-	constraints WeaponTreeConstraints
 	// all itemIDs which conflict globally with other itemIDs
 	AllowedItemConflicts map[string]map[string]bool
 	// all candidate items for this weapon
@@ -30,15 +30,16 @@ type CandidateTree struct {
 	// all slots of all allowed items in the tree
 	allowedItemSlots   []*ItemSlot
 	allowedItemSlotMap map[string]*ItemSlot
+	Constraints        models.EvaluationConstraints
 }
 
-func (wt *CandidateTree) AddItemConflicts(itemId string, conflictIDs []string) {
+func (wt *CandidateTree) AddItemConflicts(itemId string, conflicts []ConflictingItem) {
 	if _, ok := wt.AllowedItemConflicts[itemId]; !ok {
 		wt.AllowedItemConflicts[itemId] = map[string]bool{}
 	}
 
-	for _, conflictId := range conflictIDs {
-		wt.AllowedItemConflicts[itemId][conflictId] = true
+	for _, c := range conflicts {
+		wt.AllowedItemConflicts[itemId][c.ID] = true
 	}
 }
 
@@ -88,33 +89,35 @@ func (wt *CandidateTree) GetAllowedItemSlot(id string) *ItemSlot {
 	return wt.allowedItemSlotMap[id]
 }
 
-func CreateItemCandidateTree(id string, data TreeDataProvider) (*CandidateTree, error) {
+func CreateItemCandidateTree(id string, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {
 	item, err := data.GetWeaponModById(id)
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get weapon mod %s", id)
 	}
 
-	return constructCandidateTree(item.ID, item.Name, item.RecoilModifier, item.ErgonomicsModifier, data)
+	return constructCandidateTree(item.ID, item.Name, item.RecoilModifier, item.ErgonomicsModifier, constraints, data)
+
 }
 
-func CreateWeaponCandidateTree(id string, data TreeDataProvider) (*CandidateTree, error) {
+func CreateWeaponCandidateTree(id string, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {
 	w, err := data.GetWeaponById(id)
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get weapon %s", id)
 		return nil, err
 	}
 
-	return constructCandidateTree(id, w.Name, w.RecoilModifier, w.ErgonomicsModifier, data)
+	return constructCandidateTree(id, w.Name, w.RecoilModifier, w.ErgonomicsModifier, constraints, data)
 }
 
-func constructCandidateTree(id string, name string, recoilModifier int, ergoModifier int, data TreeDataProvider) (*CandidateTree, error) {
+func constructCandidateTree(id string, name string, recoilModifier int, ergoModifier int, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {
 	candidateTree := &CandidateTree{
 		dataService:          data,
 		AllowedItemConflicts: map[string]map[string]bool{},
 		CandidateItems: map[string]bool{
 			id: true,
 		},
-		Item: nil,
+		Item:        nil,
+		Constraints: constraints,
 	}
 
 	item := &Item{
@@ -128,13 +131,20 @@ func constructCandidateTree(id string, name string, recoilModifier int, ergoModi
 		Root:               candidateTree,
 	}
 
+	candidateTree.Item = item
+
 	err := item.PopulateSlots()
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to populate slots for weapon %s", id)
 		return nil, err
 	}
 
-	candidateTree.Item = item
+	item.CalculatePotentialValues()
+
+	candidateTree.UpdateAllowedItems()
+	candidateTree.updateAllowedItemsMap()
+	candidateTree.UpdateAllowedItemSlots()
+	candidateTree.updateAllowedItemSlotsMap()
 
 	return candidateTree, nil
 }

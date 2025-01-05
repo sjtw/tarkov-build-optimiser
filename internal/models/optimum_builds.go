@@ -12,6 +12,7 @@ import (
 type EvaluationConstraints struct {
 	TraderLevels     []TraderLevel
 	IgnoredSlotNames []string
+	IgnoredItemIDs   []string
 }
 
 type ItemEvaluationResult struct {
