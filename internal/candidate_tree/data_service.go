@@ -1,4 +1,4 @@
-package weapon_tree
+package candidate_tree
 
 import (
 	"context"

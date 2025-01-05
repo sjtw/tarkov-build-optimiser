@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"tarkov-build-optimiser/internal/candidate_tree"
 	"tarkov-build-optimiser/internal/helpers"
-	"tarkov-build-optimiser/internal/weapon_tree"
 )
 
 type ItemEvaluation struct {
@@ -81,7 +81,7 @@ type OptimalItem struct {
 
 // Build represents a complete weapon configuration.
 type Build struct {
-	WeaponTree     weapon_tree.WeaponTree
+	WeaponTree     candidate_tree.CandidateTree
 	OptimalItems   []OptimalItem
 	RecoilSum      int `json:"recoil_sum"`
 	ErgonomicsSum  int `json:"ergonomics_sum"`
@@ -162,7 +162,7 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 	return result, nil
 }
 
-func FindBestBuild(weapon *weapon_tree.WeaponTree, focusedStat string,
+func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	excludedItems map[string]bool) *Build {
 	uselessItems := map[string]bool{}
 	itemHits := map[string]int{}
@@ -181,7 +181,7 @@ func FindBestBuild(weapon *weapon_tree.WeaponTree, focusedStat string,
 
 // findBestBuild recursively traverses the build tree to find the optimal build.
 // It returns the best Build found in the current recursion path.
-func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalItem, focusedStat string, recoilStatSum int, ergoStatSum int, excludedItems map[string]bool, currentPath []string, uselessItems map[string]bool, memo map[string]*Build, itemHits map[string]int) *Build {
+func processSlots(slotsToProcess []*candidate_tree.ItemSlot, chosenItems []OptimalItem, focusedStat string, recoilStatSum int, ergoStatSum int, excludedItems map[string]bool, currentPath []string, uselessItems map[string]bool, memo map[string]*Build, itemHits map[string]int) *Build {
 	//key := createMemoKey(slotsToProcess, focusedStat, recoilStatSum, ergoStatSum, excludedItems)
 	//if build, exists := memo[key]; exists {
 	//	return build
@@ -277,7 +277,7 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 		newRecoil := recoilStatSum + item.RecoilModifier
 		newErgo := ergoStatSum + item.ErgonomicsModifier
 
-		newSlotsToProcess := append([]*weapon_tree.ItemSlot{}, remainingSlots...)
+		newSlotsToProcess := append([]*candidate_tree.ItemSlot{}, remainingSlots...)
 		if len(item.Slots) > 0 {
 			newSlotsToProcess = append(newSlotsToProcess, item.Slots...)
 
@@ -331,8 +331,8 @@ func processSlots(slotsToProcess []*weapon_tree.ItemSlot, chosenItems []OptimalI
 	return best
 }
 
-func filterSlots(slots []*weapon_tree.ItemSlot, excludedSlotNames []string) []*weapon_tree.ItemSlot {
-	filteredSlots := make([]*weapon_tree.ItemSlot, 0)
+func filterSlots(slots []*candidate_tree.ItemSlot, excludedSlotNames []string) []*candidate_tree.ItemSlot {
+	filteredSlots := make([]*candidate_tree.ItemSlot, 0)
 
 	if len(slots) == 0 {
 		return filteredSlots
@@ -354,7 +354,7 @@ func filterSlots(slots []*weapon_tree.ItemSlot, excludedSlotNames []string) []*w
 }
 
 // conflictsWith checks if two items conflict based on the conflict map.
-func conflictsWith(item *weapon_tree.Item, chosen OptimalItem) bool {
+func conflictsWith(item *candidate_tree.Item, chosen OptimalItem) bool {
 	for _, conflict := range item.ConflictingItems {
 		if conflict == chosen.ID {
 			return true
@@ -363,7 +363,7 @@ func conflictsWith(item *weapon_tree.Item, chosen OptimalItem) bool {
 	return false
 }
 
-func canDescendantsImproveStat(item *weapon_tree.Item, focusedStat string) bool {
+func canDescendantsImproveStat(item *candidate_tree.Item, focusedStat string) bool {
 	if canImproveStat(item, focusedStat) {
 		return true
 	}
@@ -379,7 +379,7 @@ func canDescendantsImproveStat(item *weapon_tree.Item, focusedStat string) bool 
 	return false
 }
 
-func canImproveStat(item *weapon_tree.Item, focusedStat string) bool {
+func canImproveStat(item *candidate_tree.Item, focusedStat string) bool {
 	if focusedStat == "recoil" && item.RecoilModifier < 0 {
 		return true
 	} else if focusedStat == "ergonomics" && item.ErgonomicsModifier > 0 {
@@ -411,7 +411,7 @@ func doesImproveStats(candidate *Build, best *Build, focusedStat string) bool {
 	return false
 }
 
-func createMemoKey(slots []*weapon_tree.ItemSlot, focusedStat string, recoilStatSum int, ergoStatSum int, excludedItems map[string]bool) string {
+func createMemoKey(slots []*candidate_tree.ItemSlot, focusedStat string, recoilStatSum int, ergoStatSum int, excludedItems map[string]bool) string {
 	return focusedStat + "|" +
 		serializeSlots(slots) + "|" +
 		serializeExcludedItems(excludedItems) + "|" +
@@ -419,7 +419,7 @@ func createMemoKey(slots []*weapon_tree.ItemSlot, focusedStat string, recoilStat
 		strconv.Itoa(ergoStatSum)
 }
 
-func serializeSlots(slots []*weapon_tree.ItemSlot) string {
+func serializeSlots(slots []*candidate_tree.ItemSlot) string {
 	slotIDs := make([]string, len(slots))
 	for i, slot := range slots {
 		slotIDs[i] = slot.ID

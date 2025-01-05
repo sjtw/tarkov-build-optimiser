@@ -1,4 +1,4 @@
-package weapon_tree
+package candidate_tree
 
 import (
 	"github.com/rs/zerolog/log"
@@ -13,10 +13,10 @@ type ItemSlot struct {
 	// we don't want to add these to the possibility tree for obvious reasons,
 	// but we may still want to know what they are
 	AllowedCircularReferenceItemIds []string `json:"allowed_circular_reference_item_ids"`
-	RootWeaponTree                  *WeaponTree
+	RootWeaponTree                  *CandidateTree
 }
 
-func ConstructSlot(id string, name string, rootWeaponTree *WeaponTree) *ItemSlot {
+func ConstructSlot(id string, name string, rootWeaponTree *CandidateTree) *ItemSlot {
 	return &ItemSlot{
 		ID:             id,
 		Name:           name,

@@ -1,4 +1,4 @@
-package weapon_tree
+package candidate_tree
 
 import (
 	"fmt"
@@ -15,15 +15,15 @@ type Item struct {
 	ConflictingItems   []string    `json:"conflicting_items" bson:"conflicting_items"`
 	parentSlot         *ItemSlot
 	RootItem           *Item
-	RootWeaponTree     *WeaponTree
+	Root               *CandidateTree
 }
 
-func ConstructItem(id string, name string, rootWeaponTree *WeaponTree) *Item {
+func ConstructItem(id string, name string, rootWeaponTree *CandidateTree) *Item {
 	return &Item{
 		ID:               id,
 		Name:             name,
 		Slots:            make([]*ItemSlot, 0),
-		RootWeaponTree:   rootWeaponTree,
+		Root:             rootWeaponTree,
 		ConflictingItems: make([]string, 0),
 	}
 }
@@ -79,14 +79,14 @@ func (item *Item) GetAncestorIds() []string {
 }
 
 func (item *Item) PopulateSlots() error {
-	slots, err := item.RootWeaponTree.dataService.GetSlotsByItemID(item.ID)
+	slots, err := item.Root.dataService.GetSlotsByItemID(item.ID)
 	if err != nil {
 		return err
 	}
 
 	for i := 0; i < len(slots); i++ {
 		s := slots[i]
-		slot := ConstructSlot(s.ID, s.Name, item.RootWeaponTree)
+		slot := ConstructSlot(s.ID, s.Name, item.Root)
 
 		item.AddChildSlot(slot)
 		err := slot.PopulateAllowedItems()

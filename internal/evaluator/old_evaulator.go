@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rs/zerolog/log"
+	"tarkov-build-optimiser/internal/candidate_tree"
 	"tarkov-build-optimiser/internal/models"
-	"tarkov-build-optimiser/internal/weapon_tree"
 )
 
 type EvaluationDataProvider interface {
@@ -18,7 +18,7 @@ type EvaluationDataProvider interface {
 // taken into account during evaluation.
 type WeaponEvaluationTask struct {
 	Constraints    models.EvaluationConstraints
-	WeaponTree     weapon_tree.WeaponTree
+	CandidateTree  candidate_tree.CandidateTree
 	EvaluationType string
 }
 
@@ -52,7 +52,7 @@ func (e *Evaluator) filterCandidateItemsByTraderAvailability(candidates map[stri
 }
 
 func (e *Evaluator) EvaluateWeaponEvaluationTask(task WeaponEvaluationTask) (models.ItemEvaluationResult, error) {
-	filteredCandidates, err := e.filterCandidateItemsByTraderAvailability(task.WeaponTree.CandidateItems, task.Constraints.TraderLevels)
+	filteredCandidates, err := e.filterCandidateItemsByTraderAvailability(task.CandidateTree.CandidateItems, task.Constraints.TraderLevels)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to filter candidate items by trader availability")
 		return models.ItemEvaluationResult{}, err
@@ -60,13 +60,13 @@ func (e *Evaluator) EvaluateWeaponEvaluationTask(task WeaponEvaluationTask) (mod
 
 	candidateSets := make([][]string, 0)
 
-	if len(task.WeaponTree.AllowedItemConflicts) > 0 {
+	if len(task.CandidateTree.AllowedItemConflicts) > 0 {
 		// generate all valid variations of candidates, including the weapon ID
-		candidateSets = generateNonConflictingCandidateSets(filteredCandidates, task.WeaponTree.AllowedItemConflicts)
+		candidateSets = generateNonConflictingCandidateSets(filteredCandidates, task.CandidateTree.AllowedItemConflicts)
 	} else {
 		// the weapon has no possible conflicts, so we can use all candidate items from the candidate tree
 		set := make([]string, len(filteredCandidates))
-		for id := range task.WeaponTree.CandidateItems {
+		for id := range task.CandidateTree.CandidateItems {
 			set = append(set, id)
 		}
 		candidateSets = append(candidateSets, set)
@@ -77,7 +77,7 @@ func (e *Evaluator) EvaluateWeaponEvaluationTask(task WeaponEvaluationTask) (mod
 	results := make([]models.ItemEvaluationResult, len(candidateSets))
 	for index, candidateItems := range candidateSets {
 		log.Info().Msgf("index %d", index)
-		result, err := e.evaluateWeapon(task.WeaponTree.Item, task.EvaluationType, task.Constraints, candidateItems)
+		result, err := e.evaluateWeapon(task.CandidateTree.Item, task.EvaluationType, task.Constraints, candidateItems)
 		if err != nil {
 			return models.ItemEvaluationResult{}, err
 		}
@@ -102,7 +102,7 @@ func (e *Evaluator) EvaluateWeaponEvaluationTask(task WeaponEvaluationTask) (mod
 	return optimum, nil
 }
 
-func (e *Evaluator) evaluateSlot(slotId string, slotName string, allowedItems []*weapon_tree.Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.SlotEvaluationResult, error) {
+func (e *Evaluator) evaluateSlot(slotId string, slotName string, allowedItems []*candidate_tree.Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.SlotEvaluationResult, error) {
 	if slotName == "Barrel" {
 		log.Info().Msgf("Barrel slot")
 	}
@@ -197,11 +197,11 @@ func (e *Evaluator) evaluateSlot(slotId string, slotName string, allowedItems []
 	return slotEvaluationResult, nil
 }
 
-func (e *Evaluator) evaluateWeapon(item *weapon_tree.Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.ItemEvaluationResult, error) {
+func (e *Evaluator) evaluateWeapon(item *candidate_tree.Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.ItemEvaluationResult, error) {
 	return e.evaluateItem(item, evaluationType, constraints, candidates)
 }
 
-func (e *Evaluator) evaluateItem(item *weapon_tree.Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.ItemEvaluationResult, error) {
+func (e *Evaluator) evaluateItem(item *candidate_tree.Item, evaluationType string, constraints models.EvaluationConstraints, candidates []string) (models.ItemEvaluationResult, error) {
 	outItem := models.ItemEvaluationResult{
 		ID:                 item.ID,
 		Name:               item.Name,

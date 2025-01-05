@@ -3,8 +3,8 @@ package evaluator
 import (
 	"github.com/stretchr/testify/assert"
 	"sync"
+	"tarkov-build-optimiser/internal/candidate_tree"
 	"tarkov-build-optimiser/internal/models"
-	"tarkov-build-optimiser/internal/weapon_tree"
 	"testing"
 )
 
@@ -82,35 +82,35 @@ func (saver *MockBuildSaver) SaveBuild(build *models.ItemEvaluationResult, const
 }
 
 func TestFindBestRecoilTree(t *testing.T) {
-	rootWeaponTree := &weapon_tree.WeaponTree{}
-	weapon := weapon_tree.ConstructItem("weapon1", "Weapon1", rootWeaponTree)
+	rootWeaponTree := &candidate_tree.CandidateTree{}
+	weapon := candidate_tree.ConstructItem("weapon1", "Weapon1", rootWeaponTree)
 	weapon.RecoilModifier = -10
 	weapon.ErgonomicsModifier = 10
 
-	item1 := weapon_tree.ConstructItem("item1", "Item1", rootWeaponTree)
+	item1 := candidate_tree.ConstructItem("item1", "Item1", rootWeaponTree)
 	item1.RecoilModifier = -1
 	item1.ErgonomicsModifier = 1
 
-	item2 := weapon_tree.ConstructItem("item2", "Item2", rootWeaponTree)
+	item2 := candidate_tree.ConstructItem("item2", "Item2", rootWeaponTree)
 	item2.RecoilModifier = -2
 	item2.ErgonomicsModifier = 2
 
-	item3 := weapon_tree.ConstructItem("item3", "Item3", rootWeaponTree)
+	item3 := candidate_tree.ConstructItem("item3", "Item3", rootWeaponTree)
 	item3.RecoilModifier = -3
 	item3.ErgonomicsModifier = 3
 
-	item1ChildSlot := weapon_tree.ConstructSlot("child-slot1", "Child Slot1", rootWeaponTree)
-	item1ChildSlotItem := weapon_tree.ConstructItem("child-item1", "Child Item1", rootWeaponTree)
+	item1ChildSlot := candidate_tree.ConstructSlot("child-slot1", "Child Slot1", rootWeaponTree)
+	item1ChildSlotItem := candidate_tree.ConstructItem("child-item1", "Child Item1", rootWeaponTree)
 	item1ChildSlotItem.RecoilModifier = -4
 	item1ChildSlotItem.ErgonomicsModifier = 4
 	item1ChildSlot.AddChildItem(item1ChildSlotItem)
 	item1.AddChildSlot(item1ChildSlot)
 
-	slot1 := weapon_tree.ConstructSlot("slot1", "Slot1", rootWeaponTree)
+	slot1 := candidate_tree.ConstructSlot("slot1", "Slot1", rootWeaponTree)
 	slot1.AddChildItem(item1)
 	slot1.AddChildItem(item2)
 
-	slot2 := weapon_tree.ConstructSlot("slot2", "Slot2", rootWeaponTree)
+	slot2 := candidate_tree.ConstructSlot("slot2", "Slot2", rootWeaponTree)
 	slot2.AddChildItem(item3)
 
 	weapon.AddChildSlot(slot1)
@@ -173,35 +173,35 @@ func TestFindBestRecoilTree(t *testing.T) {
 }
 
 func TestFindBestErgoTree(t *testing.T) {
-	rootWeaponTree := &weapon_tree.WeaponTree{}
-	weapon := weapon_tree.ConstructItem("weapon1", "Test Item", rootWeaponTree)
+	rootWeaponTree := &candidate_tree.CandidateTree{}
+	weapon := candidate_tree.ConstructItem("weapon1", "Test Item", rootWeaponTree)
 	weapon.RecoilModifier = -10
 	weapon.ErgonomicsModifier = 10
 
-	item1 := weapon_tree.ConstructItem("item1", "Item1", rootWeaponTree)
+	item1 := candidate_tree.ConstructItem("item1", "Item1", rootWeaponTree)
 	item1.RecoilModifier = -1
 	item1.ErgonomicsModifier = 1
 
-	item2 := weapon_tree.ConstructItem("item2", "Item2", rootWeaponTree)
+	item2 := candidate_tree.ConstructItem("item2", "Item2", rootWeaponTree)
 	item2.RecoilModifier = -2
 	item2.ErgonomicsModifier = 2
 
-	item3 := weapon_tree.ConstructItem("item3", "Item3", rootWeaponTree)
+	item3 := candidate_tree.ConstructItem("item3", "Item3", rootWeaponTree)
 	item3.RecoilModifier = -3
 	item3.ErgonomicsModifier = 3
 
-	item1ChildSlot := weapon_tree.ConstructSlot("child-slot1", "Child Slot1", rootWeaponTree)
-	item1ChildSlotItem := weapon_tree.ConstructItem("child-item1", "Child Item1", rootWeaponTree)
+	item1ChildSlot := candidate_tree.ConstructSlot("child-slot1", "Child Slot1", rootWeaponTree)
+	item1ChildSlotItem := candidate_tree.ConstructItem("child-item1", "Child Item1", rootWeaponTree)
 	item1ChildSlotItem.RecoilModifier = -4
 	item1ChildSlotItem.ErgonomicsModifier = 4
 	item1ChildSlot.AddChildItem(item1ChildSlotItem)
 	item1.AddChildSlot(item1ChildSlot)
 
-	slot1 := weapon_tree.ConstructSlot("slot1", "Slot1", rootWeaponTree)
+	slot1 := candidate_tree.ConstructSlot("slot1", "Slot1", rootWeaponTree)
 	slot1.AddChildItem(item1)
 	slot1.AddChildItem(item2)
 
-	slot2 := weapon_tree.ConstructSlot("slot2", "Slot2", rootWeaponTree)
+	slot2 := candidate_tree.ConstructSlot("slot2", "Slot2", rootWeaponTree)
 	slot2.AddChildItem(item3)
 
 	weapon.AddChildSlot(slot1)
@@ -243,35 +243,35 @@ func TestFindBestErgoTree(t *testing.T) {
 
 func TestFindBestBuild(t *testing.T) {
 	// TODO - use construction functions and mock data provider to construct this
-	rootItem := &weapon_tree.Item{
+	rootItem := &candidate_tree.Item{
 		Name:               "Weapon",
 		ID:                 "item-weapon",
 		RecoilModifier:     -0,
 		ErgonomicsModifier: -0,
 		ConflictingItems:   []string{},
-		Slots: []*weapon_tree.ItemSlot{
+		Slots: []*candidate_tree.ItemSlot{
 			{
 				Name: "stock",
 				ID:   "slot-stock",
-				AllowedItems: []*weapon_tree.Item{
+				AllowedItems: []*candidate_tree.Item{
 					{
 						Name:               "Buffer_Tube",
 						ID:                 "item-buffer-tube",
 						RecoilModifier:     -5,
 						ErgonomicsModifier: -5,
 						ConflictingItems:   []string{"item-ADAR-stock"},
-						Slots: []*weapon_tree.ItemSlot{
+						Slots: []*candidate_tree.ItemSlot{
 							{
 								Name: "stock",
 								ID:   "stock",
-								AllowedItems: []*weapon_tree.Item{
+								AllowedItems: []*candidate_tree.Item{
 									{
 										Name:               "good stock",
 										ID:                 "item-good-stock",
 										RecoilModifier:     -22,
 										ErgonomicsModifier: 10,
 										ConflictingItems:   []string{"item-ADAR-stock", "non-existent-item"},
-										Slots:              []*weapon_tree.ItemSlot{},
+										Slots:              []*candidate_tree.ItemSlot{},
 									},
 								},
 							},
@@ -283,7 +283,7 @@ func TestFindBestBuild(t *testing.T) {
 						RecoilModifier:     -5,
 						ErgonomicsModifier: 5,
 						ConflictingItems:   []string{"item-ADAR-stock"},
-						Slots:              []*weapon_tree.ItemSlot{},
+						Slots:              []*candidate_tree.ItemSlot{},
 					},
 					{
 						Name:               "great stock - not allowed",
@@ -291,60 +291,60 @@ func TestFindBestBuild(t *testing.T) {
 						RecoilModifier:     -25,
 						ErgonomicsModifier: 8,
 						ConflictingItems:   []string{"item-ADAR-stock"},
-						Slots:              []*weapon_tree.ItemSlot{},
+						Slots:              []*candidate_tree.ItemSlot{},
 					},
 				},
 			},
 			{
 				Name: "receiver",
 				ID:   "slot-receiver",
-				AllowedItems: []*weapon_tree.Item{
+				AllowedItems: []*candidate_tree.Item{
 					{
 						Name:               "Base_Receiver",
 						ID:                 "item-base-receiver",
 						RecoilModifier:     0,
 						ErgonomicsModifier: 0,
 						ConflictingItems:   []string{},
-						Slots: []*weapon_tree.ItemSlot{
+						Slots: []*candidate_tree.ItemSlot{
 							{
 								Name: "Scope",
 								ID:   "slot-receiver-scope",
-								AllowedItems: []*weapon_tree.Item{
+								AllowedItems: []*candidate_tree.Item{
 									{
 										Name:               "ACOG",
 										ID:                 "item-acog",
 										RecoilModifier:     -100,
 										ErgonomicsModifier: 100,
 										ConflictingItems:   []string{},
-										Slots:              []*weapon_tree.ItemSlot{},
+										Slots:              []*candidate_tree.ItemSlot{},
 									},
 								},
 							},
 							{
 								Name: "Foregrip",
 								ID:   "slot-receiver-foregrip",
-								AllowedItems: []*weapon_tree.Item{
+								AllowedItems: []*candidate_tree.Item{
 									{
 										Name:               "bad-foregrip",
 										ID:                 "item-bad-foregrip",
 										RecoilModifier:     0,
 										ErgonomicsModifier: 1,
 										ConflictingItems:   []string{},
-										Slots:              []*weapon_tree.ItemSlot{},
+										Slots:              []*candidate_tree.ItemSlot{},
 									},
 								},
 							},
 							{
 								Name: "Mount",
 								ID:   "slot-receiver-mount",
-								AllowedItems: []*weapon_tree.Item{
+								AllowedItems: []*candidate_tree.Item{
 									{
 										Name:               "Useless Mount",
 										ID:                 "item-useless-mount",
 										RecoilModifier:     0,
 										ErgonomicsModifier: 0,
 										ConflictingItems:   []string{},
-										Slots:              []*weapon_tree.ItemSlot{},
+										Slots:              []*candidate_tree.ItemSlot{},
 									},
 								},
 							},
@@ -355,14 +355,14 @@ func TestFindBestBuild(t *testing.T) {
 			{
 				Name: "pistol grip",
 				ID:   "slot-pistol-grip",
-				AllowedItems: []*weapon_tree.Item{
+				AllowedItems: []*candidate_tree.Item{
 					{
 						Name:               "ADAR_Stock",
 						ID:                 "item-ADAR-stock",
 						RecoilModifier:     -20,
 						ErgonomicsModifier: -20,
 						ConflictingItems:   []string{"Buffer_Tube", "good stock"},
-						Slots:              []*weapon_tree.ItemSlot{},
+						Slots:              []*candidate_tree.ItemSlot{},
 					},
 					{
 						Name:               "bad grip",
@@ -370,7 +370,7 @@ func TestFindBestBuild(t *testing.T) {
 						RecoilModifier:     -5,
 						ErgonomicsModifier: 1,
 						ConflictingItems:   []string{},
-						Slots:              []*weapon_tree.ItemSlot{},
+						Slots:              []*candidate_tree.ItemSlot{},
 					},
 					{
 						Name:               "bad grip 2",
@@ -378,14 +378,14 @@ func TestFindBestBuild(t *testing.T) {
 						RecoilModifier:     -5,
 						ErgonomicsModifier: 2,
 						ConflictingItems:   []string{},
-						Slots:              []*weapon_tree.ItemSlot{},
+						Slots:              []*candidate_tree.ItemSlot{},
 					},
 				},
 			},
 		},
 	}
 
-	weapon := &weapon_tree.WeaponTree{
+	weapon := &candidate_tree.CandidateTree{
 		Item: rootItem,
 	}
 

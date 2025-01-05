@@ -1,4 +1,4 @@
-package weapon_tree
+package candidate_tree
 
 import (
 	"github.com/rs/zerolog/log"
@@ -16,7 +16,7 @@ type WeaponTreeConstraints struct {
 	ignoredSlotNames map[string]bool
 }
 
-type WeaponTree struct {
+type CandidateTree struct {
 	Item        *Item
 	dataService TreeDataProvider
 	constraints WeaponTreeConstraints
@@ -32,7 +32,7 @@ type WeaponTree struct {
 	allowedItemSlotMap map[string]*ItemSlot
 }
 
-func (wt *WeaponTree) AddItemConflicts(itemId string, conflictIDs []string) {
+func (wt *CandidateTree) AddItemConflicts(itemId string, conflictIDs []string) {
 	if _, ok := wt.AllowedItemConflicts[itemId]; !ok {
 		wt.AllowedItemConflicts[itemId] = map[string]bool{}
 	}
@@ -42,18 +42,18 @@ func (wt *WeaponTree) AddItemConflicts(itemId string, conflictIDs []string) {
 	}
 }
 
-func (wt *WeaponTree) AddCandidateItem(itemID string) {
+func (wt *CandidateTree) AddCandidateItem(itemID string) {
 	wt.CandidateItems[itemID] = true
 }
 
 // UpdateAllowedItemSlots updates allowedItemSlots with the current state of the tree
-func (wt *WeaponTree) UpdateAllowedItemSlots() {
+func (wt *CandidateTree) UpdateAllowedItemSlots() {
 	slots := wt.Item.GetDescendantSlots()
 	wt.allowedItemSlots = slots
 	wt.updateAllowedItemSlotsMap()
 }
 
-func (wt *WeaponTree) updateAllowedItemSlotsMap() {
+func (wt *CandidateTree) updateAllowedItemSlotsMap() {
 	slotMap := map[string]*ItemSlot{}
 	for _, slot := range wt.allowedItemSlots {
 		slotMap[slot.ID] = slot
@@ -62,7 +62,7 @@ func (wt *WeaponTree) updateAllowedItemSlotsMap() {
 }
 
 // UpdateAllowedItems updates allowedItems with the current state of the tree
-func (wt *WeaponTree) UpdateAllowedItems() {
+func (wt *CandidateTree) UpdateAllowedItems() {
 	allowedItems := make([]*Item, 0)
 	for _, slot := range wt.Item.Slots {
 		items := slot.GetDescendantAllowedItems()
@@ -72,11 +72,11 @@ func (wt *WeaponTree) UpdateAllowedItems() {
 	wt.updateAllowedItemsMap()
 }
 
-func (wt *WeaponTree) GetAllowedItem(id string) *Item {
+func (wt *CandidateTree) GetAllowedItem(id string) *Item {
 	return wt.allowedItemMap[id]
 }
 
-func (wt *WeaponTree) updateAllowedItemsMap() {
+func (wt *CandidateTree) updateAllowedItemsMap() {
 	itemMap := map[string]*Item{}
 	for _, item := range wt.allowedItems {
 		itemMap[item.ID] = item
@@ -84,12 +84,31 @@ func (wt *WeaponTree) updateAllowedItemsMap() {
 	wt.allowedItemMap = itemMap
 }
 
-func (wt *WeaponTree) GetAllowedItemSlot(id string) *ItemSlot {
+func (wt *CandidateTree) GetAllowedItemSlot(id string) *ItemSlot {
 	return wt.allowedItemSlotMap[id]
 }
 
-func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) {
-	weaponTree := &WeaponTree{
+func CreateItemCandidateTree(id string, data TreeDataProvider) (*CandidateTree, error) {
+	item, err := data.GetWeaponModById(id)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to get weapon mod %s", id)
+	}
+
+	return constructCandidateTree(item.ID, item.Name, item.RecoilModifier, item.ErgonomicsModifier, data)
+}
+
+func CreateWeaponCandidateTree(id string, data TreeDataProvider) (*CandidateTree, error) {
+	w, err := data.GetWeaponById(id)
+	if err != nil {
+		log.Error().Err(err).Msgf("Failed to get weapon %s", id)
+		return nil, err
+	}
+
+	return constructCandidateTree(id, w.Name, w.RecoilModifier, w.ErgonomicsModifier, data)
+}
+
+func constructCandidateTree(id string, name string, recoilModifier int, ergoModifier int, data TreeDataProvider) (*CandidateTree, error) {
+	candidateTree := &CandidateTree{
 		dataService:          data,
 		AllowedItemConflicts: map[string]map[string]bool{},
 		CandidateItems: map[string]bool{
@@ -98,30 +117,24 @@ func ConstructWeaponTree(id string, data TreeDataProvider) (*WeaponTree, error) 
 		Item: nil,
 	}
 
-	w, err := data.GetWeaponById(id)
-	if err != nil {
-		log.Error().Err(err).Msgf("Failed to get weapon %s", id)
-		return nil, err
-	}
-
 	item := &Item{
 		ID:                 id,
-		Name:               w.Name,
-		RecoilModifier:     w.RecoilModifier,
-		ErgonomicsModifier: w.ErgonomicsModifier,
+		Name:               name,
+		RecoilModifier:     recoilModifier,
+		ErgonomicsModifier: ergoModifier,
 		Slots:              []*ItemSlot{},
 		parentSlot:         nil,
 		Type:               "weapon",
-		RootWeaponTree:     weaponTree,
+		Root:               candidateTree,
 	}
 
-	err = item.PopulateSlots()
+	err := item.PopulateSlots()
 	if err != nil {
-		log.Error().Err(err).Msgf("Failed to populate slots for weapon %s", w.ID)
+		log.Error().Err(err).Msgf("Failed to populate slots for weapon %s", id)
 		return nil, err
 	}
 
-	weaponTree.Item = item
+	candidateTree.Item = item
 
-	return weaponTree, nil
+	return candidateTree, nil
 }

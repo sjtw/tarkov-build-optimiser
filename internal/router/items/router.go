@@ -7,9 +7,9 @@ import (
 	"github.com/rs/zerolog/log"
 	"strconv"
 	"strings"
+	"tarkov-build-optimiser/internal/candidate_tree"
 	"tarkov-build-optimiser/internal/evaluator"
 	"tarkov-build-optimiser/internal/models"
-	"tarkov-build-optimiser/internal/weapon_tree"
 
 	"github.com/labstack/echo/v4"
 )
@@ -81,15 +81,59 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 
 		log.Info().Msg("No pre-generated build - calculating")
 
-		dataService := weapon_tree.CreateDataService(db)
-		weaponTree, err := weapon_tree.ConstructWeaponTree(itemId, dataService)
+		dataService := candidate_tree.CreateDataService(db)
+		weaponTree, err := candidate_tree.CreateWeaponCandidateTree(itemId, dataService)
 		if err != nil {
 			return c.String(500, err.Error())
 		}
 		e := evaluator.CreateEvaluator(dataService)
 		result, err := e.EvaluateWeaponEvaluationTask(evaluator.WeaponEvaluationTask{
 			Constraints:    constraints,
-			WeaponTree:     *weaponTree,
+			CandidateTree:  *weaponTree,
+			EvaluationType: buildType,
+		})
+		if err != nil {
+			return c.String(500, err.Error())
+		}
+
+		return c.JSON(200, result)
+	})
+
+	e.GET("/items/:item_id/calculate/", func(c echo.Context) error {
+		constraints := models.EvaluationConstraints{
+			TraderLevels:     []models.TraderLevel{},
+			IgnoredSlotNames: []string{"Scope", "Ubgl"},
+		}
+
+		itemId := c.Param("item_id")
+		buildType := c.QueryParam("build_type")
+		traderLevels, err := getTraderLevelParams(c)
+		if err != nil {
+			return c.String(400, err.Error())
+		}
+
+		constraints.TraderLevels = traderLevels
+		//build, err := models.GetOptimumBuild(db, itemId, buildType, constraints)
+		//if err != nil {
+		//	return err
+		//}
+
+		//if build != nil {
+		//	log.Info().Msg("Returning pre-generated build")
+		//	return c.JSON(200, build)
+		//}
+
+		log.Info().Msg("No pre-generated build - calculating")
+
+		dataService := candidate_tree.CreateDataService(db)
+		candidateTree, err := candidate_tree.CreateItemCandidateTree(itemId, dataService)
+		if err != nil {
+			return c.String(500, err.Error())
+		}
+		e := evaluator.CreateEvaluator(dataService)
+		result, err := e.EvaluateWeaponEvaluationTask(evaluator.WeaponEvaluationTask{
+			Constraints:    constraints,
+			CandidateTree:  *candidateTree,
 			EvaluationType: buildType,
 		})
 		if err != nil {
@@ -125,9 +169,9 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 
 		log.Info().Msg("No pre-generated build - calculating")
 
-		dataService := weapon_tree.CreateDataService(db)
+		dataService := candidate_tree.CreateDataService(db)
 		log.Info().Msg("Constructing weapon tree")
-		weaponTree, err := weapon_tree.ConstructWeaponTree(itemId, dataService)
+		weaponTree, err := candidate_tree.CreateWeaponCandidateTree(itemId, dataService)
 		if err != nil {
 			log.Info().Msg("Weapon tree construction failed")
 			return c.String(500, err.Error())
