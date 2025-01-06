@@ -222,6 +222,13 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 
 		itemEvaluationResult := result.ToItemEvaluationResult()
 
+		go func() {
+			err := models.UpsertOptimumBuild(db, &itemEvaluationResult, constraints)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to upsert optimum build")
+			}
+		}()
+
 		return c.JSON(200, itemEvaluationResult)
 	})
 
