@@ -113,17 +113,18 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		}
 
 		constraints.TraderLevels = traderLevels
-		//build, err := models.GetOptimumBuild(db, itemId, buildType, constraints)
-		//if err != nil {
-		//	return err
-		//}
 
-		//if build != nil {
-		//	log.Info().Msg("Returning pre-generated build")
-		//	return c.JSON(200, build)
-		//}
+		prebuild, err := models.GetOptimumBuild(db, itemId, buildType, constraints)
+		if err != nil {
+			log.Error().Msgf("Failed to get optimum build. item %s, constraints %v", itemId, constraints)
+			return c.String(500, err.Error())
+		}
 
-		log.Info().Msg("No pre-generated build - calculating")
+		if prebuild != nil {
+			return c.JSON(200, prebuild)
+		}
+
+		log.Info().Msgf("No pre-generated build - calculating. Item ID: %s, constraints %v", itemId, constraints)
 
 		dataService := candidate_tree.CreateDataService(db)
 		candidateTree, err := candidate_tree.CreateItemCandidateTree(itemId, constraints, dataService)
@@ -157,6 +158,16 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		}
 
 		constraints.TraderLevels = traderLevels
+
+		prebuild, err := models.GetOptimumBuild(db, itemId, buildType, constraints)
+		if err != nil {
+			log.Error().Msgf("Failed to get optimum build. item %s, constraints %v", itemId, constraints)
+			return c.String(500, err.Error())
+		}
+
+		if prebuild != nil {
+			return c.JSON(200, build)
+		}
 
 		log.Info().Msg("No pre-generated build - calculating")
 
