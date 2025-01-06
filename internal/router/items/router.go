@@ -220,7 +220,9 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		result, err := build.ToEvaluatedWeapon()
 		log.Info().Msg("Build converted to evaluated weapon")
 
-		return c.JSON(200, result)
+		itemEvaluationResult := result.ToItemEvaluationResult()
+
+		return c.JSON(200, itemEvaluationResult)
 	})
 
 	return e

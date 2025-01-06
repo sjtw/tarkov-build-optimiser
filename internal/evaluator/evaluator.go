@@ -9,6 +9,7 @@ import (
 	"strings"
 	"tarkov-build-optimiser/internal/candidate_tree"
 	"tarkov-build-optimiser/internal/helpers"
+	"tarkov-build-optimiser/internal/models"
 )
 
 type ItemEvaluationConflicts struct {
@@ -24,6 +25,8 @@ type ItemEvaluation struct {
 	RecoilModifier     int                       `json:"recoil_modifier"`
 	ErgonomicsModifier int                       `json:"ergonomics_modifier"`
 	Conflicts          []ItemEvaluationConflicts `json:"conflicts"`
+	RecoilSum          int                       `json:"recoil_sum"`
+	ErgonomicsSum      int                       `json:"ergonomics_sum"`
 }
 
 type SlotEvaluation struct {
@@ -31,6 +34,38 @@ type SlotEvaluation struct {
 	Name    string          `json:"name"`
 	Item    *ItemEvaluation `json:"item"`
 	IsEmpty bool            `json:"empty"`
+}
+
+func (s *SlotEvaluation) ToSlotEvaluationResult(evaluationType string) models.SlotEvaluationResult {
+	result := models.SlotEvaluationResult{
+		ID:      s.ID,
+		Name:    s.Name,
+		Item:    models.ItemEvaluationResult{},
+		IsEmpty: s.IsEmpty,
+	}
+
+	if s.IsEmpty {
+		return result
+	}
+
+	result.Item = models.ItemEvaluationResult{
+		ID:                 s.Item.ID,
+		Name:               s.Item.Name,
+		RecoilModifier:     s.Item.RecoilModifier,
+		ErgonomicsModifier: s.Item.ErgonomicsModifier,
+		RecoilSum:          s.Item.RecoilSum,
+		ErgonomicsSum:      s.Item.ErgonomicsSum,
+		Slots:              make([]models.SlotEvaluationResult, 0),
+		IsSubtree:          true,
+		EvaluationType:     evaluationType,
+	}
+
+	for _, slot := range s.Item.Slots {
+		s := slot.ToSlotEvaluationResult(evaluationType)
+		result.Item.Slots = append(result.Item.Slots, s)
+	}
+
+	return result
 }
 
 func (s *SlotEvaluation) findSlotById(slotID string) *SlotEvaluation {
@@ -81,6 +116,30 @@ func (ew *EvaluatedWeapon) GetSlotById(slotID string) *SlotEvaluation {
 		}
 	}
 	return nil
+}
+
+// TODO - do something about this
+// ToItemEvaluationResult temporary - just makes sure we can seialise the same response/save builds as per the previous evaluator iteration
+func (weapon *EvaluatedWeapon) ToItemEvaluationResult() models.ItemEvaluationResult {
+	w := models.ItemEvaluationResult{
+		ID:             weapon.ID,
+		Name:           weapon.Name,
+		IsSubtree:      false,
+		EvaluationType: weapon.EvaluationType,
+		RecoilSum:      weapon.RecoilSum,
+		ErgonomicsSum:  weapon.ErgonomicsSum,
+		Slots:          make([]models.SlotEvaluationResult, 0, len(weapon.Slots)),
+	}
+
+	w.RecoilSum = weapon.RecoilSum
+	w.ErgonomicsSum = weapon.ErgonomicsSum
+
+	for _, slot := range weapon.Slots {
+		s := slot.ToSlotEvaluationResult(weapon.EvaluationType)
+		w.Slots = append(w.Slots, s)
+	}
+
+	return w
 }
 
 type OptimalItem struct {
@@ -171,7 +230,7 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 
 			destinationSlot.Item = evaluated
 			destinationSlot.IsEmpty = false
-			newItems := make([]OptimalItem, 0, len(remainingItems)-1)
+			newItems := make([]OptimalItem, 0)
 			for _, item := range remainingItems {
 				if item.ID != evaluated.ID {
 					newItems = append(newItems, item)
@@ -202,44 +261,44 @@ func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	weapon.UpdateAllowedItemSlots()
 	weapon.UpdateAllowedItems()
 
-	stock := slotNameMap["Stock"]
-	stockBuild := processSlots(weapon, []*candidate_tree.ItemSlot{stock}, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, map[string]*Build{})
-
-	pg := slotNameMap["Pistol Grip"]
-	pgBuild := processSlots(weapon, []*candidate_tree.ItemSlot{pg}, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, map[string]*Build{})
-
-	conflict := false
-	for _, item := range stockBuild.OptimalItems {
-		x := weapon.GetAllowedItem(item.ID)
-		for _, conflictingItem := range x.ConflictingItems {
-			for _, pgItem := range pgBuild.OptimalItems {
-				if conflictingItem.ID == pgItem.ID {
-					conflict = true
-				}
-			}
-		}
-	}
-
-	if conflict {
-		if stockBuild.RecoilSum < pgBuild.RecoilSum {
-			for _, item := range stockBuild.OptimalItems {
-				ai := weapon.GetAllowedItem(item.ID)
-				for _, conflictingItem := range ai.ConflictingItems {
-					excludedItems[conflictingItem.ID] = true
-				}
-			}
-		} else {
-			for _, item := range pgBuild.OptimalItems {
-				ai := weapon.GetAllowedItem(item.ID)
-				for _, conflictingItem := range ai.ConflictingItems {
-					excludedItems[conflictingItem.ID] = true
-				}
-			}
-		}
-	}
+	//stock := slotNameMap["Stock"]
+	//stockBuild := processSlots(weapon, []*candidate_tree.ItemSlot{stock}, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, map[string]*Build{})
+	//
+	//pg := slotNameMap["Pistol Grip"]
+	//pgBuild := processSlots(weapon, []*candidate_tree.ItemSlot{pg}, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, map[string]*Build{})
+	//
+	//conflict := false
+	//for _, item := range stockBuild.OptimalItems {
+	//	x := weapon.GetAllowedItem(item.ID)
+	//	for _, conflictingItem := range x.ConflictingItems {
+	//		for _, pgItem := range pgBuild.OptimalItems {
+	//			if conflictingItem.ID == pgItem.ID {
+	//				conflict = true
+	//			}
+	//		}
+	//	}
+	//}
+	//
+	//if conflict {
+	//	if stockBuild.RecoilSum < pgBuild.RecoilSum {
+	//		for _, item := range stockBuild.OptimalItems {
+	//			ai := weapon.GetAllowedItem(item.ID)
+	//			for _, conflictingItem := range ai.ConflictingItems {
+	//				excludedItems[conflictingItem.ID] = true
+	//			}
+	//		}
+	//	} else {
+	//		for _, item := range pgBuild.OptimalItems {
+	//			ai := weapon.GetAllowedItem(item.ID)
+	//			for _, conflictingItem := range ai.ConflictingItems {
+	//				excludedItems[conflictingItem.ID] = true
+	//			}
+	//		}
+	//	}
+	//}
 
 	memo := map[string]*Build{}
-	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, -35, 0, excludedItems, nil, memo)
+	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, memo)
 
 	build.WeaponTree = *weapon
 
