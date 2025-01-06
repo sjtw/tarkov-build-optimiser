@@ -342,7 +342,7 @@ func processSlots(
 	// - loop through all the items we can put in this slot see what the outcome is
 	// - pick the best
 	// - alloweditems are sorted by potential value, so if we can slot something together earlier, nothing later on in
-	//   the AllowedItems slice is going to improve things.
+	//   the AllowedItems slice is going to improve things. edit: actually they could, needs improvement.
 	for _, item := range currentSlot.AllowedItems {
 		// if we've already evaluated this exact slot with the exact same exclusion list, we can just return the result
 		// in practice this has never happened as far as I can tell. It should being way more value when persisted and
