@@ -2,6 +2,7 @@ package candidate_tree
 
 import (
 	"github.com/rs/zerolog/log"
+	"slices"
 )
 
 type ItemSlot struct {
@@ -55,8 +56,42 @@ func (slot *ItemSlot) AddAllowedItem(item *Item) {
 	slot.AllowedItems = append(slot.AllowedItems, item)
 }
 
-func (slot *ItemSlot) SortAllowedItems() {
+func (slot *ItemSlot) SortAllowedItems(by string) {
+	for _, item := range slot.AllowedItems {
+		for _, slot := range item.Slots {
+			slot.SortAllowedItems(by)
+		}
+	}
 
+	slices.SortFunc(slot.AllowedItems, func(i, j *Item) int {
+		switch by {
+		case "recoil-min":
+			if i.PotentialValues.MinRecoil < j.PotentialValues.MinRecoil {
+				return -1
+			} else if i.PotentialValues.MinRecoil > j.PotentialValues.MinRecoil {
+				return 1
+			}
+		case "recoil-max":
+			if i.PotentialValues.MaxRecoil < j.PotentialValues.MaxRecoil {
+				return -1
+			} else if i.PotentialValues.MaxRecoil > j.PotentialValues.MaxRecoil {
+				return 1
+			}
+		case "ergonomics-min":
+			if i.PotentialValues.MinErgonomics < j.PotentialValues.MinErgonomics {
+				return -1
+			} else if i.PotentialValues.MinErgonomics > j.PotentialValues.MinErgonomics {
+				return 1
+			}
+		case "ergonomics-max":
+			if i.PotentialValues.MaxErgonomics < j.PotentialValues.MaxErgonomics {
+				return -1
+			} else if i.PotentialValues.MaxErgonomics > j.PotentialValues.MaxErgonomics {
+				return 1
+			}
+		}
+		return 0
+	})
 }
 
 func (slot *ItemSlot) CalculatePotentialValues() {

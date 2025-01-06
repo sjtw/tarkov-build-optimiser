@@ -190,37 +190,13 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 
 func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	excludedItems map[string]bool) *Build {
-	//itemHits := map[string]int{}
-	//memo := map[string]*Build{}
 
 	log.Info().Msgf("Finding best build for %s", weapon.Item.Name)
-	//for index, slot := range weapon.Item.Slots {
-	//	log.Info().Msgf("Processing slot %d", index)
-	//	slots := make([]*candidate_tree.ItemSlot, 0)
-	//	slots = append(slots, slot)
-	//	build := processSlots(slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, []string{}, uselessItems, memo, itemHits)
-	//
-	//	log.Info().Msgf("Slot %d, Build: %v", index, build)
-	//}
-	//slots := []*candidate_tree.ItemSlot{
-	//	weapon.Item.Slots[0],
-	//	//weapon.Item.Slots[1],
-	//	//weapon.Item.Slots[2],
-	//	weapon.Item.Slots[3],
-	//	//weapon.Item.Slots[4],
-	//}
 
 	slotNameMap := make(map[string]*candidate_tree.ItemSlot)
 
 	for _, slot := range weapon.Item.Slots {
 		slotNameMap[slot.Name] = slot
-		//build := processSlots([]*candidate_tree.ItemSlot{slot}, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil)
-		//build.WeaponTree = *weapon
-		//evaledSlot, err := build.ToEvaluatedWeapon()
-		//if err != nil {
-		//	log.Error().Err(err).Msgf("Failed to convert build to evaluated weapon for %s", weapon.Item.Name)
-		//}
-		//log.Info().Msgf("Slot %s, Build: %v", slot.Name, evaledSlot)
 	}
 
 	weapon.UpdateAllowedItemSlots()
@@ -263,7 +239,6 @@ func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	}
 
 	memo := map[string]*Build{}
-	//build := processSlots(slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, []string{}, memo, itemHits)
 	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, -35, 0, excludedItems, nil, memo)
 
 	build.WeaponTree = *weapon
@@ -311,7 +286,6 @@ func getMemoKey(slotID string, excludedItems map[string]bool) string {
 	return fmt.Sprintf("%s:%v", slotID, strings.Join(items, "-"))
 }
 
-// Refactored processSlots function
 func processSlots(
 	root *candidate_tree.CandidateTree,
 	slotsToProcess []*candidate_tree.ItemSlot,
@@ -344,17 +318,16 @@ func processSlots(
 		}
 	}
 
-	// Take the first slot to process
+	// select the next slot in the array. remaining slots will be passed onto the next recursive call.
 	currentSlot := clonedSlots[0]
 	remainingSlots := clonedSlots[1:]
 
-	// Cycle Detection
+	// visitedSlots just keeps track of how often we're hitting certain slots. Can be useful for debugging, but it's
+	// a good safe guard against infinite loops. in theory CandidateTree should be handling this.
 	if visitedSlots[currentSlot.ID] {
-		// Slot has already been processed in this path, skip to prevent cycle
 		return processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, visitedSlots, memo)
 	}
 
-	// Mark the current slot as visited
 	if visitedSlots == nil {
 		visitedSlots = make(map[string]bool)
 	}
@@ -365,21 +338,29 @@ func processSlots(
 
 	var best *Build = nil
 
-	// Iterate through all allowed items for the current slot
+	// pretty straightforward:
+	// - loop through all the items we can put in this slot see what the outcome is
+	// - pick the best
+	// - alloweditems are sorted by potential value, so if we can slot something together earlier, nothing later on in
+	//   the AllowedItems slice is going to improve things.
 	for _, item := range currentSlot.AllowedItems {
+		// if we've already evaluated this exact slot with the exact same exclusion list, we can just return the result
+		// in practice this has never happened as far as I can tell. It should being way more value when persisted and
+		// budget constraints are added.
 		key := getMemoKey(item.ID, excludedItems)
 		if cached, ok := memo[key]; ok {
 			best = cached
-			log.Info().Msgf("cache hit for %s", item.Name)
 			break
 		}
 
-		// Skip if the item is excluded
+		// if this item is explicitly excluded, we can skip it
+		// any conflicts with items so far should also be in here.
 		if excludedItems[item.ID] {
 			continue
 		}
 
-		// Check for conflicts with already chosen items
+		// i've a feeling this just does the same as the above now...
+		// TODO - confirm & remove if so
 		conflict := false
 		for _, chosen := range chosenItems {
 			if conflictsWith(item, chosen) {
@@ -391,47 +372,45 @@ func processSlots(
 			continue
 		}
 
-		// Assign the item
+		// from here until the end of the loop we're going to see what happens if we slot this item into this slot.
 		newChosen := append(chosenItems, OptimalItem{
 			Name:   item.Name,
 			ID:     item.ID,
 			SlotID: currentSlot.ID,
 		})
 
-		//if item.ConflictingItems == nil || len(item.ConflictingItems) == 0 {
-		//	for _, chosen := range chosenItems {
-		//		// Iterate through chosenItems instead of currentSlot.AllowedItems
-		//
-		//	}
-		//}
-
-		// Update sums
 		newRecoil := recoilStatSum + item.RecoilModifier
 		newErgo := ergoStatSum + item.ErgonomicsModifier
 
-		// Prepare new slots to process, **prepend** any sub-slots from the current item
 		newSlotsToProcess := append([]*candidate_tree.ItemSlot{}, item.Slots...)
 		newSlotsToProcess = append(newSlotsToProcess, remainingSlots...)
 
-		// Clone and update excludedItems for conflicts
 		newExcluded := helpers.CloneMap(excludedItems)
 		for _, c := range item.ConflictingItems {
 			newExcluded[c.ID] = true
 		}
 
-		// Recursive call with updated visitedSlots
 		candidate := processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, memo)
 
-		// Compare and retain the best build
 		if candidate != nil {
-			if best == nil || doesImproveStats(candidate, best, focusedStat) {
+			if best == nil {
+				// it could be better than possibly nothing, so store it as the best for now.
 				best = candidate
+			} else if doesImproveStats(candidate, best, focusedStat) {
+				// it's better than the best we've seen so far
+				best = candidate
+
+				// we're assuming that because AllowedItems is sorted by its potential stat sum we can break here.
+				// this isn't 100% accurate - more of an estimation - we still need to check if this build is
+				// ACTUALLY better than the potential of others or likelyhood of them being so.
+				break
 			}
 		}
 	}
 
-	// **Attempt to Skip the Current Slot**
-	// After trying all items, also attempt to skip assigning any item to the current slot
+	// this evaluates the outcome of leaving this slot empty. Basically, there's the possibility that some item which
+	// opens up a better build can be slotted in elsewhere which would conflict with any build created using any item
+	// in this slot.
 	candidateSkip := processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, helpers.CloneMap(excludedItems), visitedSlots, memo)
 
 	if candidateSkip != nil {
@@ -440,12 +419,21 @@ func processSlots(
 		}
 	}
 
+	// memoize the best build for this slot. I'm pretty certain this is actually never useful at the moment
+	// as we don't persist anything, and technically shouldn't be reevaluating the same path twice anyway...
+	//
+	// TDOO: persist these in db - including the candidate tree constraints we're operating on. This might at least
+	// help when re-evaluating everything after a new patch.
+	//
+	// the only constraints for this build are the current exclusion list and the current slot we're evaluating.
+	// the exclusion list contains:
+	// - anything explicitly excluded by the caller
+	// - any items which conflict with an item selected by the best build
 	if best != nil {
 		key := getMemoKey(currentSlot.ID, excludedItems)
 		memo[key] = best
 	}
 
-	// Return the best build found
 	return best
 }
 
@@ -462,66 +450,68 @@ type ChosenTree struct {
 	OptimalItems       []OptimalItem
 }
 
-func getNonConflictingTrees(build *Build, itemMap map[string]*candidate_tree.Item) map[string]*ChosenTree {
-	chosenMap := map[string]*ChosenTree{}
+// just an idea - basically a complete build might never be used again, but a partial one may be suitable for reuse if
+// it never conflicts with anything else, or if has a low number of conflicts. AKs in particular come to mind.
+//func getNonConflictingTrees(build *Build, itemMap map[string]*candidate_tree.Item) map[string]*ChosenTree {
+//	chosenMap := map[string]*ChosenTree{}
+//
+//	for _, item := range build.OptimalItems {
+//		hasConflicts := false
+//		if itemMap[item.ID].ConflictingItems != nil && len(itemMap[item.ID].ConflictingItems) > 0 {
+//			hasConflicts = true
+//		}
+//
+//		chosenMap[item.ID] = &ChosenTree{
+//			ID:                 item.ID,
+//			Name:               item.Name,
+//			Slots:              map[string]*ChosenTree{},
+//			HasConflicts:       hasConflicts,
+//			RecoilModifier:     itemMap[item.ID].RecoilModifier,
+//			ErgonomicsModifier: itemMap[item.ID].ErgonomicsModifier,
+//			SlotID:             item.SlotID,
+//			OptimalItems:       []OptimalItem{item},
+//		}
+//
+//		for _, slot := range itemMap[item.ID].Slots {
+//			for _, sub := range build.OptimalItems {
+//				if slot.ID == sub.SlotID {
+//					chosenMap[item.ID].Slots[slot.ID] = &ChosenTree{
+//						ID:    sub.ID,
+//						Name:  sub.Name,
+//						Slots: map[string]*ChosenTree{},
+//					}
+//					chosenMap[item.ID].OptimalItems = append(chosenMap[item.ID].OptimalItems, sub)
+//				}
+//			}
+//		}
+//	}
+//
+//	filtered := map[string]*ChosenTree{}
+//	for _, item := range build.OptimalItems {
+//		if !chosenMap[item.ID].HasConflicts && len(chosenMap[item.ID].Slots) > 0 {
+//			filtered[item.ID] = chosenMap[item.ID]
+//		}
+//	}
+//
+//	for _, item := range filtered {
+//		recoil, ergo := calculateSums(item, 0, 0)
+//		item.RecoilSum = recoil
+//		item.ErgonomicsSum = ergo
+//	}
+//
+//	return filtered
+//}
 
-	for _, item := range build.OptimalItems {
-		hasConflicts := false
-		if itemMap[item.ID].ConflictingItems != nil && len(itemMap[item.ID].ConflictingItems) > 0 {
-			hasConflicts = true
-		}
-
-		chosenMap[item.ID] = &ChosenTree{
-			ID:                 item.ID,
-			Name:               item.Name,
-			Slots:              map[string]*ChosenTree{},
-			HasConflicts:       hasConflicts,
-			RecoilModifier:     itemMap[item.ID].RecoilModifier,
-			ErgonomicsModifier: itemMap[item.ID].ErgonomicsModifier,
-			SlotID:             item.SlotID,
-			OptimalItems:       []OptimalItem{item},
-		}
-
-		for _, slot := range itemMap[item.ID].Slots {
-			for _, sub := range build.OptimalItems {
-				if slot.ID == sub.SlotID {
-					chosenMap[item.ID].Slots[slot.ID] = &ChosenTree{
-						ID:    sub.ID,
-						Name:  sub.Name,
-						Slots: map[string]*ChosenTree{},
-					}
-					chosenMap[item.ID].OptimalItems = append(chosenMap[item.ID].OptimalItems, sub)
-				}
-			}
-		}
-	}
-
-	filtered := map[string]*ChosenTree{}
-	for _, item := range build.OptimalItems {
-		if !chosenMap[item.ID].HasConflicts && len(chosenMap[item.ID].Slots) > 0 {
-			filtered[item.ID] = chosenMap[item.ID]
-		}
-	}
-
-	for _, item := range filtered {
-		recoil, ergo := calculateSums(item, 0, 0)
-		item.RecoilSum = recoil
-		item.ErgonomicsSum = ergo
-	}
-
-	return filtered
-}
-
-func calculateSums(item *ChosenTree, recoilSum int, ergoSum int) (int, int) {
-	slotRecoil := 0
-	slotErgo := 0
-	for _, slot := range item.Slots {
-		slotRecoil, slotErgo = calculateSums(slot, recoilSum, ergoSum)
-	}
-
-	recoilSum += item.RecoilModifier + slotRecoil
-	ergoSum += item.ErgonomicsModifier + slotErgo
-
-	return recoilSum, ergoSum
-
-}
+//func calculateSums(item *ChosenTree, recoilSum int, ergoSum int) (int, int) {
+//	slotRecoil := 0
+//	slotErgo := 0
+//	for _, slot := range item.Slots {
+//		slotRecoil, slotErgo = calculateSums(slot, recoilSum, ergoSum)
+//	}
+//
+//	recoilSum += item.RecoilModifier + slotRecoil
+//	ergoSum += item.ErgonomicsModifier + slotErgo
+//
+//	return recoilSum, ergoSum
+//
+//}

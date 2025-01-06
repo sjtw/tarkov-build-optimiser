@@ -89,6 +89,12 @@ func (wt *CandidateTree) GetAllowedItemSlot(id string) *ItemSlot {
 	return wt.allowedItemSlotMap[id]
 }
 
+func (wt *CandidateTree) SortAllowedItems(by string) {
+	for _, slot := range wt.Item.Slots {
+		slot.SortAllowedItems(by)
+	}
+}
+
 func CreateItemCandidateTree(id string, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {
 	item, err := data.GetWeaponModById(id)
 	if err != nil {

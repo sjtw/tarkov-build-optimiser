@@ -169,6 +169,14 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		}
 		log.Info().Msg("Weapon tree constructed")
 
+		if buildType == "recoil" {
+			log.Info().Msg("Sorting candidate tree for recoil")
+			weaponTree.SortAllowedItems("recoil-min")
+		} else {
+			log.Info().Msg("Sorting candidate tree for ergonomics")
+			weaponTree.SortAllowedItems("ergonomics-max")
+		}
+
 		excluded := map[string]bool{
 			//"5b7be4895acfc400170e2dd5": true,
 			//"5a33e75ac4a2826c6e06d759": true,
