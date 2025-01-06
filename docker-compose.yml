@@ -49,24 +49,6 @@ services:
         condition: service_completed_successfully
     restart: no
 
-
-  evaluator:
-    build:
-      context: .
-      dockerfile: docker/evaluator.Dockerfile
-    container_name: tarkov-build-optimiser-evaluator
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      importer:
-        condition: service_completed_successfully
-    restart: no
-
   api:
     build:
       context: .
