@@ -128,6 +128,7 @@ func (item *Item) GetAncestorIds() []string {
 func (item *Item) PopulateSlots() error {
 	slots, err := item.Root.dataService.GetSlotsByItemID(item.ID)
 	if err != nil {
+		log.Error().Err(err).Msgf("Failed to get slots for item %s", item.ID)
 		return err
 	}
 

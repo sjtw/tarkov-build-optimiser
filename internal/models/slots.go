@@ -62,3 +62,24 @@ func GetSlotsByItemID(db *sql.DB, itemID string) ([]Slot, error) {
 
 	return slots, nil
 }
+
+func GetAllSlots(db *sql.DB) (map[string][]Slot, error) {
+	rows, err := db.Query(`select slot_id, name, item_id from slots`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var itemID string
+	slotsByItemID := make(map[string][]Slot)
+	for rows.Next() {
+		slot := Slot{}
+		err := rows.Scan(&slot.ID, &slot.Name, &itemID)
+		if err != nil {
+			return nil, err
+		}
+		slotsByItemID[itemID] = append(slotsByItemID[itemID], slot)
+	}
+
+	return slotsByItemID, nil
+}

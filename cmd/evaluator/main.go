@@ -28,12 +28,16 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to connect to db")
 	}
 
+	log.Info().Msg("Creating evaluator status entry")
+
 	if flags.PurgeOptimumBuilds {
 		log.Info().Msg("Purging optimum builds.")
 		err = models.PurgeOptimumBuilds(dbClient.Conn)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to purge all models.")
+			log.Fatal().Err(err).Msg("Failed to purge all models.")
+			return
 		}
+
 		log.Info().Msg("Models purged.")
 	}
 
@@ -41,7 +45,7 @@ func main() {
 	if flags.TestRun {
 		log.Info().Msg("Using test weapon IDs")
 		weaponIds = []string{
-			"5644bd2b4bdc2d3b4c8b4572",
+			"54491c4f4bdc2db1078b4568",
 			//"5448bd6b4bdc2dfc2f8b4569",
 			//"54491c4f4bdc2db1078b4568",
 		}
@@ -64,156 +68,134 @@ func main() {
 }
 
 type EvaluationResult struct {
-	Task   Task
-	Result *evaluator.Build
-}
-
-//type WeaponPossibilityResult struct {
-//	Weapon *candidate_tree.CandidateTree
-//	Id     string
-//}
-
-type Task struct {
+	Result         *evaluator.Build
 	Weapon         *candidate_tree.CandidateTree
 	EvaluationType string
+	BuildID        int
 }
-
-//func processEvaluationTasks(tasks []Task, workerCount int) []EvaluationResult {
-//	taskChan := make(chan Task, len(tasks))
-//	resultsChan := make(chan EvaluationResult, len(tasks))
-//	wg := sync.WaitGroup{}
-//
-//	for i := 0; i < workerCount; i++ {
-//		wg.Add(1)
-//
-//		go func() {
-//			defer wg.Done()
-//
-//			for task := range taskChan {
-//				build := evaluator.FindBestBuild(task.Weapon, task.EvaluationType, map[string]bool{})
-//				resultsChan <- EvaluationResult{
-//					Task:   task,
-//					Result: build,
-//				}
-//			}
-//		}()
-//	}
-//
-//	for _, task := range tasks {
-//		taskChan <- task
-//	}
-//	close(taskChan)
-//
-//	wg.Wait()
-//
-//	results := make([]EvaluationResult, len(tasks))
-//	close(resultsChan)
-//	for result := range resultsChan {
-//		results = append(results, result)
-//	}
-//
-//	return results
-//}
-
-//func createEvaluationTasks(weaponCandidateTrees []WeaponPossibilityResult, evaluationTypes []string) []Task {
-//	tasks := make([]Task, 0)
-//
-//	for i := 0; i < len(weaponCandidateTrees); i++ {
-//		w := weaponCandidateTrees[i]
-//		log.Debug().Msgf("Creating task variations for weapon %s", w.Id)
-//
-//		for k := 0; k < len(evaluationTypes); k++ {
-//			task := Task{
-//				Weapon:         w.Weapon,
-//				EvaluationType: evaluationTypes[k],
-//			}
-//			tasks = append(tasks, task)
-//		}
-//	}
-//
-//	return tasks
-//}
 
 type Candidateinput struct {
 	weaponID    string
 	constraints models.EvaluationConstraints
+	BuildID     int
 }
 
 func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, db *sql.DB) []EvaluationResult {
-	inputChan := make(chan Candidateinput, len(weaponIds)*len(models.TraderNames))
-	resultsChan := make(chan EvaluationResult, len(weaponIds)*len(models.TraderNames))
-	wg := sync.WaitGroup{}
-
 	traderLevels := evaluator.GenerateTraderLevelVariations(models.TraderNames)
 
-	for i := 0; i < workerCount; i++ {
+	inputChan := make(chan Candidateinput, len(weaponIds)*len(traderLevels))
+	resultsChan := make(chan EvaluationResult, len(weaponIds)*len(traderLevels)) // buffer size to handle all results at once
+	wg := sync.WaitGroup{}
+
+	// Start worker goroutines
+	for i := 0; i < 1000; i++ {
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
 
 			for input := range inputChan {
+				log.Info().Msgf("Processing input for weapon %s", input.weaponID)
+
+				err := models.SetBuildInProgress(db, input.BuildID)
+				if err != nil {
+					log.Error().Err(err).Msgf("Failed to update evaluator status to inprogress for weapon %s", input.weaponID)
+					err2 := models.SetBuildFailed(db, input.BuildID)
+					if err2 != nil {
+						log.Error().Err(err2).Msgf("Failed to set build failed for build %d", input.BuildID)
+					}
+					continue
+				}
+
 				weapon, err := candidate_tree.CreateWeaponCandidateTree(input.weaponID, input.constraints, dataProvider)
 				if err != nil {
-					log.Error().Err(err).Msgf("Failed to create weapon tree for %s. Skipping", weaponIds[i])
+					log.Error().Err(err).Msgf("Failed to create weapon tree for %s. Skipping", input.weaponID)
+					err2 := models.SetBuildFailed(db, input.BuildID)
+					if err2 != nil {
+						log.Error().Err(err2).Msgf("Failed to set build failed for build %d", input.BuildID)
+					}
 					continue
 				}
 
 				weapon.SortAllowedItems("recoil-min")
 
-				log.Info().Msgf("Generated weapon candidate tree for %s with constraints %v", weaponIds[i], input.constraints)
+				log.Info().Msgf("Generated weapon candidate tree for %s with constraints %v", input.weaponID, input.constraints)
 
-				task := Task{
-					Weapon:         weapon,
-					EvaluationType: "recoil",
-				}
-				build := evaluator.FindBestBuild(task.Weapon, task.EvaluationType, map[string]bool{})
+				build := evaluator.FindBestBuild(weapon, "recoil", map[string]bool{})
 
-				log.Info().Msgf("Evaluation complete - weapon %s with constraints %v", weaponIds[i], input.constraints)
+				log.Info().Msgf("Evaluation complete - weapon %s with constraints %v", input.weaponID, input.constraints)
 
 				evaledWeapon, err := build.ToEvaluatedWeapon()
 				if err != nil {
-					log.Error().Err(err).Msgf("Failed to convert result to evaluated weapon for weapon %s with constraints %v", weaponIds[i], input.constraints)
+					log.Error().Err(err).Msgf("Failed to convert result to evaluated weapon for weapon %s with constraints %v", input.weaponID, input.constraints)
+					err2 := models.SetBuildFailed(db, input.BuildID)
+					if err2 != nil {
+						log.Error().Err(err2).Msgf("Failed to set build failed for build %d", input.BuildID)
+					}
 					continue
 				}
 
 				evaluationResult := evaledWeapon.ToItemEvaluationResult()
 
-				err = models.UpsertOptimumBuild(db, &evaluationResult, build.WeaponTree.Constraints)
+				err = models.SetBuildCompleted(db, input.BuildID, &evaluationResult)
 				if err != nil {
-					log.Error().Err(err).Msgf("Failed to save build for weapon %s with constraints %v", weaponIds[i], input.constraints)
+					log.Error().Err(err).Msgf("Failed to save build for weapon %s with constraints %v", input.weaponID, input.constraints)
+					err2 := models.SetBuildFailed(db, input.BuildID)
+					if err2 != nil {
+						log.Error().Err(err2).Msgf("Failed to set build failed for build %d", input.BuildID)
+					}
 					continue
 				}
 
+				log.Info().Msgf("Saved build for weapon %s with constraints %v", input.weaponID, input.constraints)
+
 				resultsChan <- EvaluationResult{
-					Task:   task,
-					Result: build,
+					BuildID:        input.BuildID,
+					EvaluationType: "recoil",
+					Weapon:         weapon,
+					Result:         build,
 				}
 			}
-
 		}()
 	}
 
+	// Send work to the input channel
 	for i := 0; i < len(weaponIds); i++ {
 		for j := 0; j < len(traderLevels); j++ {
+			log.Info().Msgf("Sending work for weapon %s with constraints %v", weaponIds[i], traderLevels[j])
+
 			constraints := models.EvaluationConstraints{
 				TraderLevels:     traderLevels[j],
 				IgnoredSlotNames: []string{"Scope", "Ubgl", "Tactical"},
 				IgnoredItemIDs:   []string{},
 			}
 
+			buildID, err := models.CreatePendingOptimumBuild(db, weaponIds[i], "recoil", constraints)
+			if err != nil {
+				log.Error().Err(err).Msgf("Failed to create evaluator status for weapon %s", weaponIds[i])
+				return nil
+			}
+
+			log.Info().Msgf("Sending to input %s, %v", weaponIds[i], constraints)
 			inputChan <- Candidateinput{
 				weaponID:    weaponIds[i],
 				constraints: constraints,
+				BuildID:     buildID,
 			}
 		}
 	}
 
+	// Close inputChan after sending all work to it
 	close(inputChan)
+
+	// Wait for all workers to finish
 	wg.Wait()
 
-	results := make([]EvaluationResult, 0)
+	// Close resultsChan after all workers are done sending results
 	close(resultsChan)
+
+	// Collect results
+	results := make([]EvaluationResult, 0)
 	for result := range resultsChan {
 		results = append(results, result)
 	}

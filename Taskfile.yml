@@ -60,6 +60,15 @@ tasks:
     deps: [importer:build]
     cmd: ./bin/importer
 
+  evaluator:build:
+    desc: Build the evaluator
+    cmd: go build -o bin/evaluator ./cmd/evaluator
+
+  evaluator:start:
+    desc: Start the evaluator
+    deps: [evaluator:build]
+    cmd: ./bin/evaluator
+
   lint:
     desc: Run linter
     cmd: golangci-lint run
