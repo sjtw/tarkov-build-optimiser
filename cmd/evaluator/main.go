@@ -30,16 +30,14 @@ func main() {
 
 	log.Info().Msg("Creating evaluator status entry")
 
-	if flags.PurgeOptimumBuilds {
-		log.Info().Msg("Purging optimum builds.")
-		err = models.PurgeOptimumBuilds(dbClient.Conn)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to purge all models.")
-			return
-		}
-
-		log.Info().Msg("Models purged.")
+	log.Info().Msg("Purging optimum builds.")
+	err = models.PurgeOptimumBuilds(dbClient.Conn)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to purge optimum builds.")
+		return
 	}
+
+	log.Info().Msg("Models purged.")
 
 	var weaponIds []string
 	if flags.TestRun {
@@ -88,7 +86,7 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 	wg := sync.WaitGroup{}
 
 	// Start worker goroutines
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
 
 		go func() {

@@ -169,6 +169,7 @@ func (slot *ItemSlot) GetAncestorItems() []*Item {
 func (slot *ItemSlot) PopulateAllowedItems() error {
 	allowedItems, err := slot.RootWeaponTree.dataService.GetAllowedItemsBySlotID(slot.ID)
 	if err != nil {
+		log.Error().Err(err).Msgf("Failed to get allowed items for slot %s", slot.ID)
 		return err
 	}
 
@@ -177,6 +178,10 @@ func (slot *ItemSlot) PopulateAllowedItems() error {
 
 		traderOfferValid := false
 		offer, err := slot.RootWeaponTree.dataService.GetTraderOffer(allowedItem.ID)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to get trader offer for item %s", allowedItem.ID)
+			return err
+		}
 		for _, traderConstraint := range slot.RootWeaponTree.Constraints.TraderLevels {
 			for _, t := range offer {
 				if traderConstraint.Name == t.Trader {

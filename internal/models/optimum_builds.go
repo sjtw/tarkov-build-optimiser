@@ -251,8 +251,8 @@ func GetOptimumBuildByConstraints(db *sql.DB, itemId string, buildType string, c
 			build,
 			status
 		FROM optimum_builds
-		WHERE is_subtree = false
-			AND item_id = $1
+		WHERE
+		    item_id = $1
 			AND build_type = $2
 			AND jaeger_level = $3
 			AND prapor_level = $4
@@ -279,14 +279,16 @@ func GetOptimumBuildByConstraints(db *sql.DB, itemId string, buildType string, c
 	var status string
 	for rows.Next() {
 		result := ItemEvaluationResult{}
-		var build string
+		var build sql.NullString
 		err := rows.Scan(&buildID, &build, &status)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := json.Unmarshal([]byte(build), &result); err != nil {
-			return nil, err
+		if build.Valid {
+			if err := json.Unmarshal([]byte(build.String), &result); err != nil {
+				return nil, err
+			}
 		}
 
 		result.BuildID = buildID
@@ -301,6 +303,8 @@ func GetOptimumBuildByConstraints(db *sql.DB, itemId string, buildType string, c
 		msg := fmt.Sprintf("Multiple Optimum Builds found for: itemId: %s, buildType: %s, constraints: %v", itemId, buildType, constraints)
 		return nil, errors.New(msg)
 	}
+
+	results[0].Status = status
 
 	return &results[0], nil
 }

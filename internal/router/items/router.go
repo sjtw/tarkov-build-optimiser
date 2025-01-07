@@ -70,7 +70,7 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 
 		build, err := models.GetOptimumBuildByConstraints(db, itemId, buildType, constraints)
 		if err != nil {
-			log.Error().Msgf("Failed to get optimum build. item %s, constraints %v", itemId, constraints)
+			log.Error().Err(err).Msgf("Failed to get optimum build. item %s, constraints %v", itemId, constraints)
 			return c.String(500, err.Error())
 		}
 
