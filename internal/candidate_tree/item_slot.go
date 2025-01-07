@@ -192,14 +192,14 @@ func (slot *ItemSlot) PopulateAllowedItems() error {
 		}
 
 		if !traderOfferValid {
-			log.Info().Msgf("item %s does not meet trader level constraints - not adding", allowedItem.ID)
+			//log.Info().Msgf("item %s does not meet trader level constraints - not adding", allowedItem.ID)
 			continue
 		}
 
 		ignored := false
 		for _, id := range slot.RootWeaponTree.Constraints.IgnoredItemIDs {
 			if id == allowedItem.ID {
-				log.Info().Msgf("item %s is ignored - not adding as allowed item", id)
+				//log.Info().Msgf("item %s is ignored - not adding as allowed item", id)
 				ignored = true
 				break
 			}
@@ -228,7 +228,7 @@ func (slot *ItemSlot) PopulateAllowedItems() error {
 		if len(modProperties.ConflictingItems) > 0 {
 			for _, id := range modProperties.ConflictingItems {
 				conflictingItem, err := slot.RootWeaponTree.dataService.GetWeaponModById(id)
-				if err != nil {
+				if err != nil || conflictingItem == nil {
 					log.Error().Err(err).Msgf("Failed to resolve conflicting item: %s", id)
 					return err
 				}

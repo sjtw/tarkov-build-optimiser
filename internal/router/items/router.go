@@ -166,7 +166,7 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		}
 
 		if prebuild != nil {
-			return c.JSON(200, build)
+			return c.JSON(200, prebuild)
 		}
 
 		log.Info().Msg("No pre-generated build - calculating")

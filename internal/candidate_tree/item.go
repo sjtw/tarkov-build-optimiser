@@ -140,7 +140,7 @@ func (item *Item) PopulateSlots() error {
 
 		ignored := false
 		for _, name := range item.Root.Constraints.IgnoredSlotNames {
-			log.Info().Msgf("slot %s is ignored - not populating with allowed items", name)
+			//log.Info().Msgf("slot %s is ignored - not populating with allowed items", name)
 			if slots[i].Name == name {
 				ignored = true
 				break
