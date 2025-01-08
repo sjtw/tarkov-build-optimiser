@@ -111,12 +111,10 @@ type Candidateinput struct {
 }
 
 func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB) []EvaluationResult {
-
 	inputChan := make(chan Candidateinput, len(weaponIds)*len(traderLevels))
-	resultsChan := make(chan EvaluationResult, len(weaponIds)*len(traderLevels)) // buffer size to handle all results at once
+	resultsChan := make(chan EvaluationResult, len(weaponIds)*len(traderLevels))
 	wg := sync.WaitGroup{}
 
-	// Start worker goroutines
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
 
@@ -214,16 +212,10 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 		}
 	}
 
-	// Close inputChan after sending all work to it
 	close(inputChan)
-
-	// Wait for all workers to finish
 	wg.Wait()
-
-	// Close resultsChan after all workers are done sending results
 	close(resultsChan)
 
-	// Collect results
 	results := make([]EvaluationResult, 0)
 	for result := range resultsChan {
 		results = append(results, result)
