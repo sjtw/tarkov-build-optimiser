@@ -89,30 +89,23 @@ func (item *Item) GetDescendantSlots() []*ItemSlot {
 }
 
 func (item *Item) CalculatePotentialValues() {
-	potential := PotentialValues{
-		MinRecoil:     item.PotentialValues.MinRecoil,
-		MaxRecoil:     item.PotentialValues.MaxRecoil,
-		MinErgonomics: item.PotentialValues.MinErgonomics,
-		MaxErgonomics: item.PotentialValues.MaxErgonomics,
+	item.PotentialValues = PotentialValues{
+		MinRecoil:     item.RecoilModifier,
+		MaxRecoil:     item.RecoilModifier,
+		MinErgonomics: item.ErgonomicsModifier,
+		MaxErgonomics: item.ErgonomicsModifier,
 	}
 
-	if len(item.Slots) == 0 {
-		potential.MinRecoil = item.RecoilModifier
-		potential.MaxRecoil = item.RecoilModifier
-		potential.MinErgonomics = item.ErgonomicsModifier
-		potential.MaxErgonomics = item.ErgonomicsModifier
-	} else {
+	if item.Slots != nil {
 		for _, slot := range item.Slots {
 			slot.CalculatePotentialValues()
 
-			potential.MinRecoil += slot.PotentialValues.MinRecoil
-			potential.MaxRecoil += slot.PotentialValues.MaxRecoil
-			potential.MinErgonomics += slot.PotentialValues.MinErgonomics
-			potential.MaxErgonomics += slot.PotentialValues.MaxErgonomics
+			item.PotentialValues.MinRecoil += slot.PotentialValues.MinRecoil
+			item.PotentialValues.MaxRecoil += slot.PotentialValues.MaxRecoil
+			item.PotentialValues.MinErgonomics += slot.PotentialValues.MinErgonomics
+			item.PotentialValues.MaxErgonomics += slot.PotentialValues.MaxErgonomics
 		}
 	}
-
-	item.PotentialValues = potential
 }
 
 func (item *Item) GetAncestorIds() []string {

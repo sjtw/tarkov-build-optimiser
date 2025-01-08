@@ -357,7 +357,6 @@ func processSlots(
 	memo map[string]*Build,
 ) *Build {
 	clonedSlots := append([]*candidate_tree.ItemSlot{}, slotsToProcess...)
-	//clonedSlots = filterSlots(clonedSlots, []string{"Tactical", "Ubgl", "Mount", "Scope"}) // No filtering
 
 	// Base case: No more slots to process
 	if len(clonedSlots) == 0 {
@@ -403,11 +402,17 @@ func processSlots(
 	// - alloweditems are sorted by potential value, so if we can slot something together earlier, nothing later on in
 	//   the AllowedItems slice is going to improve things. edit: actually they could, needs improvement.
 	for _, item := range currentSlot.AllowedItems {
+		if item.PotentialValues.MinRecoil >= 0 {
+			log.Info().Msgf("Skipping item %s for slot %s - no recoil potential improvement", item.Name, currentSlot.Name)
+			continue
+		}
+
 		// if we've already evaluated this exact slot with the exact same exclusion list, we can just return the result
 		// in practice this has never happened as far as I can tell. It should being way more value when persisted and
 		// budget constraints are added.
 		key := getMemoKey(item.ID, excludedItems)
 		if cached, ok := memo[key]; ok {
+			log.Info().Msgf("Using cached build for slot %s", currentSlot.Name)
 			best = cached
 			break
 		}

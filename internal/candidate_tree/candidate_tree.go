@@ -11,6 +11,7 @@ type TreeDataProvider interface {
 	GetWeaponModById(id string) (*models.WeaponMod, error)
 	GetAllowedItemsBySlotID(id string) ([]*models.AllowedItem, error)
 	GetTraderOffer(id string) ([]models.TraderOffer, error)
+	IsWeapon(id string) (bool, error)
 }
 
 type WeaponTreeConstraints struct {
@@ -93,16 +94,6 @@ func (wt *CandidateTree) SortAllowedItems(by string) {
 	for _, slot := range wt.Item.Slots {
 		slot.SortAllowedItems(by)
 	}
-}
-
-func CreateItemCandidateTree(id string, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {
-	item, err := data.GetWeaponModById(id)
-	if err != nil {
-		log.Error().Err(err).Msgf("Failed to get weapon mod %s", id)
-	}
-
-	return constructCandidateTree(item.ID, item.Name, item.RecoilModifier, item.ErgonomicsModifier, constraints, data)
-
 }
 
 func CreateWeaponCandidateTree(id string, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {

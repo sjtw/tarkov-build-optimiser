@@ -1,6 +1,7 @@
 package candidate_tree
 
 import (
+	"errors"
 	"github.com/rs/zerolog/log"
 	"slices"
 )
@@ -95,40 +96,28 @@ func (slot *ItemSlot) SortAllowedItems(by string) {
 }
 
 func (slot *ItemSlot) CalculatePotentialValues() {
-	potential := PotentialValues{
-		MinRecoil: 0,
-		MaxRecoil: 0,
+	slot.PotentialValues = PotentialValues{}
+
+	if slot.AllowedItems == nil || len(slot.AllowedItems) == 0 {
+		return
 	}
 
 	for _, item := range slot.AllowedItems {
 		item.CalculatePotentialValues()
 
-		if len(item.Slots) == 0 {
-			potential.MinRecoil = item.PotentialValues.MinRecoil
-			potential.MaxRecoil = item.PotentialValues.MaxRecoil
-			potential.MinErgonomics = item.PotentialValues.MinErgonomics
-			potential.MaxErgonomics = item.PotentialValues.MaxErgonomics
-		} else {
-			if potential.MinRecoil > item.PotentialValues.MinRecoil {
-				potential.MinRecoil = item.PotentialValues.MinRecoil
-			}
-
-			if potential.MaxRecoil < item.PotentialValues.MaxRecoil {
-				potential.MaxRecoil = item.PotentialValues.MaxRecoil
-			}
-
-			if potential.MinErgonomics < item.PotentialValues.MinErgonomics {
-				potential.MinErgonomics = item.PotentialValues.MinErgonomics
-			}
-
-			if potential.MaxErgonomics > item.PotentialValues.MaxErgonomics {
-				potential.MaxErgonomics = item.PotentialValues.MaxErgonomics
-			}
+		if item.PotentialValues.MinRecoil < slot.PotentialValues.MinRecoil {
+			slot.PotentialValues.MinRecoil = item.PotentialValues.MinRecoil
 		}
-
+		if item.PotentialValues.MaxRecoil > slot.PotentialValues.MaxRecoil {
+			slot.PotentialValues.MaxRecoil = item.PotentialValues.MaxRecoil
+		}
+		if item.PotentialValues.MinErgonomics < slot.PotentialValues.MinErgonomics {
+			slot.PotentialValues.MinErgonomics = item.PotentialValues.MinErgonomics
+		}
+		if item.PotentialValues.MaxErgonomics > slot.PotentialValues.MaxErgonomics {
+			slot.PotentialValues.MaxErgonomics = item.PotentialValues.MaxErgonomics
+		}
 	}
-
-	slot.PotentialValues = potential
 }
 
 func (slot *ItemSlot) SetParentItem(item *Item) {
@@ -234,8 +223,24 @@ func (slot *ItemSlot) PopulateAllowedItems() error {
 			for _, id := range modProperties.ConflictingItems {
 				conflictingItem, err := slot.RootWeaponTree.dataService.GetWeaponModById(id)
 				if err != nil || conflictingItem == nil {
-					log.Error().Err(err).Msgf("Failed to resolve conflicting item: %s", id)
-					return err
+					isWeapon, err := slot.RootWeaponTree.dataService.IsWeapon(id)
+					if err != nil {
+						log.Error().Err(err).Msgf("Failed to resolve conflicting item: %s. IsWeapon also failed.", id)
+						return err
+					}
+
+					if !isWeapon {
+						log.Error().Msgf("Failed to resolve conflicting item, Conflicting item %s is not a weapon either.", id)
+						return errors.New("Failed to resolve conflicting item.")
+					}
+
+					if id == slot.RootWeaponTree.Item.ID {
+						// the conflicting item is the weapon itself - skip it
+						continue
+					}
+
+					// the conflicting item is a weapon, and isn't this one - all good
+					continue
 				}
 				item.ConflictingItems = append(item.ConflictingItems, ConflictingItem{
 					ID:           conflictingItem.ID,

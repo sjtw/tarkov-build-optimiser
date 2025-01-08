@@ -80,6 +80,10 @@ func (tds *DataService) GetWeaponModById(id string) (*models.WeaponMod, error) {
 	return mod, nil
 }
 
+func (tds *DataService) IsWeapon(id string) (bool, error) {
+	return models.IsWeapon(tds.db, id)
+}
+
 func (tds *DataService) GetAllowedItemsBySlotID(id string) ([]*models.AllowedItem, error) {
 	tds.allowedItemBySlotIDMu.Lock()
 	allowedItems, ok := tds.allowedItemBySlotIDCache[id]

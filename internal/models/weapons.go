@@ -58,6 +58,18 @@ func UpsertManyWeapon(tx *sql.Tx, weapons []Weapon) error {
 	return nil
 }
 
+func IsWeapon(db *sql.DB, id string) (bool, error) {
+	query := `select exists(select 1 from weapons where item_id = $1);`
+
+	var exists bool
+	err := db.QueryRow(query, id).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}
+
 func GetWeaponById(db *sql.DB, id string) (*Weapon, error) {
 	query := `
 		select w.name,

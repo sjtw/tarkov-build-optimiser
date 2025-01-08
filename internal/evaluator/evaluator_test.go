@@ -203,23 +203,13 @@ func TestFindBestBuild(t *testing.T) {
 								},
 							},
 							{
-								Name:         "Mount",
-								ID:           "slot-receiver-mount1",
-								AllowedItems: nil,
-							},
-							{
-								Name:         "Mount",
-								ID:           "slot-receiver-mount2",
-								AllowedItems: nil,
-							},
-							{
 								Name: "Foregrip",
 								ID:   "slot-receiver-foregrip",
 								AllowedItems: []*candidate_tree.Item{
 									{
 										Name:               "bad-foregrip",
 										ID:                 "item-bad-foregrip",
-										RecoilModifier:     0,
+										RecoilModifier:     -1,
 										ErgonomicsModifier: 1,
 										ConflictingItems:   []candidate_tree.ConflictingItem{},
 										Slots:              []*candidate_tree.ItemSlot{},
@@ -261,6 +251,8 @@ func TestFindBestBuild(t *testing.T) {
 
 	initialExcluded := make(map[string]bool)
 	initialExcluded["item-acog"] = true
+
+	weapon.Item.CalculatePotentialValues()
 
 	// Start traversal and get the best build
 	bestBuild := FindBestBuild(weapon, "recoil", initialExcluded)
@@ -305,7 +297,7 @@ func TestFindBestBuild(t *testing.T) {
 	// receiver foregrip
 	assert.NotNil(t, evaluation.Slots[2].Item.Slots[1].Item)
 	assert.Equal(t, "item-bad-foregrip", evaluation.Slots[2].Item.Slots[1].Item.ID)
-	assert.Equal(t, 0, evaluation.Slots[2].Item.Slots[1].Item.RecoilModifier)
+	assert.Equal(t, -1, evaluation.Slots[2].Item.Slots[1].Item.RecoilModifier)
 	assert.Equal(t, 1, evaluation.Slots[2].Item.Slots[1].Item.ErgonomicsModifier)
 
 	// receiver mount

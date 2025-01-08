@@ -39,13 +39,38 @@ func main() {
 
 	log.Info().Msg("Models purged.")
 
+	traderLevels := evaluator.GenerateTraderLevelVariations(models.TraderNames)
+
 	var weaponIds []string
 	if flags.TestRun {
 		log.Info().Msg("Using test weapon IDs")
 		weaponIds = []string{
-			"54491c4f4bdc2db1078b4568",
-			//"5448bd6b4bdc2dfc2f8b4569",
 			//"54491c4f4bdc2db1078b4568",
+			//"5448bd6b4bdc2dfc2f8b4569",
+			"5447a9cd4bdc2dbd208b4567",
+		}
+		traderLevels = [][]models.TraderLevel{
+			{
+				{Name: "Jaeger", Level: 1},
+				{Name: "Prapor", Level: 1},
+				{Name: "Skier", Level: 1},
+				{Name: "Peacekeeper", Level: 1},
+				{Name: "Mechanic", Level: 1},
+			},
+			{
+				{Name: "Jaeger", Level: 2},
+				{Name: "Prapor", Level: 2},
+				{Name: "Skier", Level: 2},
+				{Name: "Peacekeeper", Level: 2},
+				{Name: "Mechanic", Level: 2},
+			},
+			{
+				{Name: "Jaeger", Level: 3},
+				{Name: "Prapor", Level: 3},
+				{Name: "Skier", Level: 3},
+				{Name: "Peacekeeper", Level: 3},
+				{Name: "Mechanic", Level: 3},
+			},
 		}
 	} else {
 		log.Info().Msg("Fetching weapon IDs")
@@ -60,7 +85,7 @@ func main() {
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
 
 	dataService := candidate_tree.CreateDataService(dbClient.Conn)
-	evaluate(weaponIds, dataService, workerCount, dbClient.Conn)
+	evaluate(weaponIds, dataService, workerCount, traderLevels, dbClient.Conn)
 
 	log.Info().Msg("Evaluator done.")
 }
@@ -78,8 +103,7 @@ type Candidateinput struct {
 	BuildID     int
 }
 
-func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, db *sql.DB) []EvaluationResult {
-	traderLevels := evaluator.GenerateTraderLevelVariations(models.TraderNames)
+func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB) []EvaluationResult {
 
 	inputChan := make(chan Candidateinput, len(weaponIds)*len(traderLevels))
 	resultsChan := make(chan EvaluationResult, len(weaponIds)*len(traderLevels)) // buffer size to handle all results at once
