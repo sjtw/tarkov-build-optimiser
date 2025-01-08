@@ -58,7 +58,15 @@ func (slot *ItemSlot) AddAllowedItem(item *Item) {
 }
 
 func (slot *ItemSlot) SortAllowedItems(by string) {
+	if slot.AllowedItems == nil || len(slot.AllowedItems) == 0 {
+		return
+	}
+
 	for _, item := range slot.AllowedItems {
+		if item.Slots == nil || len(item.Slots) == 0 {
+			continue
+		}
+
 		for _, slot := range item.Slots {
 			slot.SortAllowedItems(by)
 		}
@@ -137,6 +145,78 @@ func (slot *ItemSlot) GetAncestorIds() []string {
 
 	ancestors := parent.GetAncestorIds()
 	return append([]string{parent.ID}, ancestors...)
+}
+
+// pruneUselessAllowedItems - removes allowed items which definitely have no potential value improvement
+// we're assuming potential values have already been calculated and have been sorted by value
+//
+// we basically see if any non-conflicting allowed item has the best value. If it does we can always use it so can
+// just drop everything else
+func (slot *ItemSlot) pruneUselessAllowedItems() {
+	if slot.Name == "Rear Sight" {
+		log.Debug().Msgf("Pruning useless allowed items for slot: %s", slot.Name)
+	}
+
+	if len(slot.AllowedItems) == 0 {
+		return
+	}
+
+	conflictingItems := make([]*Item, 0)
+	bestNonConflictingValue := 0
+	var bestNonConflicting *Item
+
+	for _, item := range slot.AllowedItems {
+		item.pruneUselessAllowedItems()
+
+		// hardcode for recoil for now.
+		// TODO: use the roots constraints to determine which stat to use
+		if item.ConflictingItems == nil || len(item.ConflictingItems) == 0 {
+			// has no conflicts
+			if item.PotentialValues.MinRecoil < bestNonConflictingValue {
+				bestNonConflictingValue = item.PotentialValues.MinRecoil
+				bestNonConflicting = item
+			}
+		} else {
+			// has conflicts
+			if item.PotentialValues.MinRecoil < 0 {
+				conflictingItems = append(conflictingItems, item)
+			}
+		}
+	}
+
+	if len(conflictingItems) > 0 {
+		if bestNonConflicting != nil && len(conflictingItems) > 0 {
+			if bestNonConflicting.PotentialValues.MinRecoil < conflictingItems[0].PotentialValues.MinRecoil {
+				// best non conflicting item is better than any conflicting item
+				slot.AllowedItems = []*Item{bestNonConflicting}
+			} else {
+				//	it's not the best, but it might be better than some
+				newAllowedItems := make([]*Item, 0)
+				for _, conflictingItem := range conflictingItems {
+					if conflictingItem.PotentialValues.MinRecoil < bestNonConflictingValue {
+						newAllowedItems = append(newAllowedItems, conflictingItem)
+					} else {
+						newAllowedItems = append(newAllowedItems, bestNonConflicting)
+						// everything onwards is worse than the best non-conflicting item
+						// we can prune everything else.
+						break
+					}
+				}
+			}
+		} else {
+			// no non-conflicting items, just keep the best conflicting item
+			slot.AllowedItems = conflictingItems
+		}
+	} else if bestNonConflicting != nil {
+		// no conflicting items, just keep the best non-conflicting item
+		slot.AllowedItems = []*Item{bestNonConflicting}
+	} else {
+		// no conflicting or non-conflicting items
+		slot.AllowedItems = make([]*Item, 0)
+	}
+
+	// now we're done, ensure the best item is at the front of allowed items, incase we changed the ordering
+	slot.SortAllowedItems("recoil-min")
 }
 
 // GetAncestorItems - returns all ancestor AllowedItems only

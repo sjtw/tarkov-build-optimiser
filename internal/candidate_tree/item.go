@@ -88,6 +88,12 @@ func (item *Item) GetDescendantSlots() []*ItemSlot {
 	return descendants
 }
 
+func (item *Item) pruneUselessAllowedItems() {
+	for _, slot := range item.Slots {
+		slot.pruneUselessAllowedItems()
+	}
+}
+
 func (item *Item) CalculatePotentialValues() {
 	item.PotentialValues = PotentialValues{
 		MinRecoil:     item.RecoilModifier,

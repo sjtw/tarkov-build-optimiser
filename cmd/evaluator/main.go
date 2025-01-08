@@ -71,6 +71,13 @@ func main() {
 				{Name: "Peacekeeper", Level: 3},
 				{Name: "Mechanic", Level: 3},
 			},
+			{
+				{Name: "Jaeger", Level: 4},
+				{Name: "Prapor", Level: 4},
+				{Name: "Skier", Level: 4},
+				{Name: "Peacekeeper", Level: 4},
+				{Name: "Mechanic", Level: 4},
+			},
 		}
 	} else {
 		log.Info().Msg("Fetching weapon IDs")
@@ -129,7 +136,7 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 					continue
 				}
 
-				weapon, err := candidate_tree.CreateWeaponCandidateTree(input.weaponID, input.constraints, dataProvider)
+				weapon, err := candidate_tree.CreateWeaponCandidateTree(input.weaponID, "recoil", input.constraints, dataProvider)
 				if err != nil {
 					log.Error().Err(err).Msgf("Failed to create weapon tree for %s. Skipping", input.weaponID)
 					err2 := models.SetBuildFailed(db, input.BuildID)

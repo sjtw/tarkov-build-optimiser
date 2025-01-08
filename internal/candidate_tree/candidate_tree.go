@@ -63,6 +63,13 @@ func (wt *CandidateTree) updateAllowedItemSlotsMap() {
 	wt.allowedItemSlotMap = slotMap
 }
 
+// pruneUselessAlowedItems removes alloweditems which definitely have no potential value improvement
+func (wt *CandidateTree) pruneUselessAllowedItems() {
+	for _, slot := range wt.Item.Slots {
+		slot.pruneUselessAllowedItems()
+	}
+}
+
 // UpdateAllowedItems updates allowedItems with the current state of the tree
 func (wt *CandidateTree) UpdateAllowedItems() {
 	allowedItems := make([]*Item, 0)
@@ -96,17 +103,17 @@ func (wt *CandidateTree) SortAllowedItems(by string) {
 	}
 }
 
-func CreateWeaponCandidateTree(id string, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {
+func CreateWeaponCandidateTree(id string, focusedStat string, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {
 	w, err := data.GetWeaponById(id)
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to get weapon %s", id)
 		return nil, err
 	}
 
-	return constructCandidateTree(id, w.Name, w.RecoilModifier, w.ErgonomicsModifier, constraints, data)
+	return constructCandidateTree(id, w.Name, w.RecoilModifier, w.ErgonomicsModifier, focusedStat, constraints, data)
 }
 
-func constructCandidateTree(id string, name string, recoilModifier int, ergoModifier int, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {
+func constructCandidateTree(id string, name string, recoilModifier int, ergoModifier int, focusedStat string, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {
 	candidateTree := &CandidateTree{
 		dataService:          data,
 		AllowedItemConflicts: map[string]map[string]bool{},
@@ -137,6 +144,8 @@ func constructCandidateTree(id string, name string, recoilModifier int, ergoModi
 	}
 
 	item.CalculatePotentialValues()
+	candidateTree.SortAllowedItems(focusedStat)
+	candidateTree.pruneUselessAllowedItems()
 
 	candidateTree.UpdateAllowedItems()
 	candidateTree.updateAllowedItemsMap()
