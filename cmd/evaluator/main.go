@@ -40,6 +40,7 @@ func main() {
 	log.Info().Msg("Models purged.")
 
 	traderLevels := evaluator.GenerateTraderLevelVariations(models.TraderNames)
+	traderLevels = evaluator.SortTraderLevelsByMax(traderLevels)
 
 	var weaponIds []string
 	if flags.TestRun {
@@ -111,7 +112,7 @@ type Candidateinput struct {
 }
 
 func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB) []EvaluationResult {
-	inputChan := make(chan Candidateinput, len(weaponIds)*len(traderLevels))
+	inputChan := make(chan Candidateinput, workerCount*2)
 	resultsChan := make(chan EvaluationResult, len(weaponIds)*len(traderLevels))
 	wg := sync.WaitGroup{}
 
