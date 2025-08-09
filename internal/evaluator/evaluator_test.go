@@ -1,11 +1,12 @@
 package evaluator
 
 import (
-	"github.com/stretchr/testify/assert"
 	"sync"
 	"tarkov-build-optimiser/internal/candidate_tree"
 	"tarkov-build-optimiser/internal/models"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func createMockConstraints() models.EvaluationConstraints {
@@ -310,4 +311,518 @@ func TestFindBestBuild(t *testing.T) {
 	assert.Equal(t, -5, evaluation.Slots[0].Item.RecoilModifier)
 	assert.Equal(t, 1, evaluation.Slots[0].Item.ErgonomicsModifier)
 	assert.Len(t, evaluation.Slots[0].Item.Slots, 0)
+}
+
+func TestProcessSlots_UsesMemoEntry(t *testing.T) {
+	// Construct a minimal tree: Weapon -> one slot with one improving item
+	slot := &candidate_tree.ItemSlot{
+		Name: "slot-a",
+		ID:   "slot-a",
+		AllowedItems: []*candidate_tree.Item{
+			{
+				Name:               "good",
+				ID:                 "item-good",
+				RecoilModifier:     -10,
+				ErgonomicsModifier: 0,
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+		},
+	}
+
+	rootItem := &candidate_tree.Item{
+		Name:               "Weapon",
+		ID:                 "item-weapon",
+		RecoilModifier:     0,
+		ErgonomicsModifier: 0,
+		ConflictingItems:   []candidate_tree.ConflictingItem{},
+		Slots:              []*candidate_tree.ItemSlot{slot},
+	}
+
+	weapon := &candidate_tree.CandidateTree{Item: rootItem}
+
+	// Ensure potential values are computed (not strictly needed for this test, but safe)
+	weapon.Item.CalculatePotentialValues()
+
+	// Precompute descendant item sets for memo key filtering
+	desc := precomputeSlotDescendantItemIDs(weapon)
+
+	// Excluded map containing an irrelevant item (not present under the slot)
+	excluded := map[string]bool{"irrelevant-id": true}
+
+	// Prepare a memo key for the subproblem (current = slot-a, remaining = none)
+	memoKey := makeMemoKey("recoil", slot.ID, []*candidate_tree.ItemSlot{}, excluded, desc)
+
+	// Seed memo with a sentinel build for that subproblem
+	sentinel := &Build{EvaluationType: "recoil", OptimalItems: []OptimalItem{{ID: "sentinel"}}}
+	memo := map[string]*Build{memoKey: sentinel}
+
+	// Now invoke the subproblem; it should hit the memo and return the sentinel directly
+	got := processSlots(weapon, []*candidate_tree.ItemSlot{slot}, []OptimalItem{}, "recoil", 0, 0, excluded, nil, memo, desc)
+
+	if got != sentinel {
+		t.Fatalf("expected processSlots to return memoised build, got different pointer: %+v", got)
+	}
+}
+
+func TestFindBestBuild_ErgonomicsFocus_SelectsHighestErgo(t *testing.T) {
+	// One slot with two options: one is better for ergonomics, the other better for recoil.
+	slot := &candidate_tree.ItemSlot{
+		Name: "grip",
+		ID:   "slot-grip",
+		AllowedItems: []*candidate_tree.Item{
+			{
+				Name:               "ergo-better",
+				ID:                 "item-ergo-better",
+				RecoilModifier:     -1, // small recoil benefit to avoid recoil-based skipping
+				ErgonomicsModifier: 10, // best ergonomics
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+			{
+				Name:               "recoil-better",
+				ID:                 "item-recoil-better",
+				RecoilModifier:     -10, // better recoil
+				ErgonomicsModifier: 1,   // worse ergonomics
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+		},
+	}
+
+	rootItem := &candidate_tree.Item{
+		Name:               "Weapon",
+		ID:                 "item-weapon",
+		RecoilModifier:     0,
+		ErgonomicsModifier: 0,
+		ConflictingItems:   []candidate_tree.ConflictingItem{},
+		Slots:              []*candidate_tree.ItemSlot{slot},
+	}
+
+	weapon := &candidate_tree.CandidateTree{Item: rootItem}
+	weapon.Item.CalculatePotentialValues()
+
+	best := FindBestBuild(weapon, "ergonomics", map[string]bool{})
+	if best == nil {
+		t.Fatalf("expected build, got nil")
+	}
+
+	eval, err := best.ToEvaluatedWeapon()
+	if err != nil {
+		t.Fatalf("ToEvaluatedWeapon failed: %v", err)
+	}
+
+	if eval.Slots[0].Item == nil {
+		t.Fatalf("expected grip slot to be filled")
+	}
+	if eval.Slots[0].Item.ID != "item-ergo-better" {
+		t.Fatalf("expected ergonomics-focused build to pick ergo-better, got %s", eval.Slots[0].Item.ID)
+	}
+}
+
+func TestProcessSlots_MemoKey_IgnoresIrrelevantExclusions(t *testing.T) {
+	// Tree: one slot with one item
+	slot := &candidate_tree.ItemSlot{
+		Name: "slot-a",
+		ID:   "slot-a",
+		AllowedItems: []*candidate_tree.Item{
+			{
+				Name:               "only",
+				ID:                 "item-only",
+				RecoilModifier:     -2,
+				ErgonomicsModifier: 0,
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+		},
+	}
+
+	rootItem := &candidate_tree.Item{
+		Name:               "Weapon",
+		ID:                 "item-weapon",
+		RecoilModifier:     0,
+		ErgonomicsModifier: 0,
+		ConflictingItems:   []candidate_tree.ConflictingItem{},
+		Slots:              []*candidate_tree.ItemSlot{slot},
+	}
+	weapon := &candidate_tree.CandidateTree{Item: rootItem}
+	weapon.Item.CalculatePotentialValues()
+
+	desc := precomputeSlotDescendantItemIDs(weapon)
+
+	// Seed memo with a result for exclusion set A (irrelevant)
+	excludedA := map[string]bool{"irrelevant-A": true}
+	keyA := makeMemoKey("recoil", slot.ID, []*candidate_tree.ItemSlot{}, excludedA, desc)
+	sentinel := &Build{EvaluationType: "recoil", OptimalItems: []OptimalItem{{ID: "memo-sentinel"}}}
+	memo := map[string]*Build{keyA: sentinel}
+
+	// Now call with a different irrelevant exclusion; it should still hit the same memo entry
+	excludedB := map[string]bool{"irrelevant-B": true}
+	got := processSlots(weapon, []*candidate_tree.ItemSlot{slot}, []OptimalItem{}, "recoil", 0, 0, excludedB, nil, memo, desc)
+
+	if got != sentinel {
+		t.Fatalf("expected memo hit despite different irrelevant exclusions; got different pointer: %+v", got)
+	}
+}
+
+func TestFindBestBuild_RecoilFocus_TieBreaksOnErgonomics(t *testing.T) {
+	// One slot with two items having equal recoil but different ergonomics
+	slot := &candidate_tree.ItemSlot{
+		Name: "slot-a",
+		ID:   "slot-a",
+		AllowedItems: []*candidate_tree.Item{
+			{ // worse ergonomics
+				Name:               "equal-recoil-low-ergo",
+				ID:                 "item-low-ergo",
+				RecoilModifier:     -5,
+				ErgonomicsModifier: 0,
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+			{ // better ergonomics
+				Name:               "equal-recoil-high-ergo",
+				ID:                 "item-high-ergo",
+				RecoilModifier:     -5,
+				ErgonomicsModifier: 5,
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+		},
+	}
+
+	rootItem := &candidate_tree.Item{
+		Name:               "Weapon",
+		ID:                 "item-weapon",
+		RecoilModifier:     0,
+		ErgonomicsModifier: 0,
+		ConflictingItems:   []candidate_tree.ConflictingItem{},
+		Slots:              []*candidate_tree.ItemSlot{slot},
+	}
+	weapon := &candidate_tree.CandidateTree{Item: rootItem}
+	weapon.Item.CalculatePotentialValues()
+
+	best := FindBestBuild(weapon, "recoil", map[string]bool{})
+	if best == nil {
+		t.Fatalf("expected build, got nil")
+	}
+
+	eval, err := best.ToEvaluatedWeapon()
+	if err != nil {
+		t.Fatalf("ToEvaluatedWeapon failed: %v", err)
+	}
+	if eval.Slots[0].Item == nil || eval.Slots[0].Item.ID != "item-high-ergo" {
+		t.Fatalf("expected high ergonomics item on recoil tie-break, got %+v", eval.Slots[0].Item)
+	}
+}
+
+func TestFindBestBuild_RespectsExcludedItems(t *testing.T) {
+	slot := &candidate_tree.ItemSlot{
+		Name: "slot-a",
+		ID:   "slot-a",
+		AllowedItems: []*candidate_tree.Item{
+			{
+				Name:               "best",
+				ID:                 "item-best",
+				RecoilModifier:     -10,
+				ErgonomicsModifier: 0,
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+			{
+				Name:               "second",
+				ID:                 "item-second",
+				RecoilModifier:     -9,
+				ErgonomicsModifier: 0,
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+		},
+	}
+
+	rootItem := &candidate_tree.Item{
+		Name:               "Weapon",
+		ID:                 "item-weapon",
+		RecoilModifier:     0,
+		ErgonomicsModifier: 0,
+		ConflictingItems:   []candidate_tree.ConflictingItem{},
+		Slots:              []*candidate_tree.ItemSlot{slot},
+	}
+	weapon := &candidate_tree.CandidateTree{Item: rootItem}
+	weapon.Item.CalculatePotentialValues()
+
+	excluded := map[string]bool{"item-best": true}
+	best := FindBestBuild(weapon, "recoil", excluded)
+	if best == nil {
+		t.Fatalf("expected build, got nil")
+	}
+	eval, err := best.ToEvaluatedWeapon()
+	if err != nil {
+		t.Fatalf("ToEvaluatedWeapon failed: %v", err)
+	}
+	if eval.Slots[0].Item == nil || eval.Slots[0].Item.ID != "item-second" {
+		t.Fatalf("expected excluded best item to be skipped, got %+v", eval.Slots[0].Item)
+	}
+}
+
+func TestFindBestBuild_SkipsSlotIfBetterGlobal(t *testing.T) {
+	// Two top-level slots. Slot S1 has an item that conflicts with a very good item in S2.
+	// Best global choice is to leave S1 empty so S2 can pick the very good item.
+	s1 := &candidate_tree.ItemSlot{
+		Name: "S1",
+		ID:   "slot-s1",
+		AllowedItems: []*candidate_tree.Item{
+			{
+				Name:               "conflicting",
+				ID:                 "item-conflict",
+				RecoilModifier:     -5,
+				ErgonomicsModifier: 0,
+				ConflictingItems:   []candidate_tree.ConflictingItem{{ID: "item-very-good", Name: "very good", CategoryID: "x", CategoryName: "X"}},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+		},
+	}
+	s2 := &candidate_tree.ItemSlot{
+		Name: "S2",
+		ID:   "slot-s2",
+		AllowedItems: []*candidate_tree.Item{
+			{ // very good but conflicts with S1's item
+				Name:               "very good",
+				ID:                 "item-very-good",
+				RecoilModifier:     -50,
+				ErgonomicsModifier: 0,
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+			{
+				Name:               "ok",
+				ID:                 "item-ok",
+				RecoilModifier:     -10,
+				ErgonomicsModifier: 0,
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+		},
+	}
+
+	rootItem := &candidate_tree.Item{
+		Name:               "Weapon",
+		ID:                 "item-weapon",
+		RecoilModifier:     0,
+		ErgonomicsModifier: 0,
+		ConflictingItems:   []candidate_tree.ConflictingItem{},
+		Slots:              []*candidate_tree.ItemSlot{s1, s2},
+	}
+	weapon := &candidate_tree.CandidateTree{Item: rootItem}
+	weapon.Item.CalculatePotentialValues()
+
+	best := FindBestBuild(weapon, "recoil", map[string]bool{})
+	if best == nil {
+		t.Fatalf("expected build, got nil")
+	}
+	eval, err := best.ToEvaluatedWeapon()
+	if err != nil {
+		t.Fatalf("ToEvaluatedWeapon failed: %v", err)
+	}
+
+	// Expect S1 empty, S2 picks very good
+	if eval.Slots[0].Item != nil {
+		t.Fatalf("expected S1 to be empty, got %+v", eval.Slots[0].Item)
+	}
+	if eval.Slots[1].Item == nil || eval.Slots[1].Item.ID != "item-very-good" {
+		t.Fatalf("expected S2 to pick very good, got %+v", eval.Slots[1].Item)
+	}
+}
+
+func TestFindBestBuild_RecoilFocus_CrossSlotSynergy_KnownLimitation(t *testing.T) {
+	t.Skip("Known limitation due to early-break heuristic; enable when branch-and-bound is implemented")
+	// S1 has three items: A (-10) conflicts with both C and C2; B (-8) conflicts with C2 only; E (-6) conflicts with none.
+	// S2 has C (-40), C2 (-50), D (-5).
+	// Global optimum is E + C2 (-56), but after evaluating B which yields -48, current code breaks early and misses E.
+
+	s1 := &candidate_tree.ItemSlot{
+		Name: "S1",
+		ID:   "slot-s1",
+		AllowedItems: []*candidate_tree.Item{
+			{
+				Name:               "A",
+				ID:                 "item-A",
+				RecoilModifier:     -10,
+				ErgonomicsModifier: 0,
+				ConflictingItems: []candidate_tree.ConflictingItem{
+					{ID: "item-C", Name: "C", CategoryID: "x", CategoryName: "X"},
+					{ID: "item-C2", Name: "C2", CategoryID: "x", CategoryName: "X"},
+				},
+				Slots: []*candidate_tree.ItemSlot{},
+			},
+			{
+				Name:               "B",
+				ID:                 "item-B",
+				RecoilModifier:     -8,
+				ErgonomicsModifier: 0,
+				ConflictingItems:   []candidate_tree.ConflictingItem{{ID: "item-C2", Name: "C2", CategoryID: "x", CategoryName: "X"}},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+			{
+				Name:               "E",
+				ID:                 "item-E",
+				RecoilModifier:     -6,
+				ErgonomicsModifier: 0,
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+		},
+	}
+	s2 := &candidate_tree.ItemSlot{
+		Name: "S2",
+		ID:   "slot-s2",
+		AllowedItems: []*candidate_tree.Item{
+			{Name: "C", ID: "item-C", RecoilModifier: -40, ErgonomicsModifier: 0, ConflictingItems: []candidate_tree.ConflictingItem{}, Slots: []*candidate_tree.ItemSlot{}},
+			{Name: "C2", ID: "item-C2", RecoilModifier: -50, ErgonomicsModifier: 0, ConflictingItems: []candidate_tree.ConflictingItem{}, Slots: []*candidate_tree.ItemSlot{}},
+			{Name: "D", ID: "item-D", RecoilModifier: -5, ErgonomicsModifier: 0, ConflictingItems: []candidate_tree.ConflictingItem{}, Slots: []*candidate_tree.ItemSlot{}},
+		},
+	}
+	rootItem := &candidate_tree.Item{Name: "Weapon", ID: "item-weapon", Slots: []*candidate_tree.ItemSlot{s1, s2}}
+	weapon := &candidate_tree.CandidateTree{Item: rootItem}
+	weapon.Item.CalculatePotentialValues()
+
+	best := FindBestBuild(weapon, "recoil", map[string]bool{})
+	if best == nil {
+		t.Fatalf("expected build, got nil")
+	}
+	eval, err := best.ToEvaluatedWeapon()
+	if err != nil {
+		t.Fatalf("ToEvaluatedWeapon failed: %v", err)
+	}
+	if eval.Slots[0].Item == nil || eval.Slots[0].Item.ID != "item-E" || eval.Slots[1].Item == nil || eval.Slots[1].Item.ID != "item-C2" {
+		t.Fatalf("expected E + C2, got S1=%+v S2=%+v", eval.Slots[0].Item, eval.Slots[1].Item)
+	}
+}
+
+func TestToEvaluatedWeapon_AggregatesConflicts(t *testing.T) {
+	// Select an item that declares conflicts; ensure conflicts propagate to EvaluatedWeapon.Conflicts
+	slot := &candidate_tree.ItemSlot{
+		Name: "slot-a",
+		ID:   "slot-a",
+		AllowedItems: []*candidate_tree.Item{
+			{
+				Name:               "with-conflict",
+				ID:                 "item-conflict-declarer",
+				RecoilModifier:     -1,
+				ErgonomicsModifier: 0,
+				ConflictingItems:   []candidate_tree.ConflictingItem{{ID: "item-some-conflict", Name: "some", CategoryID: "cat", CategoryName: "Cat"}},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+		},
+	}
+	rootItem := &candidate_tree.Item{Name: "Weapon", ID: "item-weapon", Slots: []*candidate_tree.ItemSlot{slot}}
+	weapon := &candidate_tree.CandidateTree{Item: rootItem}
+	weapon.Item.CalculatePotentialValues()
+
+	best := FindBestBuild(weapon, "recoil", map[string]bool{})
+	if best == nil {
+		t.Fatalf("expected build, got nil")
+	}
+	eval, err := best.ToEvaluatedWeapon()
+	if err != nil {
+		t.Fatalf("ToEvaluatedWeapon failed: %v", err)
+	}
+	if len(eval.Conflicts) == 0 {
+		t.Fatalf("expected conflicts aggregated on evaluated weapon; none found")
+	}
+	found := false
+	for _, c := range eval.Conflicts {
+		if c.ID == "item-some-conflict" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected specific conflict id to be present, got %+v", eval.Conflicts)
+	}
+}
+
+func TestFindBestBuild_ErgonomicsFocus_AllowsRecoilWorsening_KnownBug(t *testing.T) {
+	t.Skip("Known bug: ergonomics focus still filters by recoil potential; enable after fix")
+	// One slot: item E improves ergonomics but worsens recoil; item R improves recoil slightly but no ergonomics.
+	slot := &candidate_tree.ItemSlot{
+		Name: "slot-a",
+		ID:   "slot-a",
+		AllowedItems: []*candidate_tree.Item{
+			{
+				Name:               "ergo-only",
+				ID:                 "item-ergo-only",
+				RecoilModifier:     5,  // worse recoil
+				ErgonomicsModifier: 12, // better ergo
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+			{
+				Name:               "recoil-only",
+				ID:                 "item-recoil-only",
+				RecoilModifier:     -1, // better recoil
+				ErgonomicsModifier: 0,  // no ergo improvement
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+		},
+	}
+
+	rootItem := &candidate_tree.Item{Name: "Weapon", ID: "item-weapon", Slots: []*candidate_tree.ItemSlot{slot}}
+	weapon := &candidate_tree.CandidateTree{Item: rootItem}
+	weapon.Item.CalculatePotentialValues()
+
+	best := FindBestBuild(weapon, "ergonomics", map[string]bool{})
+	if best == nil {
+		t.Fatalf("expected build, got nil")
+	}
+	eval, err := best.ToEvaluatedWeapon()
+	if err != nil {
+		t.Fatalf("ToEvaluatedWeapon failed: %v", err)
+	}
+	if eval.Slots[0].Item == nil || eval.Slots[0].Item.ID != "item-ergo-only" {
+		t.Fatalf("expected ergonomics-focused build to pick ergo-only despite recoil worsening; got %+v", eval.Slots[0].Item)
+	}
+}
+
+func TestFindBestBuild_ErgonomicsFocus_TieBreaksOnRecoil(t *testing.T) {
+	// One slot with two items having equal ergonomics but different recoil; ergonomics focus should
+	// pick the one with lower recoil as a tie-break.
+	slot := &candidate_tree.ItemSlot{
+		Name: "slot-a",
+		ID:   "slot-a",
+		AllowedItems: []*candidate_tree.Item{
+			{
+				Name:               "ergo-5-recoil-10",
+				ID:                 "item-ergo5-recoil10",
+				RecoilModifier:     -10,
+				ErgonomicsModifier: 5,
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+			{
+				Name:               "ergo-5-recoil-5",
+				ID:                 "item-ergo5-recoil5",
+				RecoilModifier:     -5,
+				ErgonomicsModifier: 5,
+				ConflictingItems:   []candidate_tree.ConflictingItem{},
+				Slots:              []*candidate_tree.ItemSlot{},
+			},
+		},
+	}
+
+	rootItem := &candidate_tree.Item{Name: "Weapon", ID: "item-weapon", Slots: []*candidate_tree.ItemSlot{slot}}
+	weapon := &candidate_tree.CandidateTree{Item: rootItem}
+	weapon.Item.CalculatePotentialValues()
+
+	best := FindBestBuild(weapon, "ergonomics", map[string]bool{})
+	if best == nil {
+		t.Fatalf("expected build, got nil")
+	}
+	eval, err := best.ToEvaluatedWeapon()
+	if err != nil {
+		t.Fatalf("ToEvaluatedWeapon failed: %v", err)
+	}
+	if eval.Slots[0].Item == nil || eval.Slots[0].Item.ID != "item-ergo5-recoil10" {
+		t.Fatalf("expected ergonomics tie-break to choose lower recoil, got %+v", eval.Slots[0].Item)
+	}
 }

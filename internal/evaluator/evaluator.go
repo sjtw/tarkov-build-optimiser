@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"sort"
 	"strings"
 	"tarkov-build-optimiser/internal/candidate_tree"
 	"tarkov-build-optimiser/internal/helpers"
 	"tarkov-build-optimiser/internal/models"
+
+	"github.com/rs/zerolog/log"
 )
 
 type ItemEvaluationConflicts struct {
@@ -298,7 +299,11 @@ func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	//}
 
 	memo := map[string]*Build{}
-	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, memo)
+
+	// Precompute the descendant allowed item IDs for each slot in this tree once.
+	slotDescendantItemIDs := precomputeSlotDescendantItemIDs(weapon)
+
+	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, memo, slotDescendantItemIDs)
 
 	build.WeaponTree = *weapon
 
@@ -333,16 +338,89 @@ func doesImproveStats(candidate *Build, best *Build, focusedStat string) bool {
 	return false
 }
 
-func getMemoKey(slotID string, excludedItems map[string]bool) string {
-	items := make([]string, 0)
-	for id, excluded := range excludedItems {
-		if excluded {
-			items = append(items, id)
+// precomputeSlotDescendantItemIDs returns, for every slot in the candidate tree, the set of
+// descendant allowed item IDs reachable from that slot. This is used to reduce the memo key
+// to only exclusions that matter for the current subproblem (current slot + remaining slots).
+func precomputeSlotDescendantItemIDs(root *candidate_tree.CandidateTree) map[string]map[string]bool {
+	descendantMap := make(map[string]map[string]bool)
+
+	// Ensure allowed item slots are up to date
+	root.UpdateAllowedItemSlots()
+
+	// Get every slot reachable from the root item (includes immediate and deeper slots)
+	allSlots := root.Item.GetDescendantSlots()
+	for _, slot := range allSlots {
+		if slot == nil {
+			continue
+		}
+		if _, ok := descendantMap[slot.ID]; !ok {
+			descendantMap[slot.ID] = make(map[string]bool)
+		}
+		allowed := slot.GetDescendantAllowedItems()
+		for _, it := range allowed {
+			if it == nil {
+				continue
+			}
+			descendantMap[slot.ID][it.ID] = true
 		}
 	}
 
-	sort.Strings(items)
-	return fmt.Sprintf("%s:%v", slotID, strings.Join(items, "-"))
+	return descendantMap
+}
+
+// remainingSlotsSignature builds a stable signature (order-preserving) for the remaining slots.
+func remainingSlotsSignature(remaining []*candidate_tree.ItemSlot) string {
+	if len(remaining) == 0 {
+		return ""
+	}
+	ids := make([]string, 0, len(remaining))
+	for _, s := range remaining {
+		ids = append(ids, s.ID)
+	}
+	return strings.Join(ids, ",")
+}
+
+// relevantExcludedIDs returns the sorted list of excluded IDs that are relevant to the union of
+// the descendant item sets of current slot and the remaining slots.
+func relevantExcludedIDs(currentSlotID string, remaining []*candidate_tree.ItemSlot, excluded map[string]bool, slotDesc map[string]map[string]bool) []string {
+	relevantSet := make(map[string]bool)
+
+	// Union all descendant item IDs for the current slot and the remaining slots
+	if m, ok := slotDesc[currentSlotID]; ok {
+		for id := range m {
+			relevantSet[id] = true
+		}
+	}
+	for _, s := range remaining {
+		if s == nil {
+			continue
+		}
+		if m, ok := slotDesc[s.ID]; ok {
+			for id := range m {
+				relevantSet[id] = true
+			}
+		}
+	}
+
+	filtered := make([]string, 0)
+	for id, isExcluded := range excluded {
+		if isExcluded && relevantSet[id] {
+			filtered = append(filtered, id)
+		}
+	}
+	sort.Strings(filtered)
+	return filtered
+}
+
+// makeMemoKey returns a key representing the current subproblem state:
+// - focusedStat: optimisation target (recoil/ergonomics)
+// - current slot being processed
+// - ordered remaining slots to process (affects search order heuristics)
+// - excluded items filtered to those relevant to the subtrees of interest
+func makeMemoKey(focusedStat string, currentSlotID string, remaining []*candidate_tree.ItemSlot, excluded map[string]bool, slotDesc map[string]map[string]bool) string {
+	remainingSig := remainingSlotsSignature(remaining)
+	filteredExcluded := relevantExcludedIDs(currentSlotID, remaining, excluded, slotDesc)
+	return fmt.Sprintf("%s|%s|%s|%s", focusedStat, currentSlotID, remainingSig, strings.Join(filteredExcluded, "-"))
 }
 
 func processSlots(
@@ -355,6 +433,7 @@ func processSlots(
 	excludedItems map[string]bool,
 	visitedSlots map[string]bool,
 	memo map[string]*Build,
+	slotDescendantItemIDs map[string]map[string]bool,
 ) *Build {
 	clonedSlots := append([]*candidate_tree.ItemSlot{}, slotsToProcess...)
 
@@ -383,7 +462,7 @@ func processSlots(
 	// visitedSlots just keeps track of how often we're hitting certain slots. Can be useful for debugging, but it's
 	// a good safe guard against infinite loops. in theory CandidateTree should be handling this.
 	if visitedSlots[currentSlot.ID] {
-		return processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, visitedSlots, memo)
+		return processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, visitedSlots, memo, slotDescendantItemIDs)
 	}
 
 	if visitedSlots == nil {
@@ -393,6 +472,12 @@ func processSlots(
 	defer func() {
 		delete(visitedSlots, currentSlot.ID)
 	}()
+
+	// Check memo before exploring this slot's allowed items
+	memoKey := makeMemoKey(focusedStat, currentSlot.ID, remainingSlots, excludedItems, slotDescendantItemIDs)
+	if cached, ok := memo[memoKey]; ok {
+		return cached
+	}
 
 	var best *Build = nil
 
@@ -405,16 +490,6 @@ func processSlots(
 		if item.PotentialValues.MinRecoil >= 0 {
 			log.Info().Msgf("Skipping item %s for slot %s - no recoil potential improvement", item.Name, currentSlot.Name)
 			continue
-		}
-
-		// if we've already evaluated this exact slot with the exact same exclusion list, we can just return the result
-		// in practice this has never happened as far as I can tell. It should being way more value when persisted and
-		// budget constraints are added.
-		key := getMemoKey(item.ID, excludedItems)
-		if cached, ok := memo[key]; ok {
-			log.Info().Msgf("Using cached build for slot %s", currentSlot.Name)
-			best = cached
-			break
 		}
 
 		// if this item is explicitly excluded, we can skip it
@@ -454,7 +529,7 @@ func processSlots(
 			newExcluded[c.ID] = true
 		}
 
-		candidate := processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, memo)
+		candidate := processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, memo, slotDescendantItemIDs)
 
 		if candidate != nil {
 			if best == nil {
@@ -475,7 +550,7 @@ func processSlots(
 	// this evaluates the outcome of leaving this slot empty. Basically, there's the possibility that some item which
 	// opens up a better build can be slotted in elsewhere which would conflict with any build created using any item
 	// in this slot.
-	candidateSkip := processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, helpers.CloneMap(excludedItems), visitedSlots, memo)
+	candidateSkip := processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, helpers.CloneMap(excludedItems), visitedSlots, memo, slotDescendantItemIDs)
 
 	if candidateSkip != nil {
 		if best == nil || doesImproveStats(candidateSkip, best, focusedStat) {
@@ -494,8 +569,7 @@ func processSlots(
 	// - anything explicitly excluded by the caller
 	// - any items which conflict with an item selected by the best build
 	if best != nil {
-		key := getMemoKey(currentSlot.ID, excludedItems)
-		memo[key] = best
+		memo[memoKey] = best
 	}
 
 	return best
