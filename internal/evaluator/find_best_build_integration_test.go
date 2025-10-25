@@ -23,6 +23,10 @@ func TestFindBestBuildIntegration(t *testing.T) {
 	err = models.PurgeOptimumBuilds(dbClient.Conn)
 	require.NoError(t, err, "Failed to purge optimum builds")
 
+	// Clear conflict-free cache to ensure fresh test data
+	err = models.PurgeConflictFreeCache(dbClient.Conn)
+	require.NoError(t, err, "Failed to purge conflict-free cache")
+
 	weaponIds := []string{
 		"5447a9cd4bdc2dbd208b4567", // Colt M4A1 5.56x45 assault rifle
 		"6895bb82c4519957df062f82", // Radian Weapons Model 1 FA 5.56x45 assault rifle

@@ -74,7 +74,11 @@ func NewDatabaseCache(db *sql.DB) *DatabaseCache {
 func (d *DatabaseCache) Get(ctx context.Context, itemID string, focusedStat string, constraints models.EvaluationConstraints) (*CacheEntry, error) {
 	cachedEntry, err := models.GetConflictFreeCache(ctx, d.db, itemID, focusedStat, constraints.TraderLevels)
 	if err != nil {
-		return nil, err
+		// Handle domain-specific cache miss (no rows found) vs actual database error
+		if err == sql.ErrNoRows {
+			return nil, nil // Cache miss - no error
+		}
+		return nil, err // Actual database error
 	}
 	if cachedEntry == nil {
 		return nil, nil // Cache miss
