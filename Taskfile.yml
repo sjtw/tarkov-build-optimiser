@@ -108,6 +108,15 @@ tasks:
     desc: Run tests
     cmd: go test ./...
 
+  test:unit:
+    desc: Run unit tests (no database required)
+    cmd: go test ./... -run "Test[^I]"
+
+  test:integration:
+    desc: Run integration tests (requires database)
+    deps: [compose:up]
+    cmd: go test ./... -run ".*Integration.*"
+
   tarkovdev:get-schema:
     desc: Retrieve the latest schema from the tarkov.dev API
     cmd: graphql-inspector introspect https://api.tarkov.dev/graphql --write ./internal/tarkovdev/schemas/schema.graphql
