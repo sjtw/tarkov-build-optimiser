@@ -2,8 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"runtime"
 	"sync"
 	"tarkov-build-optimiser/internal/candidate_tree"
@@ -12,6 +10,9 @@ import (
 	"tarkov-build-optimiser/internal/env"
 	"tarkov-build-optimiser/internal/evaluator"
 	"tarkov-build-optimiser/internal/models"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
@@ -149,7 +150,7 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 
 				log.Info().Msgf("Generated weapon candidate tree for %s with constraints %v", input.weaponID, input.constraints)
 
-				build := evaluator.FindBestBuild(weapon, "recoil", map[string]bool{})
+				build := evaluator.FindBestBuild(weapon, "recoil", map[string]bool{}, nil)
 
 				log.Info().Msgf("Evaluation complete - weapon %s with constraints %v", input.weaponID, input.constraints)
 

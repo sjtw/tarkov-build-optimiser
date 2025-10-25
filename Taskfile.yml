@@ -69,6 +69,11 @@ tasks:
     deps: [evaluator:build]
     cmd: ./bin/evaluator
 
+  evaluator:start:test-mode:
+    desc: Start the evaluator in test mode (uses limited weapons and trader levels)
+    deps: [evaluator:build]
+    cmd: ./bin/evaluator --test-run
+
   lint:
     desc: Run linter
     cmd: golangci-lint run

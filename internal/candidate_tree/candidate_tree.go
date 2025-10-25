@@ -1,8 +1,9 @@
 package candidate_tree
 
 import (
-	"github.com/rs/zerolog/log"
 	"tarkov-build-optimiser/internal/models"
+
+	"github.com/rs/zerolog/log"
 )
 
 type TreeDataProvider interface {
@@ -32,6 +33,25 @@ type CandidateTree struct {
 	allowedItemSlots   []*ItemSlot
 	allowedItemSlotMap map[string]*ItemSlot
 	Constraints        models.EvaluationConstraints
+}
+
+// GetPrecomputedProvider exposes a precomputed subtree provider if the underlying dataService implements it.
+func (wt *CandidateTree) GetPrecomputedProvider() PrecomputedSubtreeProvider {
+	if wt == nil {
+		return nil
+	}
+	if provider, ok := any(wt.dataService).(PrecomputedSubtreeProvider); ok {
+		return provider
+	}
+	return nil
+}
+
+// SetDataService sets the underlying data service for this candidate tree.
+func (wt *CandidateTree) SetDataService(ds TreeDataProvider) {
+	if wt == nil {
+		return
+	}
+	wt.dataService = ds
 }
 
 func (wt *CandidateTree) AddItemConflicts(itemId string, conflicts []ConflictingItem) {
@@ -146,6 +166,11 @@ func constructCandidateTree(id string, name string, recoilModifier int, ergoModi
 	item.CalculatePotentialValues()
 	candidateTree.SortAllowedItems(focusedStat)
 	candidateTree.pruneUselessAllowedItems()
+
+	// Hook: apply precomputed subtree pruning if dataService implements PrecomputedSubtreeProvider
+	if provider, ok := any(candidateTree.dataService).(PrecomputedSubtreeProvider); ok {
+		ApplyPrecomputedPruning(candidateTree, focusedStat, provider)
+	}
 
 	candidateTree.UpdateAllowedItems()
 	candidateTree.updateAllowedItemsMap()

@@ -82,7 +82,7 @@ func BenchmarkProcessSlots_ColdMemo(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		memo := map[string]*Build{}
-		sink = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, memo, desc)
+		sink = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, memo, desc, nil)
 	}
 }
 
@@ -106,6 +106,6 @@ func BenchmarkProcessSlots_WarmMemo(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sink = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, memo, desc)
+		sink = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, memo, desc, nil)
 	}
 }

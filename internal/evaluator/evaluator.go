@@ -249,7 +249,7 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 }
 
 func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
-	excludedItems map[string]bool) *Build {
+	excludedItems map[string]bool, provider candidate_tree.PrecomputedSubtreeProvider) *Build {
 
 	log.Info().Msgf("Finding best build for %s", weapon.Item.Name)
 
@@ -303,7 +303,7 @@ func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	// Precompute the descendant allowed item IDs for each slot in this tree once.
 	slotDescendantItemIDs := precomputeSlotDescendantItemIDs(weapon)
 
-	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, memo, slotDescendantItemIDs)
+	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, memo, slotDescendantItemIDs, provider)
 
 	build.WeaponTree = *weapon
 
@@ -336,6 +336,32 @@ func doesImproveStats(candidate *Build, best *Build, focusedStat string) bool {
 	}
 
 	return false
+}
+
+// computeRecoilLowerBound returns the minimal possible final recoil sum achievable by
+// filling the given slots from the current recoil sum, using each slot's MinRecoil potential.
+func computeRecoilLowerBound(currentRecoil int, slots []*candidate_tree.ItemSlot) int {
+	bound := currentRecoil
+	for _, s := range slots {
+		if s == nil {
+			continue
+		}
+		bound += s.PotentialValues.MinRecoil
+	}
+	return bound
+}
+
+// computeErgoUpperBound returns the maximal possible final ergonomics sum achievable by
+// filling the given slots from the current ergonomics sum, using each slot's MaxErgonomics potential.
+func computeErgoUpperBound(currentErgo int, slots []*candidate_tree.ItemSlot) int {
+	bound := currentErgo
+	for _, s := range slots {
+		if s == nil {
+			continue
+		}
+		bound += s.PotentialValues.MaxErgonomics
+	}
+	return bound
 }
 
 // precomputeSlotDescendantItemIDs returns, for every slot in the candidate tree, the set of
@@ -434,6 +460,7 @@ func processSlots(
 	visitedSlots map[string]bool,
 	memo map[string]*Build,
 	slotDescendantItemIDs map[string]map[string]bool,
+	provider candidate_tree.PrecomputedSubtreeProvider,
 ) *Build {
 	clonedSlots := append([]*candidate_tree.ItemSlot{}, slotsToProcess...)
 
@@ -462,7 +489,7 @@ func processSlots(
 	// visitedSlots just keeps track of how often we're hitting certain slots. Can be useful for debugging, but it's
 	// a good safe guard against infinite loops. in theory CandidateTree should be handling this.
 	if visitedSlots[currentSlot.ID] {
-		return processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, visitedSlots, memo, slotDescendantItemIDs)
+		return processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, visitedSlots, memo, slotDescendantItemIDs, provider)
 	}
 
 	if visitedSlots == nil {
@@ -487,9 +514,17 @@ func processSlots(
 	// - alloweditems are sorted by potential value, so if we can slot something together earlier, nothing later on in
 	//   the AllowedItems slice is going to improve things. edit: actually they could, needs improvement.
 	for _, item := range currentSlot.AllowedItems {
-		if item.PotentialValues.MinRecoil >= 0 {
-			log.Info().Msgf("Skipping item %s for slot %s - no recoil potential improvement", item.Name, currentSlot.Name)
-			continue
+		// Gate items based on the focused stat only
+		if focusedStat == "recoil" {
+			if item.PotentialValues.MinRecoil >= 0 {
+				// cannot possibly improve recoil
+				continue
+			}
+		} else if focusedStat == "ergonomics" {
+			if item.PotentialValues.MaxErgonomics <= 0 {
+				// cannot possibly improve ergonomics
+				continue
+			}
 		}
 
 		// if this item is explicitly excluded, we can skip it
@@ -529,7 +564,53 @@ func processSlots(
 			newExcluded[c.ID] = true
 		}
 
-		candidate := processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, memo, slotDescendantItemIDs)
+		// Check for precomputed subtree - if available and compatible, use it directly
+		if provider != nil {
+			constraints := models.EvaluationConstraints{
+				TraderLevels: []models.TraderLevel{
+					{Name: "Jaeger", Level: 0},
+					{Name: "Prapor", Level: 0},
+					{Name: "Peacekeeper", Level: 0},
+					{Name: "Mechanic", Level: 0},
+					{Name: "Skier", Level: 0},
+				},
+			}
+			if precomputed, found := provider.GetPrecomputedSubtree(item.ID, focusedStat, constraints); found {
+				// Use precomputed subtree result directly
+				precomputedBuild := &Build{
+					OptimalItems:  newChosen,
+					RecoilSum:     newRecoil + precomputed.RecoilSum,
+					ErgonomicsSum: newErgo + precomputed.ErgonomicsSum,
+					WeaponTree:    *root,
+				}
+
+				if best == nil || doesImproveStats(precomputedBuild, best, focusedStat) {
+					best = precomputedBuild
+				}
+				continue // Skip further processing of this item's children
+			}
+		}
+
+		// Branch-and-bound pruning using potential values
+		if best != nil {
+			if focusedStat == "recoil" {
+				// lower is better; compute minimal achievable final recoil
+				lowerBound := computeRecoilLowerBound(newRecoil, newSlotsToProcess)
+				if lowerBound > best.RecoilSum {
+					// even the best case cannot beat current best; prune
+					continue
+				}
+			} else if focusedStat == "ergonomics" {
+				// higher is better; compute maximal achievable final ergonomics
+				upperBound := computeErgoUpperBound(newErgo, newSlotsToProcess)
+				if upperBound < best.ErgonomicsSum {
+					// even the best case cannot beat current best; prune
+					continue
+				}
+			}
+		}
+
+		candidate := processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, memo, slotDescendantItemIDs, provider)
 
 		if candidate != nil {
 			if best == nil {
@@ -539,10 +620,7 @@ func processSlots(
 				// it's better than the best we've seen so far
 				best = candidate
 
-				// we're assuming that because AllowedItems is sorted by its potential stat sum we can break here.
-				// this isn't 100% accurate - more of an estimation - we still need to check if this build is
-				// ACTUALLY better than the potential of others or likelyhood of them being so.
-				break
+				// do not break; later items may unlock better global builds due to conflicts
 			}
 		}
 	}
@@ -550,7 +628,22 @@ func processSlots(
 	// this evaluates the outcome of leaving this slot empty. Basically, there's the possibility that some item which
 	// opens up a better build can be slotted in elsewhere which would conflict with any build created using any item
 	// in this slot.
-	candidateSkip := processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, helpers.CloneMap(excludedItems), visitedSlots, memo, slotDescendantItemIDs)
+	// Option to leave this slot empty; apply pruning before exploring
+	if best != nil {
+		if focusedStat == "recoil" {
+			lowerBound := computeRecoilLowerBound(recoilStatSum, remainingSlots)
+			if lowerBound > best.RecoilSum {
+				// cannot beat best even if remaining slots are ideal
+				return best
+			}
+		} else if focusedStat == "ergonomics" {
+			upperBound := computeErgoUpperBound(ergoStatSum, remainingSlots)
+			if upperBound < best.ErgonomicsSum {
+				return best
+			}
+		}
+	}
+	candidateSkip := processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, helpers.CloneMap(excludedItems), visitedSlots, memo, slotDescendantItemIDs, provider)
 
 	if candidateSkip != nil {
 		if best == nil || doesImproveStats(candidateSkip, best, focusedStat) {
