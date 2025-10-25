@@ -18,10 +18,10 @@ type CacheEntry struct {
 type Cache interface {
 	// Get retrieves a cache entry for the given parameters
 	Get(ctx context.Context, itemID string, focusedStat string, constraints models.EvaluationConstraints) (*CacheEntry, error)
-	
+
 	// Set stores a cache entry for the given parameters
 	Set(ctx context.Context, itemID string, focusedStat string, constraints models.EvaluationConstraints, entry *CacheEntry) error
-	
+
 	// Clear removes all entries from the cache
 	Clear(ctx context.Context) error
 }
@@ -79,7 +79,7 @@ func (d *DatabaseCache) Get(ctx context.Context, itemID string, focusedStat stri
 	if cachedEntry == nil {
 		return nil, nil // Cache miss
 	}
-	
+
 	return &CacheEntry{
 		RecoilSum:     cachedEntry.RecoilSum,
 		ErgonomicsSum: cachedEntry.ErgonomicsSum,

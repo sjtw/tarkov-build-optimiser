@@ -45,10 +45,8 @@ func GetConflictFreeCache(ctx context.Context, db *sql.DB, itemID string, focuse
                mechanic_level, skier_level, recoil_sum, ergonomics_sum
         from conflict_free_cache
         where item_id = $1 and focused_stat = $2
-          and jaeger_level <= $3 and prapor_level <= $4 and peacekeeper_level <= $5 
-          and mechanic_level <= $6 and skier_level <= $7
-        order by jaeger_level desc, prapor_level desc, peacekeeper_level desc, 
-                 mechanic_level desc, skier_level desc
+          and jaeger_level = $3 and prapor_level = $4 and peacekeeper_level = $5 
+          and mechanic_level = $6 and skier_level = $7
         limit 1;
     `
 

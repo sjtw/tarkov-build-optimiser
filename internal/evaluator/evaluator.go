@@ -557,8 +557,8 @@ func processSlots(
 		candidate := processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, slotDescendantItemIDs, cacheHits, cacheMisses, itemsEvaluated, cache)
 
 		// Cache conflict-free results
-		if isConflictFree && candidate != nil && len(item.Slots) > 0 && cache != nil {
-			// For conflict-free items, we can cache the full subtree result
+		if isConflictFree && candidate != nil && cache != nil {
+			// For conflict-free items, we can cache the result
 			// since there are no conflicts to worry about
 			_ = cache.Set(context.Background(), item.ID, focusedStat, root.Constraints, &CacheEntry{
 				RecoilSum:     candidate.RecoilSum,
