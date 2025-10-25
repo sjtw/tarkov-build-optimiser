@@ -124,15 +124,12 @@ func (wt *CandidateTree) SortAllowedItems(by string) {
 	}
 }
 
-// OrderSlotsByConstraint orders slots to maximize pruning
-// Slots with fewer options are processed first (more constrained)
 func (wt *CandidateTree) OrderSlotsByConstraint(slots []*ItemSlot) []*ItemSlot {
 	ordered := make([]*ItemSlot, len(slots))
 	copy(ordered, slots)
 	
 	sort.Slice(ordered, func(i, j int) bool {
-		// Fewer allowed items = more constrained = process first
-		return len(ordered[i].AllowedItems) < len(ordered[j].AllowedItems)
+	return len(ordered[i].AllowedItems) < len(ordered[j].AllowedItems)
 	})
 	
 	return ordered

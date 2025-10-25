@@ -729,19 +729,3 @@ func TestFindBestBuild_ErgonomicsFocus_TieBreaksOnRecoil(t *testing.T) {
 		t.Fatalf("expected ergonomics tie-break to choose lower recoil, got %+v", eval.Slots[0].Item)
 	}
 }
-
-// Mock provider for precomputed subtree tests
-type mockPrecomputedProvider struct{}
-
-func (m mockPrecomputedProvider) GetPrecomputedSubtree(itemID string, focusedStat string, constraints models.EvaluationConstraints) (candidate_tree.PrecomputedSubtreeInfo, bool) {
-	if itemID == "item-A" {
-		return candidate_tree.PrecomputedSubtreeInfo{
-			RootItemID:     itemID,
-			EvaluationType: focusedStat,
-			RecoilSum:      -50, // Better than item-B's -12
-			ErgonomicsSum:  0,
-			IsDefinitive:   true,
-		}, true
-	}
-	return candidate_tree.PrecomputedSubtreeInfo{}, false
-}

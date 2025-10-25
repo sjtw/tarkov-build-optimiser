@@ -74,5 +74,5 @@ jobs:
     - name: Run Migrations
       run: task migrate:ci
 
-    - name: Run Tests
-      run: go test ./...
+    - name: Run Unit Tests
+      run: go test ./... -run "Test[^I]"

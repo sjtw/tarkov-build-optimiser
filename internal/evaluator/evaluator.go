@@ -15,11 +15,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// Global cache for conflict-free items
 var (
-	conflictFreeCache  = &sync.Map{}
-	conflictFreeHits   = int64(0)
-	conflictFreeMisses = int64(0)
+	conflictFreeCache = &sync.Map{}
 )
 
 type ItemEvaluationConflicts struct {
@@ -168,6 +165,8 @@ type Build struct {
 	EvaluationType string
 	ExcludedItems  []string
 	HasConflicts   bool
+	CacheHits      int64 `json:"cache_hits"`
+	CacheMisses    int64 `json:"cache_misses"`
 }
 
 func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
@@ -307,25 +306,23 @@ func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	//	}
 	//}
 
-	// Precompute the descendant allowed item IDs for each slot in this tree once.
 	slotDescendantItemIDs := precomputeSlotDescendantItemIDs(weapon)
 
-	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, slotDescendantItemIDs)
+	var cacheHits, cacheMisses int64
+	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, slotDescendantItemIDs, &cacheHits, &cacheMisses)
 
 	build.WeaponTree = *weapon
+	build.CacheHits = cacheHits
+	build.CacheMisses = cacheMisses
 
-	// Log cache statistics
-	hits := atomic.LoadInt64(&conflictFreeHits)
-	misses := atomic.LoadInt64(&conflictFreeMisses)
-	if hits+misses > 0 {
-		hitRate := float64(hits) / float64(hits+misses) * 100
-		log.Info().Msgf("Conflict-free cache: %d hits, %d misses (%.1f%% hit rate)", hits, misses, hitRate)
+	if cacheHits+cacheMisses > 0 {
+		hitRate := float64(cacheHits) / float64(cacheHits+cacheMisses) * 100
+		log.Info().Msgf("Conflict-free cache: %d hits, %d misses (%.1f%% hit rate)", cacheHits, cacheMisses, hitRate)
 	}
 
 	return build
 }
 
-// conflictsWith checks if two items conflict based on the conflict map.
 func conflictsWith(item *candidate_tree.Item, chosen OptimalItem) bool {
 	for _, conflict := range item.ConflictingItems {
 		if conflict.ID == chosen.ID {
@@ -492,6 +489,8 @@ func processSlots(
 	excludedItems map[string]bool,
 	visitedSlots map[string]bool,
 	slotDescendantItemIDs map[string]map[string]bool,
+	cacheHits *int64,
+	cacheMisses *int64,
 ) *Build {
 	clonedSlots := append([]*candidate_tree.ItemSlot{}, slotsToProcess...)
 
@@ -513,14 +512,11 @@ func processSlots(
 		}
 	}
 
-	// select the next slot in the array. remaining slots will be passed onto the next recursive call.
 	currentSlot := clonedSlots[0]
 	remainingSlots := clonedSlots[1:]
 
-	// visitedSlots just keeps track of how often we're hitting certain slots. Can be useful for debugging, but it's
-	// a good safe guard against infinite loops. in theory CandidateTree should be handling this.
 	if visitedSlots[currentSlot.ID] {
-		return processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, visitedSlots, slotDescendantItemIDs)
+		return processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, visitedSlots, slotDescendantItemIDs, cacheHits, cacheMisses)
 	}
 
 	if visitedSlots == nil {
@@ -533,21 +529,13 @@ func processSlots(
 
 	var best *Build = nil
 
-	// pretty straightforward:
-	// - loop through all the items we can put in this slot see what the outcome is
-	// - pick the best
-	// - alloweditems are sorted by potential value, so if we can slot something together earlier, nothing later on in
-	//   the AllowedItems slice is going to improve things. edit: actually they could, needs improvement.
 	for _, item := range currentSlot.AllowedItems {
-		// Gate items based on the focused stat only
 		if focusedStat == "recoil" {
 			if item.PotentialValues.MinRecoil >= 0 {
-				// cannot possibly improve recoil
 				continue
 			}
 		} else if focusedStat == "ergonomics" {
 			if item.PotentialValues.MaxErgonomics <= 0 {
-				// cannot possibly improve ergonomics
 				continue
 			}
 		}
@@ -574,12 +562,11 @@ func processSlots(
 		// Check if this item is conflict-free (can be cached safely)
 		isConflictFree := len(item.ConflictingItems) == 0
 
-		// Try conflict-free cache lookup
-		var candidate *Build = nil
+		// Try conflict-free cache lookup for pruning
 		if isConflictFree {
 			cacheKey := makeConflictFreeCacheKey(item.ID, focusedStat, root.Constraints)
 			if cachedVal, ok := conflictFreeCache.Load(cacheKey); ok {
-				atomic.AddInt64(&conflictFreeHits, 1)
+				atomic.AddInt64(cacheHits, 1)
 				cached := cachedVal.(*Build)
 
 				// For conflict-free items, we can't use cached OptimalItems because
@@ -598,62 +585,50 @@ func processSlots(
 						continue
 					}
 				}
-
-				// Fall through to normal evaluation for conflict-free items
-				// The cache helps us skip evaluation when we know the result won't be better
 			} else {
-				atomic.AddInt64(&conflictFreeMisses, 1)
+				atomic.AddInt64(cacheMisses, 1)
 			}
 		}
 
-		// If no cache hit, evaluate normally
-		if candidate == nil {
-			// from here until the end of the loop we're going to see what happens if we slot this item into this slot.
-			newChosen := append(chosenItems, OptimalItem{
-				Name:   item.Name,
-				ID:     item.ID,
-				SlotID: currentSlot.ID,
-			})
+		newChosen := append(chosenItems, OptimalItem{
+			Name:   item.Name,
+			ID:     item.ID,
+			SlotID: currentSlot.ID,
+		})
 
-			newRecoil := recoilStatSum + item.RecoilModifier
-			newErgo := ergoStatSum + item.ErgonomicsModifier
+		newRecoil := recoilStatSum + item.RecoilModifier
+		newErgo := ergoStatSum + item.ErgonomicsModifier
 
-			newSlotsToProcess := append([]*candidate_tree.ItemSlot{}, item.Slots...)
-			newSlotsToProcess = append(newSlotsToProcess, remainingSlots...)
+		newSlotsToProcess := append([]*candidate_tree.ItemSlot{}, item.Slots...)
+		newSlotsToProcess = append(newSlotsToProcess, remainingSlots...)
 
-			newExcluded := helpers.CloneMap(excludedItems)
-			for _, c := range item.ConflictingItems {
-				newExcluded[c.ID] = true
-			}
+		newExcluded := helpers.CloneMap(excludedItems)
+		for _, c := range item.ConflictingItems {
+			newExcluded[c.ID] = true
+		}
 
-			// Branch-and-bound pruning using potential values
-			if best != nil {
-				if focusedStat == "recoil" {
-					// lower is better; compute minimal achievable final recoil
-					lowerBound := computeRecoilLowerBound(newRecoil, newSlotsToProcess)
-					if lowerBound > best.RecoilSum {
-						// even the best case cannot beat current best; prune
-						continue
-					}
-				} else if focusedStat == "ergonomics" {
-					// higher is better; compute maximal achievable final ergonomics
-					upperBound := computeErgoUpperBound(newErgo, newSlotsToProcess)
-					if upperBound < best.ErgonomicsSum {
-						// even the best case cannot beat current best; prune
-						continue
-					}
+		if best != nil {
+			if focusedStat == "recoil" {
+				lowerBound := computeRecoilLowerBound(newRecoil, newSlotsToProcess)
+				if lowerBound > best.RecoilSum {
+					continue
+				}
+			} else if focusedStat == "ergonomics" {
+				upperBound := computeErgoUpperBound(newErgo, newSlotsToProcess)
+				if upperBound < best.ErgonomicsSum {
+					continue
 				}
 			}
+		}
 
-			candidate = processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, slotDescendantItemIDs)
+		candidate := processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, slotDescendantItemIDs, cacheHits, cacheMisses)
 
-			// Cache conflict-free results
-			if isConflictFree && candidate != nil && len(item.Slots) > 0 {
-				// Extract just this item's subtree from the result
-				itemSubtree := extractConflictFreeSubtree(candidate, newChosen)
-				cacheKey := makeConflictFreeCacheKey(item.ID, focusedStat, root.Constraints)
-				conflictFreeCache.Store(cacheKey, itemSubtree)
-			}
+		// Cache conflict-free results
+		if isConflictFree && candidate != nil && len(item.Slots) > 0 {
+			// Extract just this item's subtree from the result
+			itemSubtree := extractConflictFreeSubtree(candidate, newChosen)
+			cacheKey := makeConflictFreeCacheKey(item.ID, focusedStat, root.Constraints)
+			conflictFreeCache.Store(cacheKey, itemSubtree)
 		}
 
 		if candidate != nil {
@@ -674,20 +649,21 @@ func processSlots(
 	// in this slot.
 	// Option to leave this slot empty; apply pruning before exploring
 	if best != nil {
-		if focusedStat == "recoil" {
+		switch focusedStat {
+		case "recoil":
 			lowerBound := computeRecoilLowerBound(recoilStatSum, remainingSlots)
 			if lowerBound > best.RecoilSum {
 				// cannot beat best even if remaining slots are ideal
 				return best
 			}
-		} else if focusedStat == "ergonomics" {
+		case "ergonomics":
 			upperBound := computeErgoUpperBound(ergoStatSum, remainingSlots)
 			if upperBound < best.ErgonomicsSum {
 				return best
 			}
 		}
 	}
-	candidateSkip := processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, helpers.CloneMap(excludedItems), visitedSlots, slotDescendantItemIDs)
+	candidateSkip := processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, helpers.CloneMap(excludedItems), visitedSlots, slotDescendantItemIDs, cacheHits, cacheMisses)
 
 	if candidateSkip != nil {
 		if best == nil || doesImproveStats(candidateSkip, best, focusedStat) {
@@ -710,69 +686,3 @@ type ChosenTree struct {
 	SlotID             string
 	OptimalItems       []OptimalItem
 }
-
-// just an idea - basically a complete build might never be used again, but a partial one may be suitable for reuse if
-// it never conflicts with anything else, or if has a low number of conflicts. AKs in particular come to mind.
-//func getNonConflictingTrees(build *Build, itemMap map[string]*candidate_tree.Item) map[string]*ChosenTree {
-//	chosenMap := map[string]*ChosenTree{}
-//
-//	for _, item := range build.OptimalItems {
-//		hasConflicts := false
-//		if itemMap[item.ID].ConflictingItems != nil && len(itemMap[item.ID].ConflictingItems) > 0 {
-//			hasConflicts = true
-//		}
-//
-//		chosenMap[item.ID] = &ChosenTree{
-//			ID:                 item.ID,
-//			Name:               item.Name,
-//			Slots:              map[string]*ChosenTree{},
-//			HasConflicts:       hasConflicts,
-//			RecoilModifier:     itemMap[item.ID].RecoilModifier,
-//			ErgonomicsModifier: itemMap[item.ID].ErgonomicsModifier,
-//			SlotID:             item.SlotID,
-//			OptimalItems:       []OptimalItem{item},
-//		}
-//
-//		for _, slot := range itemMap[item.ID].Slots {
-//			for _, sub := range build.OptimalItems {
-//				if slot.ID == sub.SlotID {
-//					chosenMap[item.ID].Slots[slot.ID] = &ChosenTree{
-//						ID:    sub.ID,
-//						Name:  sub.Name,
-//						Slots: map[string]*ChosenTree{},
-//					}
-//					chosenMap[item.ID].OptimalItems = append(chosenMap[item.ID].OptimalItems, sub)
-//				}
-//			}
-//		}
-//	}
-//
-//	filtered := map[string]*ChosenTree{}
-//	for _, item := range build.OptimalItems {
-//		if !chosenMap[item.ID].HasConflicts && len(chosenMap[item.ID].Slots) > 0 {
-//			filtered[item.ID] = chosenMap[item.ID]
-//		}
-//	}
-//
-//	for _, item := range filtered {
-//		recoil, ergo := calculateSums(item, 0, 0)
-//		item.RecoilSum = recoil
-//		item.ErgonomicsSum = ergo
-//	}
-//
-//	return filtered
-//}
-
-//func calculateSums(item *ChosenTree, recoilSum int, ergoSum int) (int, int) {
-//	slotRecoil := 0
-//	slotErgo := 0
-//	for _, slot := range item.Slots {
-//		slotRecoil, slotErgo = calculateSums(slot, recoilSum, ergoSum)
-//	}
-//
-//	recoilSum += item.RecoilModifier + slotRecoil
-//	ergoSum += item.ErgonomicsModifier + slotErgo
-//
-//	return recoilSum, ergoSum
-//
-//}
