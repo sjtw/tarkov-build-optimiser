@@ -11,14 +11,14 @@ import (
 	"tarkov-build-optimiser/internal/evaluator"
 	"tarkov-build-optimiser/internal/models"
 
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-
 	flags := cli.GetFlags()
+
+	// Set log level based on CLI flag
+	cli.SetLogLevel(flags.LogLevel)
 	environment, err := env.Get()
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to get environment variables")
@@ -98,17 +98,10 @@ func main() {
 
 	workerCount := runtime.NumCPU() * environment.EvaluatorPoolSizeFactor
 
-	// Initialize a shared in-memory provider for precomputed subtrees
-	// Seed with no entries by default. Replace with seed data if needed.
-	sharedPrecomputedProvider := candidate_tree.NewInMemoryPrecomputedProvider(map[string]candidate_tree.PrecomputedSubtreeInfo{})
-
-	// Initialize shared memo for cross-weapon subtree caching
-	sharedMemo := &sync.Map{}
-
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
 
 	dataService := candidate_tree.CreateDataService(dbClient.Conn)
-	evaluate(weaponIds, dataService, workerCount, traderLevels, dbClient.Conn, sharedPrecomputedProvider, sharedMemo, cache)
+	evaluate(weaponIds, dataService, workerCount, traderLevels, dbClient.Conn, cache)
 
 	log.Info().Msg("Evaluator done.")
 }
@@ -126,7 +119,7 @@ type Candidateinput struct {
 	BuildID     int
 }
 
-func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB, provider candidate_tree.PrecomputedSubtreeProvider, sharedMemo *sync.Map, cache evaluator.Cache) []EvaluationResult {
+func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB, cache evaluator.Cache) []EvaluationResult {
 	inputChan := make(chan Candidateinput, workerCount*2)
 	resultsChan := make(chan EvaluationResult, len(weaponIds)*len(traderLevels))
 	wg := sync.WaitGroup{}
@@ -204,7 +197,7 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 	// Send work to the input channel
 	for i := 0; i < len(weaponIds); i++ {
 		for j := 0; j < len(traderLevels); j++ {
-			log.Info().Msgf("Sending work for weapon %s with constraints %v", weaponIds[i], traderLevels[j])
+			log.Debug().Msgf("Sending work for weapon %s with constraints %v", weaponIds[i], traderLevels[j])
 
 			constraints := models.EvaluationConstraints{
 				TraderLevels:     traderLevels[j],
@@ -218,7 +211,7 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 				return nil
 			}
 
-			log.Info().Msgf("Sending to input %s, %v", weaponIds[i], constraints)
+			log.Debug().Msgf("Sending to input %s, %v", weaponIds[i], constraints)
 			inputChan <- Candidateinput{
 				weaponID:    weaponIds[i],
 				constraints: constraints,

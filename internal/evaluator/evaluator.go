@@ -263,7 +263,7 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	excludedItems map[string]bool, cache Cache) *Build {
 
-	log.Info().Msgf("Finding best build for %s", weapon.Item.Name)
+	log.Debug().Msgf("Finding best build for %s", weapon.Item.Name)
 
 	slotNameMap := make(map[string]*candidate_tree.ItemSlot)
 
@@ -322,7 +322,7 @@ func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 
 	if cacheHits+cacheMisses > 0 {
 		hitRate := float64(cacheHits) / float64(cacheHits+cacheMisses) * 100
-		log.Info().Msgf("Conflict-free cache: %d hits, %d misses (%.1f%% hit rate)", cacheHits, cacheMisses, hitRate)
+		log.Debug().Msgf("Conflict-free cache: %d hits, %d misses (%.1f%% hit rate)", cacheHits, cacheMisses, hitRate)
 	}
 
 	return build
