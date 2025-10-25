@@ -29,6 +29,14 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to connect to db")
 	}
 
+	// Create cache (choose between memory or database)
+	var cache evaluator.Cache
+	if flags.UseDatabaseCache {
+		cache = evaluator.NewDatabaseCache(dbClient.Conn)
+	} else {
+		cache = evaluator.NewMemoryCache()
+	}
+
 	log.Info().Msg("Creating evaluator status entry")
 
 	log.Info().Msg("Purging optimum builds.")
@@ -100,7 +108,7 @@ func main() {
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
 
 	dataService := candidate_tree.CreateDataService(dbClient.Conn)
-	evaluate(weaponIds, dataService, workerCount, traderLevels, dbClient.Conn, sharedPrecomputedProvider, sharedMemo)
+	evaluate(weaponIds, dataService, workerCount, traderLevels, dbClient.Conn, sharedPrecomputedProvider, sharedMemo, cache)
 
 	log.Info().Msg("Evaluator done.")
 }
@@ -118,7 +126,7 @@ type Candidateinput struct {
 	BuildID     int
 }
 
-func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB, provider candidate_tree.PrecomputedSubtreeProvider, sharedMemo *sync.Map) []EvaluationResult {
+func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB, provider candidate_tree.PrecomputedSubtreeProvider, sharedMemo *sync.Map, cache evaluator.Cache) []EvaluationResult {
 	inputChan := make(chan Candidateinput, workerCount*2)
 	resultsChan := make(chan EvaluationResult, len(weaponIds)*len(traderLevels))
 	wg := sync.WaitGroup{}
@@ -155,7 +163,7 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 				weapon.SortAllowedItems("recoil-min")
 
 				log.Info().Msgf("Generated weapon candidate tree for %s with constraints %v", input.weaponID, input.constraints)
-				build := evaluator.FindBestBuild(weapon, "recoil", map[string]bool{})
+				build := evaluator.FindBestBuild(weapon, "recoil", map[string]bool{}, cache)
 
 				log.Info().Msgf("Evaluation complete - weapon %s with constraints %v", input.weaponID, input.constraints)
 

@@ -11,6 +11,7 @@ type Flags struct {
 	CacheOnly          bool
 	PurgeOptimumBuilds bool
 	TestRun            bool
+	UseDatabaseCache   bool
 }
 
 func GetFlags() Flags {
@@ -30,6 +31,9 @@ func GetFlags() Flags {
 	if helpers.ContainsStr(os.Args, "--test-run") {
 		// makes evaluator only use a few weapons for testing
 		flags.TestRun = true
+	}
+	if helpers.ContainsStr(os.Args, "--use-database-cache") {
+		flags.UseDatabaseCache = true
 	}
 
 	return flags
