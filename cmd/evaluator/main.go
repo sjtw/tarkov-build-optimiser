@@ -41,15 +41,14 @@ func main() {
 	log.Info().Msg("Models purged.")
 
 	traderLevels := evaluator.GenerateTraderLevelVariations(models.TraderNames)
-	traderLevels = evaluator.SortTraderLevelsByMax(traderLevels)
+	traderLevels = evaluator.SortTraderLevelsByAvg(traderLevels)
 
 	var weaponIds []string
 	if flags.TestRun {
 		log.Info().Msg("Using test weapon IDs")
 		weaponIds = []string{
-			//"54491c4f4bdc2db1078b4568",
-			//"5448bd6b4bdc2dfc2f8b4569",
-			"5447a9cd4bdc2dbd208b4567",
+			"5447a9cd4bdc2dbd208b4567", // Colt M4A1 5.56x45 assault rifle
+			"6895bb82c4519957df062f82", // Radian Weapons Model 1 FA 5.56x45 assault rifle
 		}
 		traderLevels = [][]models.TraderLevel{
 			{
@@ -91,10 +90,17 @@ func main() {
 
 	workerCount := runtime.NumCPU() * environment.EvaluatorPoolSizeFactor
 
+	// Initialize a shared in-memory provider for precomputed subtrees
+	// Seed with no entries by default. Replace with seed data if needed.
+	sharedPrecomputedProvider := candidate_tree.NewInMemoryPrecomputedProvider(map[string]candidate_tree.PrecomputedSubtreeInfo{})
+
+	// Initialize shared memo for cross-weapon subtree caching
+	sharedMemo := &sync.Map{}
+
 	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
 
 	dataService := candidate_tree.CreateDataService(dbClient.Conn)
-	evaluate(weaponIds, dataService, workerCount, traderLevels, dbClient.Conn)
+	evaluate(weaponIds, dataService, workerCount, traderLevels, dbClient.Conn, sharedPrecomputedProvider, sharedMemo)
 
 	log.Info().Msg("Evaluator done.")
 }
@@ -112,7 +118,7 @@ type Candidateinput struct {
 	BuildID     int
 }
 
-func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB) []EvaluationResult {
+func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB, provider candidate_tree.PrecomputedSubtreeProvider, sharedMemo *sync.Map) []EvaluationResult {
 	inputChan := make(chan Candidateinput, workerCount*2)
 	resultsChan := make(chan EvaluationResult, len(weaponIds)*len(traderLevels))
 	wg := sync.WaitGroup{}
@@ -149,8 +155,7 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 				weapon.SortAllowedItems("recoil-min")
 
 				log.Info().Msgf("Generated weapon candidate tree for %s with constraints %v", input.weaponID, input.constraints)
-
-				build := evaluator.FindBestBuild(weapon, "recoil", map[string]bool{}, nil)
+				build := evaluator.FindBestBuild(weapon, "recoil", map[string]bool{})
 
 				log.Info().Msgf("Evaluation complete - weapon %s with constraints %v", input.weaponID, input.constraints)
 

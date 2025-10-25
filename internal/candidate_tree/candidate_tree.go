@@ -1,6 +1,7 @@
 package candidate_tree
 
 import (
+	"sort"
 	"tarkov-build-optimiser/internal/models"
 
 	"github.com/rs/zerolog/log"
@@ -121,6 +122,20 @@ func (wt *CandidateTree) SortAllowedItems(by string) {
 	for _, slot := range wt.Item.Slots {
 		slot.SortAllowedItems(by)
 	}
+}
+
+// OrderSlotsByConstraint orders slots to maximize pruning
+// Slots with fewer options are processed first (more constrained)
+func (wt *CandidateTree) OrderSlotsByConstraint(slots []*ItemSlot) []*ItemSlot {
+	ordered := make([]*ItemSlot, len(slots))
+	copy(ordered, slots)
+	
+	sort.Slice(ordered, func(i, j int) bool {
+		// Fewer allowed items = more constrained = process first
+		return len(ordered[i].AllowedItems) < len(ordered[j].AllowedItems)
+	})
+	
+	return ordered
 }
 
 func CreateWeaponCandidateTree(id string, focusedStat string, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {

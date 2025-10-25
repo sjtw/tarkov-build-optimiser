@@ -68,25 +68,25 @@ func SortTraderLevelsByMax(traders [][]models.TraderLevel) [][]models.TraderLeve
 	return traders
 }
 
-//func SortTraderLevelsByAvg(traders [][]models.TraderLevel) [][]models.TraderLevel {
-//	sort.Slice(traders, func(i, j int) bool {
-//		aTotal := 0
-//		for _, trader := range traders[i] {
-//			aTotal += trader.Level
-//		}
-//		avgA := aTotal / len(traders[i])
-//
-//		bTotal := 0
-//		for _, trader := range traders[j] {
-//			bTotal += trader.Level
-//		}
-//		avgB := bTotal / len(traders[j])
-//
-//		return avgA < avgB
-//	})
-//
-//	return traders
-//}
+func SortTraderLevelsByAvg(traders [][]models.TraderLevel) [][]models.TraderLevel {
+	sort.Slice(traders, func(i, j int) bool {
+		aTotal := 0
+		for _, trader := range traders[i] {
+			aTotal += trader.Level
+		}
+		avgA := aTotal / len(traders[i])
+
+		bTotal := 0
+		for _, trader := range traders[j] {
+			bTotal += trader.Level
+		}
+		avgB := bTotal / len(traders[j])
+
+		return avgA < avgB
+	})
+
+	return traders
+}
 
 // createTraderLevelHash creates a hash string from the given trader level combinations
 // TODO: include game data version in the hash for keying stored builds?

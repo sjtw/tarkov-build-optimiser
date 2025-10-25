@@ -256,7 +256,7 @@ func TestFindBestBuild(t *testing.T) {
 	weapon.Item.CalculatePotentialValues()
 
 	// Start traversal and get the best build
-	bestBuild := FindBestBuild(weapon, "recoil", initialExcluded, nil)
+	bestBuild := FindBestBuild(weapon, "recoil", initialExcluded)
 
 	assert.NotNil(t, bestBuild)
 
@@ -313,58 +313,6 @@ func TestFindBestBuild(t *testing.T) {
 	assert.Len(t, evaluation.Slots[0].Item.Slots, 0)
 }
 
-func TestProcessSlots_UsesMemoEntry(t *testing.T) {
-	// Construct a minimal tree: Weapon -> one slot with one improving item
-	slot := &candidate_tree.ItemSlot{
-		Name: "slot-a",
-		ID:   "slot-a",
-		AllowedItems: []*candidate_tree.Item{
-			{
-				Name:               "good",
-				ID:                 "item-good",
-				RecoilModifier:     -10,
-				ErgonomicsModifier: 0,
-				ConflictingItems:   []candidate_tree.ConflictingItem{},
-				Slots:              []*candidate_tree.ItemSlot{},
-			},
-		},
-	}
-
-	rootItem := &candidate_tree.Item{
-		Name:               "Weapon",
-		ID:                 "item-weapon",
-		RecoilModifier:     0,
-		ErgonomicsModifier: 0,
-		ConflictingItems:   []candidate_tree.ConflictingItem{},
-		Slots:              []*candidate_tree.ItemSlot{slot},
-	}
-
-	weapon := &candidate_tree.CandidateTree{Item: rootItem}
-
-	// Ensure potential values are computed (not strictly needed for this test, but safe)
-	weapon.Item.CalculatePotentialValues()
-
-	// Precompute descendant item sets for memo key filtering
-	desc := precomputeSlotDescendantItemIDs(weapon)
-
-	// Excluded map containing an irrelevant item (not present under the slot)
-	excluded := map[string]bool{"irrelevant-id": true}
-
-	// Prepare a memo key for the subproblem (current = slot-a, remaining = none)
-	memoKey := makeMemoKey("recoil", slot.ID, []*candidate_tree.ItemSlot{}, excluded, desc)
-
-	// Seed memo with a sentinel build for that subproblem
-	sentinel := &Build{EvaluationType: "recoil", OptimalItems: []OptimalItem{{ID: "sentinel"}}}
-	memo := map[string]*Build{memoKey: sentinel}
-
-	// Now invoke the subproblem; it should hit the memo and return the sentinel directly
-	got := processSlots(weapon, []*candidate_tree.ItemSlot{slot}, []OptimalItem{}, "recoil", 0, 0, excluded, nil, memo, desc, nil)
-
-	if got != sentinel {
-		t.Fatalf("expected processSlots to return memoised build, got different pointer: %+v", got)
-	}
-}
-
 func TestFindBestBuild_ErgonomicsFocus_SelectsHighestErgo(t *testing.T) {
 	// One slot with two options: one is better for ergonomics, the other better for recoil.
 	slot := &candidate_tree.ItemSlot{
@@ -402,7 +350,7 @@ func TestFindBestBuild_ErgonomicsFocus_SelectsHighestErgo(t *testing.T) {
 	weapon := &candidate_tree.CandidateTree{Item: rootItem}
 	weapon.Item.CalculatePotentialValues()
 
-	best := FindBestBuild(weapon, "ergonomics", map[string]bool{}, nil)
+	best := FindBestBuild(weapon, "ergonomics", map[string]bool{})
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -417,51 +365,6 @@ func TestFindBestBuild_ErgonomicsFocus_SelectsHighestErgo(t *testing.T) {
 	}
 	if eval.Slots[0].Item.ID != "item-ergo-better" {
 		t.Fatalf("expected ergonomics-focused build to pick ergo-better, got %s", eval.Slots[0].Item.ID)
-	}
-}
-
-func TestProcessSlots_MemoKey_IgnoresIrrelevantExclusions(t *testing.T) {
-	// Tree: one slot with one item
-	slot := &candidate_tree.ItemSlot{
-		Name: "slot-a",
-		ID:   "slot-a",
-		AllowedItems: []*candidate_tree.Item{
-			{
-				Name:               "only",
-				ID:                 "item-only",
-				RecoilModifier:     -2,
-				ErgonomicsModifier: 0,
-				ConflictingItems:   []candidate_tree.ConflictingItem{},
-				Slots:              []*candidate_tree.ItemSlot{},
-			},
-		},
-	}
-
-	rootItem := &candidate_tree.Item{
-		Name:               "Weapon",
-		ID:                 "item-weapon",
-		RecoilModifier:     0,
-		ErgonomicsModifier: 0,
-		ConflictingItems:   []candidate_tree.ConflictingItem{},
-		Slots:              []*candidate_tree.ItemSlot{slot},
-	}
-	weapon := &candidate_tree.CandidateTree{Item: rootItem}
-	weapon.Item.CalculatePotentialValues()
-
-	desc := precomputeSlotDescendantItemIDs(weapon)
-
-	// Seed memo with a result for exclusion set A (irrelevant)
-	excludedA := map[string]bool{"irrelevant-A": true}
-	keyA := makeMemoKey("recoil", slot.ID, []*candidate_tree.ItemSlot{}, excludedA, desc)
-	sentinel := &Build{EvaluationType: "recoil", OptimalItems: []OptimalItem{{ID: "memo-sentinel"}}}
-	memo := map[string]*Build{keyA: sentinel}
-
-	// Now call with a different irrelevant exclusion; it should still hit the same memo entry
-	excludedB := map[string]bool{"irrelevant-B": true}
-	got := processSlots(weapon, []*candidate_tree.ItemSlot{slot}, []OptimalItem{}, "recoil", 0, 0, excludedB, nil, memo, desc, nil)
-
-	if got != sentinel {
-		t.Fatalf("expected memo hit despite different irrelevant exclusions; got different pointer: %+v", got)
 	}
 }
 
@@ -501,7 +404,7 @@ func TestFindBestBuild_RecoilFocus_TieBreaksOnErgonomics(t *testing.T) {
 	weapon := &candidate_tree.CandidateTree{Item: rootItem}
 	weapon.Item.CalculatePotentialValues()
 
-	best := FindBestBuild(weapon, "recoil", map[string]bool{}, nil)
+	best := FindBestBuild(weapon, "recoil", map[string]bool{})
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -551,7 +454,7 @@ func TestFindBestBuild_RespectsExcludedItems(t *testing.T) {
 	weapon.Item.CalculatePotentialValues()
 
 	excluded := map[string]bool{"item-best": true}
-	best := FindBestBuild(weapon, "recoil", excluded, nil)
+	best := FindBestBuild(weapon, "recoil", excluded)
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -615,7 +518,7 @@ func TestFindBestBuild_SkipsSlotIfBetterGlobal(t *testing.T) {
 	weapon := &candidate_tree.CandidateTree{Item: rootItem}
 	weapon.Item.CalculatePotentialValues()
 
-	best := FindBestBuild(weapon, "recoil", map[string]bool{}, nil)
+	best := FindBestBuild(weapon, "recoil", map[string]bool{})
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -685,7 +588,7 @@ func TestFindBestBuild_RecoilFocus_CrossSlotSynergy_KnownLimitation(t *testing.T
 	weapon := &candidate_tree.CandidateTree{Item: rootItem}
 	weapon.Item.CalculatePotentialValues()
 
-	best := FindBestBuild(weapon, "recoil", map[string]bool{}, nil)
+	best := FindBestBuild(weapon, "recoil", map[string]bool{})
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -718,7 +621,7 @@ func TestToEvaluatedWeapon_AggregatesConflicts(t *testing.T) {
 	weapon := &candidate_tree.CandidateTree{Item: rootItem}
 	weapon.Item.CalculatePotentialValues()
 
-	best := FindBestBuild(weapon, "recoil", map[string]bool{}, nil)
+	best := FindBestBuild(weapon, "recoil", map[string]bool{})
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -771,7 +674,7 @@ func TestFindBestBuild_ErgonomicsFocus_AllowsRecoilWorsening_KnownBug(t *testing
 	weapon := &candidate_tree.CandidateTree{Item: rootItem}
 	weapon.Item.CalculatePotentialValues()
 
-	best := FindBestBuild(weapon, "ergonomics", map[string]bool{}, nil)
+	best := FindBestBuild(weapon, "ergonomics", map[string]bool{})
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -814,7 +717,7 @@ func TestFindBestBuild_ErgonomicsFocus_TieBreaksOnRecoil(t *testing.T) {
 	weapon := &candidate_tree.CandidateTree{Item: rootItem}
 	weapon.Item.CalculatePotentialValues()
 
-	best := FindBestBuild(weapon, "ergonomics", map[string]bool{}, nil)
+	best := FindBestBuild(weapon, "ergonomics", map[string]bool{})
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -841,77 +744,4 @@ func (m mockPrecomputedProvider) GetPrecomputedSubtree(itemID string, focusedSta
 		}, true
 	}
 	return candidate_tree.PrecomputedSubtreeInfo{}, false
-}
-
-// The following tests specify desired future behavior for precomputed subtree reuse.
-// They will fail until evaluator/candidate_tree integrates a precomputed subtree fast-path.
-
-func TestEvaluator_UsesPrecomputedSubtreeWhenAvailable(t *testing.T) {
-	// Desired: if a precomputed subtree exists for item-A and is compatible, evaluator prefers it
-	// even if another item B has slightly better standalone potential. Currently, code will pick B.
-	slot := &candidate_tree.ItemSlot{
-		Name: "slot-X",
-		ID:   "slot-X",
-		AllowedItems: []*candidate_tree.Item{
-			{
-				Name:               "A-precomputed",
-				ID:                 "item-A",
-				RecoilModifier:     -10,
-				ErgonomicsModifier: 2,
-				ConflictingItems:   []candidate_tree.ConflictingItem{},
-				Slots:              []*candidate_tree.ItemSlot{},
-			},
-			{
-				Name:               "B",
-				ID:                 "item-B",
-				RecoilModifier:     -12, // better standalone potential
-				ErgonomicsModifier: 1,
-				ConflictingItems:   []candidate_tree.ConflictingItem{},
-				Slots:              []*candidate_tree.ItemSlot{},
-			},
-		},
-	}
-	root := &candidate_tree.Item{Name: "W", ID: "W", Slots: []*candidate_tree.ItemSlot{slot}}
-	weapon := &candidate_tree.CandidateTree{Item: root}
-	weapon.Item.CalculatePotentialValues()
-
-	best := FindBestBuild(weapon, "recoil", map[string]bool{}, mockPrecomputedProvider{})
-	if best == nil {
-		t.Fatal("expected a build")
-	}
-	eval, err := best.ToEvaluatedWeapon()
-	if err != nil {
-		t.Fatalf("ToEvaluatedWeapon failed: %v", err)
-	}
-	// Expected future behavior: choose item-A due to precomputed subtree reuse
-	if eval.Slots[0].Item == nil || eval.Slots[0].Item.ID != "item-A" {
-		t.Fatalf("expected evaluator to use precomputed subtree item-A; got %+v", eval.Slots[0].Item)
-	}
-}
-
-func TestEvaluator_DropsAlternativePathsWhenPrecomputedMatchesPotential(t *testing.T) {
-	// Desired: when a precomputed subtree for item-C meets the slot's min potential, evaluator
-	// selects item-C and need not explore sibling items. Currently, exploration is uniform.
-	child := &candidate_tree.ItemSlot{ID: "child", Name: "child", AllowedItems: []*candidate_tree.Item{
-		{Name: "c1", ID: "c1", RecoilModifier: -5},
-		{Name: "c2", ID: "c2", RecoilModifier: -4},
-	}}
-	itemC := &candidate_tree.Item{Name: "with-cached-subtree", ID: "item-C", RecoilModifier: -5, Slots: []*candidate_tree.ItemSlot{child}}
-	itemO := &candidate_tree.Item{Name: "other", ID: "item-O", RecoilModifier: -6}
-	s := &candidate_tree.ItemSlot{ID: "S", Name: "S", AllowedItems: []*candidate_tree.Item{itemO, itemC}}
-	root := &candidate_tree.Item{Name: "W", ID: "W", Slots: []*candidate_tree.ItemSlot{s}}
-	weapon := &candidate_tree.CandidateTree{Item: root}
-	weapon.Item.CalculatePotentialValues()
-
-	best := FindBestBuild(weapon, "recoil", map[string]bool{}, nil)
-	if best == nil {
-		t.Fatal("expected a build")
-	}
-	eval, err := best.ToEvaluatedWeapon()
-	if err != nil {
-		t.Fatalf("ToEvaluatedWeapon failed: %v", err)
-	}
-	if eval.Slots[0].Item == nil || eval.Slots[0].Item.ID != "item-C" {
-		t.Fatalf("expected cached subtree item-C to be chosen; got %+v", eval.Slots[0].Item)
-	}
 }

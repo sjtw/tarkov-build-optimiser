@@ -81,8 +81,7 @@ func BenchmarkProcessSlots_ColdMemo(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		memo := map[string]*Build{}
-		sink = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, memo, desc, nil)
+		sink = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, desc)
 	}
 }
 
@@ -98,14 +97,9 @@ func BenchmarkProcessSlots_WarmMemo(b *testing.B) {
 	excluded := map[string]bool{}
 	visited := map[string]bool{}
 
-	// Seed memo with a result for the top-level subproblem so we hit it immediately
-	memo := map[string]*Build{}
-	topKey := makeMemoKey("recoil", slots[0].ID, slots[1:], excluded, desc)
-	memo[topKey] = &Build{EvaluationType: "recoil", OptimalItems: []OptimalItem{{ID: "memo-top"}}}
-
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sink = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, memo, desc, nil)
+		sink = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, desc)
 	}
 }

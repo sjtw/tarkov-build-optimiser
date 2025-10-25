@@ -6,11 +6,20 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"tarkov-build-optimiser/internal/candidate_tree"
 	"tarkov-build-optimiser/internal/helpers"
 	"tarkov-build-optimiser/internal/models"
 
 	"github.com/rs/zerolog/log"
+)
+
+// Global cache for conflict-free items
+var (
+	conflictFreeCache  = &sync.Map{}
+	conflictFreeHits   = int64(0)
+	conflictFreeMisses = int64(0)
 )
 
 type ItemEvaluationConflicts struct {
@@ -249,7 +258,7 @@ func (b *Build) ToEvaluatedWeapon() (EvaluatedWeapon, error) {
 }
 
 func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
-	excludedItems map[string]bool, provider candidate_tree.PrecomputedSubtreeProvider) *Build {
+	excludedItems map[string]bool) *Build {
 
 	log.Info().Msgf("Finding best build for %s", weapon.Item.Name)
 
@@ -298,14 +307,20 @@ func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	//	}
 	//}
 
-	memo := map[string]*Build{}
-
 	// Precompute the descendant allowed item IDs for each slot in this tree once.
 	slotDescendantItemIDs := precomputeSlotDescendantItemIDs(weapon)
 
-	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, memo, slotDescendantItemIDs, provider)
+	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, slotDescendantItemIDs)
 
 	build.WeaponTree = *weapon
+
+	// Log cache statistics
+	hits := atomic.LoadInt64(&conflictFreeHits)
+	misses := atomic.LoadInt64(&conflictFreeMisses)
+	if hits+misses > 0 {
+		hitRate := float64(hits) / float64(hits+misses) * 100
+		log.Info().Msgf("Conflict-free cache: %d hits, %d misses (%.1f%% hit rate)", hits, misses, hitRate)
+	}
 
 	return build
 }
@@ -438,15 +453,33 @@ func relevantExcludedIDs(currentSlotID string, remaining []*candidate_tree.ItemS
 	return filtered
 }
 
-// makeMemoKey returns a key representing the current subproblem state:
-// - focusedStat: optimisation target (recoil/ergonomics)
-// - current slot being processed
-// - ordered remaining slots to process (affects search order heuristics)
-// - excluded items filtered to those relevant to the subtrees of interest
-func makeMemoKey(focusedStat string, currentSlotID string, remaining []*candidate_tree.ItemSlot, excluded map[string]bool, slotDesc map[string]map[string]bool) string {
-	remainingSig := remainingSlotsSignature(remaining)
-	filteredExcluded := relevantExcludedIDs(currentSlotID, remaining, excluded, slotDesc)
-	return fmt.Sprintf("%s|%s|%s|%s", focusedStat, currentSlotID, remainingSig, strings.Join(filteredExcluded, "-"))
+// makeConflictFreeCacheKey creates cache key for conflict-free items
+// No need to include exclusions since there are no conflicts
+func makeConflictFreeCacheKey(itemID string, focusedStat string, constraints models.EvaluationConstraints) string {
+	constraintsSig := serializeConstraints(constraints)
+	return fmt.Sprintf("cf|%s|%s|%s", itemID, focusedStat, constraintsSig)
+}
+
+// serializeConstraints creates a stable string representation of constraints
+func serializeConstraints(constraints models.EvaluationConstraints) string {
+	parts := make([]string, len(constraints.TraderLevels))
+	for i, level := range constraints.TraderLevels {
+		parts[i] = fmt.Sprintf("%s:%d", level.Name, level.Level)
+	}
+	return strings.Join(parts, ",")
+}
+
+// extractConflictFreeSubtree extracts the subtree for a conflict-free item
+// For conflict-free items, we only cache the stats, not the full subtree structure
+// because slot references are weapon-specific
+func extractConflictFreeSubtree(build *Build, chosenBeforeItem []OptimalItem) *Build {
+	// For conflict-free items, we only cache the stats
+	// The slot structure will be rebuilt during normal evaluation
+	return &Build{
+		OptimalItems:  []OptimalItem{}, // Empty - will be rebuilt
+		RecoilSum:     build.RecoilSum,
+		ErgonomicsSum: build.ErgonomicsSum,
+	}
 }
 
 func processSlots(
@@ -458,9 +491,7 @@ func processSlots(
 	ergoStatSum int,
 	excludedItems map[string]bool,
 	visitedSlots map[string]bool,
-	memo map[string]*Build,
 	slotDescendantItemIDs map[string]map[string]bool,
-	provider candidate_tree.PrecomputedSubtreeProvider,
 ) *Build {
 	clonedSlots := append([]*candidate_tree.ItemSlot{}, slotsToProcess...)
 
@@ -489,7 +520,7 @@ func processSlots(
 	// visitedSlots just keeps track of how often we're hitting certain slots. Can be useful for debugging, but it's
 	// a good safe guard against infinite loops. in theory CandidateTree should be handling this.
 	if visitedSlots[currentSlot.ID] {
-		return processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, visitedSlots, memo, slotDescendantItemIDs, provider)
+		return processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, excludedItems, visitedSlots, slotDescendantItemIDs)
 	}
 
 	if visitedSlots == nil {
@@ -499,12 +530,6 @@ func processSlots(
 	defer func() {
 		delete(visitedSlots, currentSlot.ID)
 	}()
-
-	// Check memo before exploring this slot's allowed items
-	memoKey := makeMemoKey(focusedStat, currentSlot.ID, remainingSlots, excludedItems, slotDescendantItemIDs)
-	if cached, ok := memo[memoKey]; ok {
-		return cached
-	}
 
 	var best *Build = nil
 
@@ -546,71 +571,90 @@ func processSlots(
 			continue
 		}
 
-		// from here until the end of the loop we're going to see what happens if we slot this item into this slot.
-		newChosen := append(chosenItems, OptimalItem{
-			Name:   item.Name,
-			ID:     item.ID,
-			SlotID: currentSlot.ID,
-		})
+		// Check if this item is conflict-free (can be cached safely)
+		isConflictFree := len(item.ConflictingItems) == 0
 
-		newRecoil := recoilStatSum + item.RecoilModifier
-		newErgo := ergoStatSum + item.ErgonomicsModifier
+		// Try conflict-free cache lookup
+		var candidate *Build = nil
+		if isConflictFree {
+			cacheKey := makeConflictFreeCacheKey(item.ID, focusedStat, root.Constraints)
+			if cachedVal, ok := conflictFreeCache.Load(cacheKey); ok {
+				atomic.AddInt64(&conflictFreeHits, 1)
+				cached := cachedVal.(*Build)
 
-		newSlotsToProcess := append([]*candidate_tree.ItemSlot{}, item.Slots...)
-		newSlotsToProcess = append(newSlotsToProcess, remainingSlots...)
+				// For conflict-free items, we can't use cached OptimalItems because
+				// slot references are weapon-specific. We need to evaluate normally
+				// but we can use the cached stats to skip the evaluation if we know
+				// the result won't be better than current best
+				if best != nil {
+					potentialRecoil := (recoilStatSum + item.RecoilModifier) + cached.RecoilSum
+					potentialErgo := (ergoStatSum + item.ErgonomicsModifier) + cached.ErgonomicsSum
 
-		newExcluded := helpers.CloneMap(excludedItems)
-		for _, c := range item.ConflictingItems {
-			newExcluded[c.ID] = true
-		}
-
-		// Check for precomputed subtree - if available and compatible, use it directly
-		if provider != nil {
-			constraints := models.EvaluationConstraints{
-				TraderLevels: []models.TraderLevel{
-					{Name: "Jaeger", Level: 0},
-					{Name: "Prapor", Level: 0},
-					{Name: "Peacekeeper", Level: 0},
-					{Name: "Mechanic", Level: 0},
-					{Name: "Skier", Level: 0},
-				},
-			}
-			if precomputed, found := provider.GetPrecomputedSubtree(item.ID, focusedStat, constraints); found {
-				// Use precomputed subtree result directly
-				precomputedBuild := &Build{
-					OptimalItems:  newChosen,
-					RecoilSum:     newRecoil + precomputed.RecoilSum,
-					ErgonomicsSum: newErgo + precomputed.ErgonomicsSum,
-					WeaponTree:    *root,
+					if focusedStat == "recoil" && potentialRecoil >= best.RecoilSum {
+						// Cached result won't be better, skip evaluation
+						continue
+					} else if focusedStat == "ergonomics" && potentialErgo <= best.ErgonomicsSum {
+						// Cached result won't be better, skip evaluation
+						continue
+					}
 				}
 
-				if best == nil || doesImproveStats(precomputedBuild, best, focusedStat) {
-					best = precomputedBuild
-				}
-				continue // Skip further processing of this item's children
+				// Fall through to normal evaluation for conflict-free items
+				// The cache helps us skip evaluation when we know the result won't be better
+			} else {
+				atomic.AddInt64(&conflictFreeMisses, 1)
 			}
 		}
 
-		// Branch-and-bound pruning using potential values
-		if best != nil {
-			if focusedStat == "recoil" {
-				// lower is better; compute minimal achievable final recoil
-				lowerBound := computeRecoilLowerBound(newRecoil, newSlotsToProcess)
-				if lowerBound > best.RecoilSum {
-					// even the best case cannot beat current best; prune
-					continue
-				}
-			} else if focusedStat == "ergonomics" {
-				// higher is better; compute maximal achievable final ergonomics
-				upperBound := computeErgoUpperBound(newErgo, newSlotsToProcess)
-				if upperBound < best.ErgonomicsSum {
-					// even the best case cannot beat current best; prune
-					continue
+		// If no cache hit, evaluate normally
+		if candidate == nil {
+			// from here until the end of the loop we're going to see what happens if we slot this item into this slot.
+			newChosen := append(chosenItems, OptimalItem{
+				Name:   item.Name,
+				ID:     item.ID,
+				SlotID: currentSlot.ID,
+			})
+
+			newRecoil := recoilStatSum + item.RecoilModifier
+			newErgo := ergoStatSum + item.ErgonomicsModifier
+
+			newSlotsToProcess := append([]*candidate_tree.ItemSlot{}, item.Slots...)
+			newSlotsToProcess = append(newSlotsToProcess, remainingSlots...)
+
+			newExcluded := helpers.CloneMap(excludedItems)
+			for _, c := range item.ConflictingItems {
+				newExcluded[c.ID] = true
+			}
+
+			// Branch-and-bound pruning using potential values
+			if best != nil {
+				if focusedStat == "recoil" {
+					// lower is better; compute minimal achievable final recoil
+					lowerBound := computeRecoilLowerBound(newRecoil, newSlotsToProcess)
+					if lowerBound > best.RecoilSum {
+						// even the best case cannot beat current best; prune
+						continue
+					}
+				} else if focusedStat == "ergonomics" {
+					// higher is better; compute maximal achievable final ergonomics
+					upperBound := computeErgoUpperBound(newErgo, newSlotsToProcess)
+					if upperBound < best.ErgonomicsSum {
+						// even the best case cannot beat current best; prune
+						continue
+					}
 				}
 			}
-		}
 
-		candidate := processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, memo, slotDescendantItemIDs, provider)
+			candidate = processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, slotDescendantItemIDs)
+
+			// Cache conflict-free results
+			if isConflictFree && candidate != nil && len(item.Slots) > 0 {
+				// Extract just this item's subtree from the result
+				itemSubtree := extractConflictFreeSubtree(candidate, newChosen)
+				cacheKey := makeConflictFreeCacheKey(item.ID, focusedStat, root.Constraints)
+				conflictFreeCache.Store(cacheKey, itemSubtree)
+			}
+		}
 
 		if candidate != nil {
 			if best == nil {
@@ -643,26 +687,12 @@ func processSlots(
 			}
 		}
 	}
-	candidateSkip := processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, helpers.CloneMap(excludedItems), visitedSlots, memo, slotDescendantItemIDs, provider)
+	candidateSkip := processSlots(root, remainingSlots, chosenItems, focusedStat, recoilStatSum, ergoStatSum, helpers.CloneMap(excludedItems), visitedSlots, slotDescendantItemIDs)
 
 	if candidateSkip != nil {
 		if best == nil || doesImproveStats(candidateSkip, best, focusedStat) {
 			best = candidateSkip
 		}
-	}
-
-	// memoize the best build for this slot. I'm pretty certain this is actually never useful at the moment
-	// as we don't persist anything, and technically shouldn't be reevaluating the same path twice anyway...
-	//
-	// TDOO: persist these in db - including the candidate tree constraints we're operating on. This might at least
-	// help when re-evaluating everything after a new patch.
-	//
-	// the only constraints for this build are the current exclusion list and the current slot we're evaluating.
-	// the exclusion list contains:
-	// - anything explicitly excluded by the caller
-	// - any items which conflict with an item selected by the best build
-	if best != nil {
-		memo[memoKey] = best
 	}
 
 	return best

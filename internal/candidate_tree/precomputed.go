@@ -1,6 +1,8 @@
 package candidate_tree
 
-import "tarkov-build-optimiser/internal/models"
+import (
+	"tarkov-build-optimiser/internal/models"
+)
 
 // PrecomputedSubtreeInfo represents a compact summary of a precomputed subtree result
 // for a given root mod/item.
@@ -16,6 +18,39 @@ type PrecomputedSubtreeInfo struct {
 // Implementations can back this with an in-memory map or database.
 type PrecomputedSubtreeProvider interface {
 	GetPrecomputedSubtree(itemID string, focusedStat string, constraints models.EvaluationConstraints) (PrecomputedSubtreeInfo, bool)
+}
+
+// InMemoryPrecomputedProvider is a simple in-memory implementation of PrecomputedSubtreeProvider.
+// It stores precomputed subtree infos in a map keyed by itemID. This is suitable for tests
+// and local experimentation; for production, replace with a persistent store.
+type InMemoryPrecomputedProvider struct {
+	// data maps itemID -> PrecomputedSubtreeInfo. If an itemID is missing, no precomputed data is available.
+	data map[string]PrecomputedSubtreeInfo
+}
+
+// GetPrecomputedSubtree implements PrecomputedSubtreeProvider.
+func (p *InMemoryPrecomputedProvider) GetPrecomputedSubtree(itemID string, focusedStat string, constraints models.EvaluationConstraints) (PrecomputedSubtreeInfo, bool) {
+	if p == nil {
+		return PrecomputedSubtreeInfo{}, false
+	}
+	v, ok := p.data[itemID]
+	if !ok {
+		return PrecomputedSubtreeInfo{}, false
+	}
+	// GetPrecomputedSubtree lookup and return cached info
+	// Return a copy to avoid external mutation
+	info := v
+	return info, true
+}
+
+// NewInMemoryPrecomputedProvider creates a new InMemoryPrecomputedProvider with the given data
+func NewInMemoryPrecomputedProvider(entries map[string]PrecomputedSubtreeInfo) *InMemoryPrecomputedProvider {
+	// Copy to avoid external mutations
+	cp := make(map[string]PrecomputedSubtreeInfo, len(entries))
+	for k, v := range entries {
+		cp[k] = v
+	}
+	return &InMemoryPrecomputedProvider{data: cp}
 }
 
 // ApplyPrecomputedPruning traverses the candidate tree and, for any slot where a precomputed
