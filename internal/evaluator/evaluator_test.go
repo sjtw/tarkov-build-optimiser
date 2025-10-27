@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"context"
 	"sync"
 	"tarkov-build-optimiser/internal/candidate_tree"
 	"tarkov-build-optimiser/internal/models"
@@ -25,6 +26,7 @@ func createMockConstraints() models.EvaluationConstraints {
 type MockEvaluationDataProvider struct {
 	GetSubtreeFunc     func(itemId string, buildType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error)
 	GetTraderOfferFunc func(itemID string) ([]models.TraderOffer, error)
+	GetItemPriceFunc   func(itemID string) (int, bool, error)
 }
 
 func (m *MockEvaluationDataProvider) GetSubtree(itemId string, buildType string, constraints models.EvaluationConstraints) (*models.ItemEvaluationResult, error) {
@@ -39,6 +41,13 @@ func (m *MockEvaluationDataProvider) GetTraderOffer(itemID string) ([]models.Tra
 		return m.GetTraderOfferFunc(itemID)
 	}
 	return nil, nil
+}
+
+func (m *MockEvaluationDataProvider) GetItemPrice(ctx context.Context, itemID string, traderLevels []models.TraderLevel) (int, bool, error) {
+	if m.GetItemPriceFunc != nil {
+		return m.GetItemPriceFunc(itemID)
+	}
+	return 0, false, nil
 }
 
 //func (m *MockEvaluationDataProvider) SaveBuild(build *models.ItemEvaluationResult, constraints models.EvaluationConstraints) {
@@ -257,7 +266,7 @@ func TestFindBestBuild(t *testing.T) {
 
 	// Start traversal and get the best build
 	cache := NewMemoryCache()
-	bestBuild := FindBestBuild(weapon, "recoil", initialExcluded, cache)
+	bestBuild := FindBestBuild(weapon, "recoil", initialExcluded, cache, nil)
 
 	assert.NotNil(t, bestBuild)
 
@@ -352,7 +361,7 @@ func TestFindBestBuild_ErgonomicsFocus_SelectsHighestErgo(t *testing.T) {
 	weapon.Item.CalculatePotentialValues()
 
 	cache := NewMemoryCache()
-	best := FindBestBuild(weapon, "ergonomics", map[string]bool{}, cache)
+	best := FindBestBuild(weapon, "ergonomics", map[string]bool{}, cache, nil)
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -407,7 +416,7 @@ func TestFindBestBuild_RecoilFocus_TieBreaksOnErgonomics(t *testing.T) {
 	weapon.Item.CalculatePotentialValues()
 
 	cache := NewMemoryCache()
-	best := FindBestBuild(weapon, "recoil", map[string]bool{}, cache)
+	best := FindBestBuild(weapon, "recoil", map[string]bool{}, cache, nil)
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -458,7 +467,7 @@ func TestFindBestBuild_RespectsExcludedItems(t *testing.T) {
 
 	excluded := map[string]bool{"item-best": true}
 	cache := NewMemoryCache()
-	best := FindBestBuild(weapon, "recoil", excluded, cache)
+	best := FindBestBuild(weapon, "recoil", excluded, cache, nil)
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -523,7 +532,7 @@ func TestFindBestBuild_SkipsSlotIfBetterGlobal(t *testing.T) {
 	weapon.Item.CalculatePotentialValues()
 
 	cache := NewMemoryCache()
-	best := FindBestBuild(weapon, "recoil", map[string]bool{}, cache)
+	best := FindBestBuild(weapon, "recoil", map[string]bool{}, cache, nil)
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -594,7 +603,7 @@ func TestFindBestBuild_RecoilFocus_CrossSlotSynergy_KnownLimitation(t *testing.T
 	weapon.Item.CalculatePotentialValues()
 
 	cache := NewMemoryCache()
-	best := FindBestBuild(weapon, "recoil", map[string]bool{}, cache)
+	best := FindBestBuild(weapon, "recoil", map[string]bool{}, cache, nil)
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -628,7 +637,7 @@ func TestToEvaluatedWeapon_AggregatesConflicts(t *testing.T) {
 	weapon.Item.CalculatePotentialValues()
 
 	cache := NewMemoryCache()
-	best := FindBestBuild(weapon, "recoil", map[string]bool{}, cache)
+	best := FindBestBuild(weapon, "recoil", map[string]bool{}, cache, nil)
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -682,7 +691,7 @@ func TestFindBestBuild_ErgonomicsFocus_AllowsRecoilWorsening_KnownBug(t *testing
 	weapon.Item.CalculatePotentialValues()
 
 	cache := NewMemoryCache()
-	best := FindBestBuild(weapon, "ergonomics", map[string]bool{}, cache)
+	best := FindBestBuild(weapon, "ergonomics", map[string]bool{}, cache, nil)
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}
@@ -726,7 +735,7 @@ func TestFindBestBuild_ErgonomicsFocus_TieBreaksOnRecoil(t *testing.T) {
 	weapon.Item.CalculatePotentialValues()
 
 	cache := NewMemoryCache()
-	best := FindBestBuild(weapon, "ergonomics", map[string]bool{}, cache)
+	best := FindBestBuild(weapon, "ergonomics", map[string]bool{}, cache, nil)
 	if best == nil {
 		t.Fatalf("expected build, got nil")
 	}

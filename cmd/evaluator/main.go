@@ -156,7 +156,7 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 				weapon.SortAllowedItems("recoil-min")
 
 				log.Info().Msgf("Generated weapon candidate tree for %s with constraints %v", input.weaponID, input.constraints)
-				build := evaluator.FindBestBuild(weapon, "recoil", map[string]bool{}, cache)
+				build := evaluator.FindBestBuild(weapon, "recoil", map[string]bool{}, cache, dataProvider)
 
 				log.Info().Msgf("Evaluation complete - weapon %s with constraints %v", input.weaponID, input.constraints)
 

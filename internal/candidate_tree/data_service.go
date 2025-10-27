@@ -18,6 +18,8 @@ type DataService struct {
 	evalResultMu             sync.Mutex
 	allowedItemBySlotIDCache map[string][]*models.AllowedItem
 	allowedItemBySlotIDMu    sync.Mutex
+	priceCache               map[string]int
+	priceCacheMu             sync.RWMutex
 }
 
 func CreateDataService(db *sql.DB) *DataService {
@@ -27,6 +29,7 @@ func CreateDataService(db *sql.DB) *DataService {
 		evalResultCache:          make(map[string]*models.ItemEvaluationResult),
 		allowedItemBySlotIDCache: make(map[string][]*models.AllowedItem),
 		slotCache:                make(map[string][]models.Slot),
+		priceCache:               make(map[string]int),
 	}
 }
 
@@ -162,6 +165,29 @@ func (tds *DataService) GetTraderOffer(itemID string) ([]models.TraderOffer, err
 		return nil, err
 	}
 	return offers, nil
+}
+
+func (tds *DataService) GetItemPrice(ctx context.Context, itemID string, traderLevels []models.TraderLevel) (int, bool, error) {
+	key := fmt.Sprintf("%s|%s", itemID, models.SerialiseLevels(traderLevels))
+
+	tds.priceCacheMu.RLock()
+	if price, ok := tds.priceCache[key]; ok {
+		tds.priceCacheMu.RUnlock()
+		return price, true, nil
+	}
+	tds.priceCacheMu.RUnlock()
+
+	price, ok, err := models.GetLowestPriceForItem(ctx, tds.db, itemID, traderLevels)
+	if err != nil {
+		return 0, false, err
+	}
+	if ok {
+		tds.priceCacheMu.Lock()
+		tds.priceCache[key] = price
+		tds.priceCacheMu.Unlock()
+	}
+
+	return price, ok, nil
 }
 
 func (tds *DataService) loadAllWeaponMods() error {

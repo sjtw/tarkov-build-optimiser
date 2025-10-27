@@ -1,7 +1,10 @@
 package models
 
 import (
+	"context"
 	"database/sql"
+	"strings"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,10 +23,11 @@ func UpsertTraderOffer(tx *sql.Tx, offer TraderOffer) error {
 		   	name,
 		   	trader,
 			min_trader_level,
-		   	price_rub
+		   	price_rub,
+		    trader_lowercase
 		)
-		values ($1, $2, $3, $4, $5)`
-	_, err := tx.Exec(query, offer.ID, offer.Name, offer.Trader, offer.MinTraderLevel, offer.PriceRub)
+		values ($1, $2, $3, $4, $5, $6)`
+	_, err := tx.Exec(query, offer.ID, offer.Name, offer.Trader, offer.MinTraderLevel, offer.PriceRub, strings.ToLower(offer.Trader))
 	if err != nil {
 		return err
 	}
@@ -62,4 +66,57 @@ func GetTraderOffersByItemID(db *sql.DB, itemID string) ([]TraderOffer, error) {
 	}
 
 	return offers, nil
+}
+
+// GetLowestPriceForItem returns the lowest trader offer price for itemID that satisfies provided trader levels.
+// ok == false indicates no eligible offer exists.
+func GetLowestPriceForItem(ctx context.Context, db *sql.DB, itemID string, traderLevels []TraderLevel) (price int, ok bool, err error) {
+	levelMap := map[string]int{}
+	for _, tl := range traderLevels {
+		levelMap[strings.ToLower(tl.Name)] = tl.Level
+	}
+
+	levelValue := func(name string) int {
+		if v, exists := levelMap[name]; exists {
+			return v
+		}
+		return 0
+	}
+
+	query := `
+		select min(price_rub)
+		from trader_offers
+		where item_id = $1
+		  and trader_lowercase is not null
+		  and trader_lowercase in ('jaeger', 'prapor', 'peacekeeper', 'mechanic', 'skier')
+		  and min_trader_level <= case trader_lowercase
+			  when 'jaeger' then $2
+			  when 'prapor' then $3
+			  when 'peacekeeper' then $4
+			  when 'mechanic' then $5
+			  when 'skier' then $6
+			  else 0
+		  end
+	`
+
+	var lowest sql.NullInt64
+	err = db.QueryRowContext(ctx, query, itemID,
+		levelValue("jaeger"),
+		levelValue("prapor"),
+		levelValue("peacekeeper"),
+		levelValue("mechanic"),
+		levelValue("skier"),
+	).Scan(&lowest)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, false, nil
+		}
+		return 0, false, err
+	}
+
+	if !lowest.Valid {
+		return 0, false, nil
+	}
+
+	return int(lowest.Int64), true, nil
 }

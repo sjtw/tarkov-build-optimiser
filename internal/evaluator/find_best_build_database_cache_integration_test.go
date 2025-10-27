@@ -87,7 +87,7 @@ func TestFindBestBuildDatabaseCacheIntegration(t *testing.T) {
 
 			// Use database cache for testing
 			cache := NewDatabaseCache(dbClient.Conn)
-			build := FindBestBuild(weapon, "recoil", map[string]bool{}, cache)
+			build := FindBestBuild(weapon, "recoil", map[string]bool{}, cache, dataService)
 			require.NotNil(t, build, "Expected non-nil build for weapon %s", weaponID)
 
 			hits := build.CacheHits

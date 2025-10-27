@@ -87,7 +87,7 @@ func TestFindBestBuildIntegration(t *testing.T) {
 
 			// Use memory cache for testing
 			cache := NewMemoryCache()
-			build := FindBestBuild(weapon, "recoil", map[string]bool{}, cache)
+			build := FindBestBuild(weapon, "recoil", map[string]bool{}, cache, dataService)
 			require.NotNil(t, build, "Expected non-nil build for weapon %s", weaponID)
 
 			hits := build.CacheHits

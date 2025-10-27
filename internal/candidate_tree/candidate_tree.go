@@ -1,6 +1,7 @@
 package candidate_tree
 
 import (
+	"context"
 	"sort"
 	"tarkov-build-optimiser/internal/models"
 
@@ -13,6 +14,7 @@ type TreeDataProvider interface {
 	GetWeaponModById(id string) (*models.WeaponMod, error)
 	GetAllowedItemsBySlotID(id string) ([]*models.AllowedItem, error)
 	GetTraderOffer(id string) ([]models.TraderOffer, error)
+	GetItemPrice(ctx context.Context, itemID string, traderLevels []models.TraderLevel) (int, bool, error)
 	IsWeapon(id string) (bool, error)
 }
 
@@ -53,6 +55,14 @@ func (wt *CandidateTree) SetDataService(ds TreeDataProvider) {
 		return
 	}
 	wt.dataService = ds
+}
+
+// DataService returns the underlying data provider.
+func (wt *CandidateTree) DataService() TreeDataProvider {
+	if wt == nil {
+		return nil
+	}
+	return wt.dataService
 }
 
 func (wt *CandidateTree) AddItemConflicts(itemId string, conflicts []ConflictingItem) {
@@ -127,11 +137,11 @@ func (wt *CandidateTree) SortAllowedItems(by string) {
 func (wt *CandidateTree) OrderSlotsByConstraint(slots []*ItemSlot) []*ItemSlot {
 	ordered := make([]*ItemSlot, len(slots))
 	copy(ordered, slots)
-	
+
 	sort.Slice(ordered, func(i, j int) bool {
-	return len(ordered[i].AllowedItems) < len(ordered[j].AllowedItems)
+		return len(ordered[i].AllowedItems) < len(ordered[j].AllowedItems)
 	})
-	
+
 	return ordered
 }
 

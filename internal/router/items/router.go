@@ -61,6 +61,16 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 
 		itemId := c.Param("item_id")
 		buildType := c.QueryParam("build_type")
+		if budgetParam := c.QueryParam("rub_budget"); budgetParam != "" {
+			budget, err := strconv.Atoi(budgetParam)
+			if err != nil {
+				return c.String(400, "Invalid rub_budget parameter")
+			}
+			if budget < 0 {
+				return c.String(400, "Budget must be non-negative")
+			}
+			constraints.RubBudget = &budget
+		}
 		traderLevels, err := getTraderLevelParams(c)
 		if err != nil {
 			return c.String(400, err.Error())
@@ -75,6 +85,14 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		}
 
 		if build == nil {
+			if constraints.RubBudget != nil {
+				return c.JSON(404, map[string]interface{}{
+					"error":  "no_build_within_budget",
+					"budget": *constraints.RubBudget,
+					"message": fmt.Sprintf("No valid build available within %d RUB for trader levels %v",
+						*constraints.RubBudget, constraints.TraderLevels),
+				})
+			}
 			return c.String(404, "Build not found")
 		}
 

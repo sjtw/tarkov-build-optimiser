@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"tarkov-build-optimiser/internal/candidate_tree"
@@ -108,6 +109,7 @@ func BenchmarkProcessSlots_CachePerformance(b *testing.B) {
 	weapon.UpdateAllowedItemSlots()
 	weapon.UpdateAllowedItems()
 	desc := precomputeSlotDescendantItemIDs(weapon)
+	ctx := context.Background()
 
 	slots := weapon.Item.Slots
 	chosen := []OptimalItem{}
@@ -121,7 +123,7 @@ func BenchmarkProcessSlots_CachePerformance(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			var cacheHits, cacheMisses, itemsEvaluated int64
 			cache := NewMemoryCache() // Fresh cache every iteration
-			sink = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, desc, &cacheHits, &cacheMisses, &itemsEvaluated, cache)
+			sink = processSlots(ctx, weapon, slots, chosen, "recoil", 0, 0, 0, nil, excluded, visited, desc, &cacheHits, &cacheMisses, &itemsEvaluated, cache, nil)
 		}
 	})
 
@@ -130,14 +132,14 @@ func BenchmarkProcessSlots_CachePerformance(b *testing.B) {
 		// Pre-seed the cache with results from a full evaluation
 		warmCache := NewMemoryCache()
 		var warmHits, warmMisses, warmItemsEvaluated int64
-		_ = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, desc, &warmHits, &warmMisses, &warmItemsEvaluated, warmCache)
+		_ = processSlots(ctx, weapon, slots, chosen, "recoil", 0, 0, 0, nil, excluded, visited, desc, &warmHits, &warmMisses, &warmItemsEvaluated, warmCache, nil)
 
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			var cacheHits, cacheMisses, itemsEvaluated int64
 			// Reuse the same pre-seeded cache
-			sink = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, desc, &cacheHits, &cacheMisses, &itemsEvaluated, warmCache)
+			sink = processSlots(ctx, weapon, slots, chosen, "recoil", 0, 0, 0, nil, excluded, visited, desc, &cacheHits, &cacheMisses, &itemsEvaluated, warmCache, nil)
 		}
 	})
 }
@@ -148,6 +150,7 @@ func TestCachePerformance(t *testing.T) {
 	weapon.UpdateAllowedItemSlots()
 	weapon.UpdateAllowedItems()
 	desc := precomputeSlotDescendantItemIDs(weapon)
+	ctx := context.Background()
 
 	slots := weapon.Item.Slots
 	chosen := []OptimalItem{}
@@ -158,14 +161,14 @@ func TestCachePerformance(t *testing.T) {
 	coldStart := time.Now()
 	var coldHits, coldMisses, coldItemsEvaluated int64
 	coldCache := NewMemoryCache() // Fresh empty cache
-	coldResult := processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, desc, &coldHits, &coldMisses, &coldItemsEvaluated, coldCache)
+	coldResult := processSlots(ctx, weapon, slots, chosen, "recoil", 0, 0, 0, nil, excluded, visited, desc, &coldHits, &coldMisses, &coldItemsEvaluated, coldCache, nil)
 	coldDuration := time.Since(coldStart)
 
 	// Test 2: Warm cache - pre-populate then measure same evaluation
 	warmCache := NewMemoryCache()
 	// Pre-populate the cache with the SAME evaluation
 	var preHits, preMisses, preItemsEvaluated int64
-	_ = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, desc, &preHits, &preMisses, &preItemsEvaluated, warmCache)
+	_ = processSlots(ctx, weapon, slots, chosen, "recoil", 0, 0, 0, nil, excluded, visited, desc, &preHits, &preMisses, &preItemsEvaluated, warmCache, nil)
 
 	// Debug: Check cache size after pre-population
 	cacheSize := 0
@@ -179,13 +182,13 @@ func TestCachePerformance(t *testing.T) {
 	// Use separate variables to avoid resetting the counters
 	warmStart := time.Now()
 	var warmHits, warmMisses, warmItemsEvaluated int64
-	warmResult := processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, desc, &warmHits, &warmMisses, &warmItemsEvaluated, warmCache)
+	warmResult := processSlots(ctx, weapon, slots, chosen, "recoil", 0, 0, 0, nil, excluded, visited, desc, &warmHits, &warmMisses, &warmItemsEvaluated, warmCache, nil)
 	warmDuration := time.Since(warmStart)
 
 	// Third run - should be near-identical to second run (cache fully populated)
 	thirdStart := time.Now()
 	var thirdHits, thirdMisses, thirdItemsEvaluated int64
-	_ = processSlots(weapon, slots, chosen, "recoil", 0, 0, excluded, visited, desc, &thirdHits, &thirdMisses, &thirdItemsEvaluated, warmCache)
+	_ = processSlots(ctx, weapon, slots, chosen, "recoil", 0, 0, 0, nil, excluded, visited, desc, &thirdHits, &thirdMisses, &thirdItemsEvaluated, warmCache, nil)
 	thirdDuration := time.Since(thirdStart)
 
 	t.Logf("Cold cache: %v, %d hits, %d misses, %d items evaluated", coldDuration, coldHits, coldMisses, coldItemsEvaluated)
