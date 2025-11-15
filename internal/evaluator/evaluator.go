@@ -161,7 +161,7 @@ type OptimalItem struct {
 
 // Build represents a complete weapon configuration.
 type Build struct {
-	WeaponTree     candidate_tree.CandidateTree
+	WeaponTree     *candidate_tree.CandidateTree
 	OptimalItems   []OptimalItem
 	RecoilSum      int `json:"recoil_sum"`
 	ErgonomicsSum  int `json:"ergonomics_sum"`
@@ -315,7 +315,7 @@ func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	var cacheHits, cacheMisses, itemsEvaluated int64
 	build := processSlots(weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, excludedItems, nil, slotDescendantItemIDs, &cacheHits, &cacheMisses, &itemsEvaluated, cache)
 
-	build.WeaponTree = *weapon
+	build.WeaponTree = weapon
 	build.CacheHits = cacheHits
 	build.CacheMisses = cacheMisses
 	build.ItemsEvaluated = itemsEvaluated

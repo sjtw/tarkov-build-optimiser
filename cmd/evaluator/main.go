@@ -119,10 +119,23 @@ type Candidateinput struct {
 	BuildID     int
 }
 
-func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB, cache evaluator.Cache) []EvaluationResult {
+func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB, cache evaluator.Cache) {
 	inputChan := make(chan Candidateinput, workerCount*2)
-	resultsChan := make(chan EvaluationResult, len(weaponIds)*len(traderLevels))
+	resultsChan := make(chan EvaluationResult, workerCount*2)
 	wg := sync.WaitGroup{}
+
+	// Start a goroutine to continuously flush results (prevents memory accumulation)
+	// This allows results to be processed for side effects without keeping them in memory
+	resultsWg := sync.WaitGroup{}
+	resultsWg.Add(1)
+	go func() {
+		defer resultsWg.Done()
+		for result := range resultsChan {
+			// Results are flushed immediately after being received
+			// Add any side effects processing here in the future
+			_ = result // Currently just discarded to prevent accumulation
+		}
+	}()
 
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
@@ -208,7 +221,7 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 			buildID, err := models.CreatePendingOptimumBuild(db, weaponIds[i], "recoil", constraints)
 			if err != nil {
 				log.Error().Err(err).Msgf("Failed to create evaluator status for weapon %s", weaponIds[i])
-				return nil
+				return
 			}
 
 			log.Debug().Msgf("Sending to input %s, %v", weaponIds[i], constraints)
@@ -223,11 +236,5 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 	close(inputChan)
 	wg.Wait()
 	close(resultsChan)
-
-	results := make([]EvaluationResult, 0)
-	for result := range resultsChan {
-		results = append(results, result)
-	}
-
-	return results
+	resultsWg.Wait()
 }
