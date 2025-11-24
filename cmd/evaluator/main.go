@@ -1,15 +1,12 @@
 package main
 
 import (
-	"database/sql"
-	"runtime"
-	"sync"
-	"tarkov-build-optimiser/internal/candidate_tree"
 	"tarkov-build-optimiser/internal/cli"
 	"tarkov-build-optimiser/internal/db"
 	"tarkov-build-optimiser/internal/env"
 	"tarkov-build-optimiser/internal/evaluator"
 	"tarkov-build-optimiser/internal/models"
+	"tarkov-build-optimiser/internal/queue"
 
 	"github.com/rs/zerolog/log"
 )
@@ -29,15 +26,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to connect to db")
 	}
 
-	// Create cache (choose between memory or database)
-	var cache evaluator.Cache
-	if flags.UseDatabaseCache {
-		cache = evaluator.NewDatabaseCache(dbClient.Conn)
-	} else {
-		cache = evaluator.NewMemoryCache()
-	}
-
-	log.Info().Msg("Creating evaluator status entry")
+	log.Info().Msg("Batch evaluator starting - queueing builds for calculation")
 
 	log.Info().Msg("Purging optimum builds.")
 	err = models.PurgeOptimumBuilds(dbClient.Conn)
@@ -96,145 +85,38 @@ func main() {
 		}
 	}
 
-	workerCount := runtime.NumCPU() * environment.EvaluatorPoolSizeFactor
+	log.Info().Msgf("Queueing %d weapons for evaluation", len(weaponIds))
 
-	log.Info().Msgf("Evaluating %d weapons", len(weaponIds))
+	queueBuilds(weaponIds, traderLevels, dbClient)
 
-	dataService := candidate_tree.CreateDataService(dbClient.Conn)
-	evaluate(weaponIds, dataService, workerCount, traderLevels, dbClient.Conn, cache)
-
-	log.Info().Msg("Evaluator done.")
+	log.Info().Msg("Batch evaluator done - all builds queued.")
 }
 
-type EvaluationResult struct {
-	Result         *evaluator.Build
-	Weapon         *candidate_tree.CandidateTree
-	EvaluationType string
-	BuildID        int
-}
+// queueBuilds queues all weapon/trader level combinations for evaluation
+func queueBuilds(weaponIds []string, traderLevels [][]models.TraderLevel, dbConn *db.Database) {
+	queuedCount := 0
+	errorCount := 0
 
-type Candidateinput struct {
-	weaponID    string
-	constraints models.EvaluationConstraints
-	BuildID     int
-}
-
-func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, workerCount int, traderLevels [][]models.TraderLevel, db *sql.DB, cache evaluator.Cache) {
-	inputChan := make(chan Candidateinput, workerCount*2)
-	resultsChan := make(chan EvaluationResult, workerCount*2)
-	wg := sync.WaitGroup{}
-
-	// Start a goroutine to continuously flush results (prevents memory accumulation)
-	// This allows results to be processed for side effects without keeping them in memory
-	resultsWg := sync.WaitGroup{}
-	resultsWg.Add(1)
-	go func() {
-		defer resultsWg.Done()
-		for result := range resultsChan {
-			// Results are flushed immediately after being received
-			// Add any side effects processing here in the future
-			_ = result // Currently just discarded to prevent accumulation
-		}
-	}()
-
-	for i := 0; i < workerCount; i++ {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
-			for input := range inputChan {
-				log.Info().Msgf("Processing input for weapon %s", input.weaponID)
-
-				err := models.SetBuildInProgress(db, input.BuildID)
-				if err != nil {
-					log.Error().Err(err).Msgf("Failed to update evaluator status to inprogress for weapon %s", input.weaponID)
-					err2 := models.SetBuildFailed(db, input.BuildID)
-					if err2 != nil {
-						log.Error().Err(err2).Msgf("Failed to set build failed for build %d", input.BuildID)
-					}
-					continue
-				}
-
-				weapon, err := candidate_tree.CreateWeaponCandidateTree(input.weaponID, "recoil", input.constraints, dataProvider)
-				if err != nil {
-					log.Error().Err(err).Msgf("Failed to create weapon tree for %s. Skipping", input.weaponID)
-					err2 := models.SetBuildFailed(db, input.BuildID)
-					if err2 != nil {
-						log.Error().Err(err2).Msgf("Failed to set build failed for build %d", input.BuildID)
-					}
-					continue
-				}
-
-				weapon.SortAllowedItems("recoil-min")
-
-				log.Info().Msgf("Generated weapon candidate tree for %s with constraints %v", input.weaponID, input.constraints)
-				build := evaluator.FindBestBuild(weapon, "recoil", map[string]bool{}, cache)
-
-				log.Info().Msgf("Evaluation complete - weapon %s with constraints %v", input.weaponID, input.constraints)
-
-				evaledWeapon, err := build.ToEvaluatedWeapon()
-				if err != nil {
-					log.Error().Err(err).Msgf("Failed to convert result to evaluated weapon for weapon %s with constraints %v", input.weaponID, input.constraints)
-					err2 := models.SetBuildFailed(db, input.BuildID)
-					if err2 != nil {
-						log.Error().Err(err2).Msgf("Failed to set build failed for build %d", input.BuildID)
-					}
-					continue
-				}
-
-				evaluationResult := evaledWeapon.ToItemEvaluationResult()
-
-				err = models.SetBuildCompleted(db, input.BuildID, &evaluationResult)
-				if err != nil {
-					log.Error().Err(err).Msgf("Failed to save build for weapon %s with constraints %v", input.weaponID, input.constraints)
-					err2 := models.SetBuildFailed(db, input.BuildID)
-					if err2 != nil {
-						log.Error().Err(err2).Msgf("Failed to set build failed for build %d", input.BuildID)
-					}
-					continue
-				}
-
-				log.Info().Msgf("Saved build for weapon %s with constraints %v", input.weaponID, input.constraints)
-
-				resultsChan <- EvaluationResult{
-					BuildID:        input.BuildID,
-					EvaluationType: "recoil",
-					Weapon:         weapon,
-					Result:         build,
-				}
-			}
-		}()
-	}
-
-	// Send work to the input channel
 	for i := 0; i < len(weaponIds); i++ {
 		for j := 0; j < len(traderLevels); j++ {
-			log.Debug().Msgf("Sending work for weapon %s with constraints %v", weaponIds[i], traderLevels[j])
-
 			constraints := models.EvaluationConstraints{
 				TraderLevels:     traderLevels[j],
 				IgnoredSlotNames: []string{"Scope", "Ubgl", "Tactical"},
 				IgnoredItemIDs:   []string{},
 			}
 
-			buildID, err := models.CreatePendingOptimumBuild(db, weaponIds[i], "recoil", constraints)
+			log.Debug().Msgf("Queueing weapon %s with constraints %v", weaponIds[i], traderLevels[j])
+
+			_, err := queue.CreateQueueEntry(dbConn.Conn, weaponIds[i], "recoil", constraints, queue.PriorityBatch)
 			if err != nil {
-				log.Error().Err(err).Msgf("Failed to create evaluator status for weapon %s", weaponIds[i])
-				return
+				log.Error().Err(err).Msgf("Failed to queue build for weapon %s", weaponIds[i])
+				errorCount++
+				continue
 			}
 
-			log.Debug().Msgf("Sending to input %s, %v", weaponIds[i], constraints)
-			inputChan <- Candidateinput{
-				weaponID:    weaponIds[i],
-				constraints: constraints,
-				BuildID:     buildID,
-			}
+			queuedCount++
 		}
 	}
 
-	close(inputChan)
-	wg.Wait()
-	close(resultsChan)
-	resultsWg.Wait()
+	log.Info().Msgf("Successfully queued %d builds (%d errors)", queuedCount, errorCount)
 }

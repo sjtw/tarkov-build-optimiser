@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"strconv"
 	"strings"
 	"tarkov-build-optimiser/internal/models"
+	"tarkov-build-optimiser/internal/queue"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/labstack/echo/v4"
 )
@@ -68,17 +70,59 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 
 		constraints.TraderLevels = traderLevels
 
+		// Check if build already exists and is completed
 		build, err := models.GetOptimumBuildByConstraints(db, itemId, buildType, constraints)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to get optimum build. item %s, constraints %v", itemId, constraints)
 			return c.String(500, err.Error())
 		}
 
-		if build == nil {
-			return c.String(404, "Build not found")
+		// If build exists and is completed, return it
+		if build != nil && build.Status == models.EvaluationCompleted.ToString() {
+			return c.JSON(200, build)
 		}
 
-		return c.JSON(200, build)
+		// Check if weapon exists
+		weaponExists, err := models.IsWeapon(db, itemId)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to check if weapon exists. item %s", itemId)
+			return c.String(500, "Internal server error")
+		}
+
+		if !weaponExists {
+			return c.String(404, "Weapon not found")
+		}
+
+		// Check if already queued or processing
+		queueEntry, err := queue.CheckQueueStatus(db, itemId, buildType, constraints)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to check queue status. item %s, constraints %v", itemId, constraints)
+			return c.String(500, "Internal server error")
+		}
+
+		// If already queued/processing, return 202
+		if queueEntry != nil {
+			return c.JSON(202, map[string]interface{}{
+				"status":   string(queueEntry.Status),
+				"message":  "Build queued for calculation",
+				"queue_id": queueEntry.QueueID,
+			})
+		}
+
+		// Queue the build for calculation
+		queueID, err := queue.CreateQueueEntry(db, itemId, buildType, constraints, queue.PriorityAPI)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to queue build. item %s, constraints %v", itemId, constraints)
+			return c.String(500, "Internal server error")
+		}
+
+		log.Info().Msgf("Queued build calculation for item %s, queue_id %d", itemId, queueID)
+
+		return c.JSON(202, map[string]interface{}{
+			"status":   string(queue.StatusQueued),
+			"message":  "Build queued for calculation",
+			"queue_id": queueID,
+		})
 	})
 
 	return e
