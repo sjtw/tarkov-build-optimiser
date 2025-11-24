@@ -127,11 +127,11 @@ func (wt *CandidateTree) SortAllowedItems(by string) {
 func (wt *CandidateTree) OrderSlotsByConstraint(slots []*ItemSlot) []*ItemSlot {
 	ordered := make([]*ItemSlot, len(slots))
 	copy(ordered, slots)
-	
+
 	sort.Slice(ordered, func(i, j int) bool {
-	return len(ordered[i].AllowedItems) < len(ordered[j].AllowedItems)
+		return len(ordered[i].AllowedItems) < len(ordered[j].AllowedItems)
 	})
-	
+
 	return ordered
 }
 

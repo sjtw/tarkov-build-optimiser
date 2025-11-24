@@ -1,8 +1,8 @@
 package candidate_tree
 
 import (
-    "testing"
-    "tarkov-build-optimiser/internal/models"
+	"tarkov-build-optimiser/internal/models"
+	"testing"
 )
 
 // test fake provider must be declared at package level; methods with receivers
@@ -10,10 +10,10 @@ import (
 type fakeProvider struct{}
 
 func (f fakeProvider) GetPrecomputedSubtree(itemID string, focusedStat string, constraints models.EvaluationConstraints) (PrecomputedSubtreeInfo, bool) {
-    if itemID == "item-A" {
-        return PrecomputedSubtreeInfo{RootItemID: itemID, EvaluationType: focusedStat, RecoilSum: -100, ErgonomicsSum: 0, IsDefinitive: true}, true
-    }
-    return PrecomputedSubtreeInfo{}, false
+	if itemID == "item-A" {
+		return PrecomputedSubtreeInfo{RootItemID: itemID, EvaluationType: focusedStat, RecoilSum: -100, ErgonomicsSum: 0, IsDefinitive: true}, true
+	}
+	return PrecomputedSubtreeInfo{}, false
 }
 
 // Failing TDD test: when a precomputed subtree exists for an allowed item and
@@ -29,8 +29,8 @@ func TestCandidateTree_PrunesAllowedItemsWhenPrecomputedSubtreeIsOptimal(t *test
 		AllowedItems: []*Item{{ID: "item-A", Name: "A"}, {ID: "item-B", Name: "B"}},
 	}
 	root := &Item{ID: "W", Name: "W", Slots: []*ItemSlot{slot}}
-    tree := &CandidateTree{Item: root}
-    ApplyPrecomputedPruning(tree, "recoil", fakeProvider{})
+	tree := &CandidateTree{Item: root}
+	ApplyPrecomputedPruning(tree, "recoil", fakeProvider{})
 
 	// In the desired implementation, CandidateTree construction would consult a
 	// precomputed-subtree store and prune B if A's cached subtree is optimal.
