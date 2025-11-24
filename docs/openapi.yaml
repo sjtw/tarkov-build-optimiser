@@ -1,0 +1,476 @@
+openapi: 3.0.3
+info:
+  title: Tarkov Build Optimizer API
+  description: |
+    API for optimizing weapon builds in Escape from Tarkov. This service calculates optimal weapon configurations based on trader levels and build objectives (e.g., maximum ergonomics or minimum recoil).
+    
+    The API provides access to weapon data and performs complex optimization calculations to find the best combination of weapon modifications within specified constraints.
+  version: 1.0.0
+  contact:
+    name: API Support
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: http://localhost:8080/api
+    description: Local development server (with /api prefix)
+
+tags:
+  - name: health
+    description: Health check endpoints
+  - name: weapons
+    description: Weapon data and optimization endpoints
+
+paths:
+  /api/:
+    get:
+      tags:
+        - health
+      summary: Health check
+      description: Simple health check endpoint to verify the API is running
+      operationId: healthCheck
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Hello, World!"
+
+  /api/items/weapons:
+    get:
+      tags:
+        - weapons
+      summary: List all weapons
+      description: |
+        Returns a list of all weapons available in the database. Each weapon includes basic identification information (item ID and name).
+        
+        This endpoint is useful for discovering available weapons before requesting optimized builds.
+      operationId: listWeapons
+      responses:
+        '200':
+          description: Successfully retrieved list of weapons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WeaponShort'
+              examples:
+                weapons:
+                  summary: Example weapons list
+                  value:
+                    - item_id: "5447a9cd4bdc2dbd208b4567"
+                      name: "AK-74N 5.45x39 assault rifle"
+                    - item_id: "5ac66d9b5acfc4001633997a"
+                      name: "AK-101 5.56x45 assault rifle"
+                    - item_id: "5c07c60e0db834002330051f"
+                      name: "ADAR 2-15 5.56x45 carbine"
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Database connection failed"
+
+  /api/items/weapons/{item_id}/calculate:
+    get:
+      tags:
+        - weapons
+      summary: Calculate optimum weapon build
+      description: |
+        Calculates the optimal weapon build for a given weapon ID based on the specified constraints.
+        
+        **Trader Levels**: Each trader (Jaeger, Prapor, Peacekeeper, Mechanic, Skier) has a loyalty level from 1-4 that determines which items are available. If not specified, defaults to level 4 (maximum access).
+        
+        **Build Types**: The optimization algorithm can target different objectives (e.g., "max_ergonomics", "min_recoil").
+        
+        **Build Status**: Builds may be pre-computed or calculated on-demand. The response includes a status field:
+        - `Completed`: Build is ready and included in response
+        - `Pending`: Build request created but not yet started
+        - `InProgress`: Build is currently being calculated
+        - `Failed`: Build calculation encountered an error
+        
+        The API automatically creates a pending build request if one doesn't exist for the specified constraints.
+      operationId: calculateOptimumBuild
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          description: The unique identifier of the weapon to optimize
+          schema:
+            type: string
+          example: "5447a9cd4bdc2dbd208b4567"
+        
+        - name: build_type
+          in: query
+          required: false
+          description: The optimization objective for the build
+          schema:
+            type: string
+            enum:
+              - max_ergonomics
+              - min_recoil
+          example: "min_recoil"
+        
+        - name: jaeger_level
+          in: query
+          required: false
+          description: Jaeger trader loyalty level (1-4). Defaults to 4.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+            default: 4
+          example: 3
+        
+        - name: prapor_level
+          in: query
+          required: false
+          description: Prapor trader loyalty level (1-4). Defaults to 4.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+            default: 4
+          example: 4
+        
+        - name: peacekeeper_level
+          in: query
+          required: false
+          description: Peacekeeper trader loyalty level (1-4). Defaults to 4.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+            default: 4
+          example: 2
+        
+        - name: mechanic_level
+          in: query
+          required: false
+          description: Mechanic trader loyalty level (1-4). Defaults to 4.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+            default: 4
+          example: 4
+        
+        - name: skier_level
+          in: query
+          required: false
+          description: Skier trader loyalty level (1-4). Defaults to 4.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 4
+            default: 4
+          example: 4
+      
+      responses:
+        '200':
+          description: Build calculation result (may be completed, pending, or in progress)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemEvaluationResult'
+              examples:
+                completed_build:
+                  summary: Completed build with nested modifications
+                  value:
+                    build_id: 12345
+                    status: "Completed"
+                    id: "5447a9cd4bdc2dbd208b4567"
+                    name: "AK-74N 5.45x39 assault rifle"
+                    evaluation_type: "min_recoil"
+                    is_subtree: false
+                    recoil_modifier: -15
+                    ergonomics_modifier: 25
+                    recoil_sum: 85
+                    ergonomics_sum: 65
+                    slots:
+                      - id: "slot_1"
+                        name: "mod_stock"
+                        item:
+                          build_id: 12346
+                          status: "Completed"
+                          id: "5649be884bdc2d79388b4577"
+                          name: "AK-74 polymer stock"
+                          evaluation_type: "min_recoil"
+                          is_subtree: true
+                          recoil_modifier: -10
+                          ergonomics_modifier: 15
+                          recoil_sum: 10
+                          ergonomics_sum: 15
+                          slots: []
+                      - id: "slot_2"
+                        name: "mod_muzzle"
+                        item: null
+                
+                pending_build:
+                  summary: Build request created but not yet calculated
+                  value:
+                    build_id: 12347
+                    status: "Pending"
+                    id: "5447a9cd4bdc2dbd208b4567"
+                    name: "AK-74N 5.45x39 assault rifle"
+                    evaluation_type: "min_recoil"
+                    is_subtree: false
+                    recoil_modifier: 0
+                    ergonomics_modifier: 0
+                    recoil_sum: 0
+                    ergonomics_sum: 0
+                    slots: []
+        
+        '400':
+          description: Invalid request parameters
+          content:
+            text/plain:
+              schema:
+                type: string
+              examples:
+                invalid_trader_level:
+                  summary: Invalid trader level
+                  value: "Invalid level [5] for trader Jaeger"
+                invalid_level_format:
+                  summary: Non-numeric level value
+                  value: "Invalid level for trader Prapor"
+        
+        '404':
+          description: Build not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Build not found"
+        
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Failed to get optimum build"
+
+components:
+  schemas:
+    WeaponShort:
+      type: object
+      description: Basic weapon information for listing purposes
+      required:
+        - item_id
+        - name
+      properties:
+        item_id:
+          type: string
+          description: Unique identifier for the weapon (from Tarkov API)
+          example: "5447a9cd4bdc2dbd208b4567"
+        name:
+          type: string
+          description: Display name of the weapon
+          example: "AK-74N 5.45x39 assault rifle"
+
+    ItemEvaluationResult:
+      type: object
+      description: |
+        Complete evaluation result for a weapon or weapon modification. This represents a node in the build tree.
+        
+        The structure is recursive: each item can have slots, and each slot can contain another item, forming a tree of modifications.
+      required:
+        - build_id
+        - status
+        - id
+        - name
+        - evaluation_type
+        - is_subtree
+        - recoil_modifier
+        - ergonomics_modifier
+        - slots
+        - recoil_sum
+        - ergonomics_sum
+      properties:
+        build_id:
+          type: integer
+          description: Unique identifier for this build in the database
+          example: 12345
+        status:
+          type: string
+          description: Current status of the build calculation
+          enum:
+            - Pending
+            - InProgress
+            - Completed
+            - Failed
+          example: "Completed"
+        id:
+          type: string
+          description: Item identifier (weapon or mod ID)
+          example: "5447a9cd4bdc2dbd208b4567"
+        name:
+          type: string
+          description: Display name of the item
+          example: "AK-74N 5.45x39 assault rifle"
+        evaluation_type:
+          type: string
+          description: The optimization objective used for this build
+          example: "min_recoil"
+        is_subtree:
+          type: boolean
+          description: |
+            Indicates if this is a subtree evaluation (modification) or a top-level weapon build.
+            - `false`: This is a complete weapon build
+            - `true`: This is a modification or component of a larger build
+          example: false
+        recoil_modifier:
+          type: integer
+          description: The recoil change provided by this specific item (negative values reduce recoil)
+          example: -15
+        ergonomics_modifier:
+          type: integer
+          description: The ergonomics change provided by this specific item (positive values improve ergonomics)
+          example: 25
+        recoil_sum:
+          type: integer
+          description: Total cumulative recoil value for this item and all its modifications
+          example: 85
+        ergonomics_sum:
+          type: integer
+          description: Total cumulative ergonomics value for this item and all its modifications
+          example: 65
+        slots:
+          type: array
+          description: Available modification slots on this item
+          items:
+            $ref: '#/components/schemas/SlotEvaluationResult'
+          example:
+            - id: "slot_1"
+              name: "mod_stock"
+              item:
+                build_id: 12346
+                status: "Completed"
+                id: "5649be884bdc2d79388b4577"
+                name: "AK-74 polymer stock"
+                evaluation_type: "min_recoil"
+                is_subtree: true
+                recoil_modifier: -10
+                ergonomics_modifier: 15
+                recoil_sum: 10
+                ergonomics_sum: 15
+                slots: []
+
+    SlotEvaluationResult:
+      type: object
+      description: |
+        Represents a modification slot on a weapon or mod. A slot can either be empty (item is null) or contain an item.
+        
+        When rendering in JSON, empty slots have `item: null`.
+      required:
+        - id
+        - name
+        - item
+      properties:
+        id:
+          type: string
+          description: Unique identifier for this slot
+          example: "slot_12345"
+        name:
+          type: string
+          description: Display name of the slot (e.g., "mod_stock", "mod_muzzle", "mod_scope")
+          example: "mod_stock"
+        item:
+          oneOf:
+            - $ref: '#/components/schemas/ItemEvaluationResult'
+            - type: "null"
+          description: The item installed in this slot, or null if the slot is empty
+          nullable: true
+          example:
+            build_id: 12346
+            status: "Completed"
+            id: "5649be884bdc2d79388b4577"
+            name: "AK-74 polymer stock"
+            evaluation_type: "min_recoil"
+            is_subtree: true
+            recoil_modifier: -10
+            ergonomics_modifier: 15
+            recoil_sum: 10
+            ergonomics_sum: 15
+            slots: []
+
+    Slot:
+      type: object
+      description: Definition of a modification slot on a weapon or mod (used internally, not exposed in API responses)
+      required:
+        - slot_id
+        - name
+        - allowed_items
+      properties:
+        slot_id:
+          type: string
+          description: Unique identifier for the slot
+          example: "slot_12345"
+        name:
+          type: string
+          description: Display name of the slot
+          example: "mod_stock"
+        allowed_items:
+          type: array
+          description: List of items that can be installed in this slot
+          items:
+            $ref: '#/components/schemas/AllowedItem'
+
+    AllowedItem:
+      type: object
+      description: An item that can be installed in a particular slot (used internally, not exposed in API responses)
+      required:
+        - item_id
+        - name
+      properties:
+        item_id:
+          type: string
+          description: Unique identifier for the item
+          example: "5649be884bdc2d79388b4577"
+        name:
+          type: string
+          description: Display name of the item
+          example: "AK-74 polymer stock"
+        slot_id:
+          type: string
+          description: The slot this item can be installed in
+          example: "slot_12345"
+
+  parameters:
+    ItemId:
+      name: item_id
+      in: path
+      required: true
+      description: Unique identifier for a weapon or modification item
+      schema:
+        type: string
+      example: "5447a9cd4bdc2dbd208b4567"
+    
+    BuildType:
+      name: build_type
+      in: query
+      required: false
+      description: The optimization objective for the build calculation
+      schema:
+        type: string
+      example: "min_recoil"
+    
+    TraderLevel:
+      name: trader_level
+      in: query
+      required: false
+      description: Trader loyalty level (1-4)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 4
+        default: 4
+
