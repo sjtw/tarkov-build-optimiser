@@ -59,7 +59,7 @@ Checking every possible combination would be intractable for complex weapons. In
 
 **Conflict-free caching** — Items without conflicts always produce the same optimal subtree. When such an item is encountered, its previously computed result (if cached) can be reused. This also enables additional pruning: if the cached subtree's stats can't improve the current best, skip evaluating that entire subtree.
 
-**Useless item pruning** — Before evaluation starts, items that can't possibly improve stats (e.g., items that only increase recoil when minimizing recoil) are filtered out.
+**Useless item pruning** — Before evaluation starts, each item's potential value (its own modifier plus the best possible contribution from its nested slots) is calculated. Items whose best-case subtree cannot improve the target stat are filtered out (e.g., an item with a minimum achievable recoil of +5 when minimizing recoil).
 
 The algorithm explores all viable branches and is guaranteed to find the globally optimal build, but pruning eliminates the vast majority of the search space.
 
