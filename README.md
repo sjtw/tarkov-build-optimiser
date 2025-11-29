@@ -73,7 +73,41 @@ The algorithm explores all viable branches and is guaranteed to find the globall
 **Optional:**
 - `nodejs` (only needed for updating the tarkov.dev GraphQL schema)
 
+## Environment Variables
+
+```bash
+# PostgreSQL connection
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_password
+POSTGRES_DB=tarkov-build-optimiser
+
+# Application settings (optional)
+ENVIRONMENT=development
+POOL_SIZE_MULTIPLIER=2  # CPU cores × this value = number of evaluator workers
+```
+
+**Note:** For local development, these are the recommended defaults. Docker Compose will override `POSTGRES_HOST` to `postgres` for containerized services.
+
 ## Getting Started
+
+### Quick Start
+
+To run the entire system with Docker Compose:
+
+```bash
+docker compose up -d
+```
+
+This will:
+1. Start PostgreSQL and apply migrations
+2. Run the importer to fetch weapon/mod data from tarkov.dev
+3. Run the evaluator to pre-compute optimal builds (this will take a long time!)
+4. Start the API server on `http://localhost:8080`
+
+Note: The importer and evaluator run as one-time jobs. Once they complete, only PostgreSQL and the API will remain running.
+
 
 ### Initial Setup
 
