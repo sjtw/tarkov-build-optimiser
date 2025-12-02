@@ -1,102 +1,293 @@
 # Tarkov Build Optimiser
 
-A tool for calculating optimal weapon builds in Escape from Tarkov.
+A Go-based tool for pre-computing and serving optimal weapon builds in Escape from Tarkov. The system analyzes all possible weapon configurations with different trader level constraints to find builds that minimize recoil or maximise ergonomics (todo).
 
-## Goals
+## Overview
 
-- [x] calculate an optimum weapon build
-- [x] write a couple of tests to make sure optimum builds are actually optimum
-- [x] do step 1. but restricted by trader availability
-- [x] API for querying optimised builds
-- [x] Resolve item conflicts
-- [ ] create something to convert an `optimum_build` json into the structure used by totovbuilder.com import feature.
-- [ ] provide cost effective alternatives
-- [ ] allow a budget to be provided
-- [x] Make a UI
-- [ ] Finish UI maybe
+The project consists of three main components:
+
+1. **Importer** - Fetches weapon and modification data from the [tarkov.dev](https://tarkov.dev) GraphQL API and stores it in PostgreSQL
+2. **Evaluator** - Pre-computes optimal weapon builds for all weapons across various trader level combinations using a candidate tree algorithm
+3. **API** - REST API that serves pre-computed optimal builds based on user constraints
+
+Additionally, an Next.js UI for visualising evaluated builds can be found [here](https://github.com/sjtw/tarkov-build-optimiser-ui).
+
+## Architecture
+
+The system follows a batch processing architecture with three main services:
+
+```
+┌──────────────┐
+│  tarkov.dev  │
+│   GraphQL    │
+└──────┬───────┘
+       │
+       │ fetch weapons/mods
+       ▼
+┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+│   Importer   │────────▶│  PostgreSQL  │◀────────│  Evaluator   │
+│              │ write   │              │ read/   │              │
+│              │ data    │  - weapons   │ write   │              │
+└──────────────┘         │  - mods      │ builds  └──────────────┘
+                         │  - traders   │
+                         │  - conflicts │
+                         │  - builds    │
+                         └──────┬───────┘
+                                │
+                                │ read builds
+                                ▼
+                         ┌──────────────┐
+                         │     API      │
+                         │   (REST)     │
+                         └──────────────┘
+```
+
+- **Importer**: Fetches weapon and mod data from tarkov.dev GraphQL API, transforms it, and writes to the database. Optionally caches responses to disk as JSON (primarly for development purposes).
+- **Evaluator**: Reads weapon/mod data from the database, computes optimal builds for all weapons across different trader level combinations, and writes results back to the database. Runs as a batch job.
+- **API**: REST service that queries pre-computed builds from the database based on user-specified constraints (weapon ID, trader levels).
+- **PostgreSQL**: Central data store holding weapon definitions, mods, trader offers, item conflicts, and computed optimal builds.
+
+## Evaluation Process
+
+Each weapon has modification slots (e.g., "Handguard", "Muzzle") that accept compatible items. Items can have their own nested slots, forming a tree structure. The goal is to find the combination that minimizes recoil (or maximizes ergonomics - TODO).
+
+Checking every possible combination would be intractable for complex weapons. Instead, the evaluator uses recursive search with several optimizations:
+
+**Branch-and-bound pruning** — Before exploring a branch, calculate the theoretical best possible outcome for remaining slots. For recoil optimization, this means computing the lowest achievable recoil by using each slot's best recoil modifier. If even this best-case scenario can't beat the current solution, skip the entire branch.
+
+**Conflict handling** — Some items are incompatible (e.g., certain stocks conflict with certain grips). When an item is selected, all incompatible items are added to an exclusion list for that branch. The evaluator also tries leaving slots empty, since avoiding a conflicting item in one slot may enable better items in other slots.
+
+**Conflict-free caching** — Items without conflicts always produce the same optimal subtree. When such an item is encountered, its previously computed result (if cached) can be reused. This also enables additional pruning: if the cached subtree's stats can't improve the current best, skip evaluating that entire subtree.
+
+**Useless item pruning** — Before evaluation starts, each item's potential value (its own modifier plus the best possible contribution from its nested slots) is calculated. Items whose best-case subtree cannot improve the target stat are filtered out (e.g., an item with a minimum achievable recoil of +5 when minimizing recoil).
+
+The algorithm explores all viable branches and is guaranteed to find the globally optimal build, but pruning eliminates the vast majority of the search space.
 
 ## Prerequisites
 
-Required
+**Required:**
+- `docker` & `docker-compose`
+- `go` 1.22+
+- [Task](https://taskfile.dev/) (task runner)
 
-- `docker`
-- `docker-compose`
-- `go`
+**Optional:**
+- `nodejs` (only needed for updating the tarkov.dev GraphQL schema)
 
-Optional
+## Environment Variables
 
-Only used for updating the tarkovdev graphql schema.
-- `nodejs`
+```bash
+# PostgreSQL connection
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_password
+POSTGRES_DB=tarkov-build-optimiser
 
-## Development
-
-### Tasks
-
-building/running/starting dev infrastructure/etc. can all be handled using `Task`. See the task list;
-
+# Application settings (optional)
+ENVIRONMENT=development
+POOL_SIZE_MULTIPLIER=2  # CPU cores × this value = number of evaluator workers
 ```
-task --list-all
+
+**Note:** For local development, these are the recommended defaults. Docker Compose will override `POSTGRES_HOST` to `postgres` for containerized services.
+
+## Getting Started
+
+### Quick Start
+
+To run the entire system with Docker Compose:
+
+```bash
+docker compose up -d
 ```
 
-Node.js can be used for updating the tarkovdev schema. If you need to do this, you can set up a local dev environment with:
+This will:
+1. Start PostgreSQL and apply migrations
+2. Run the importer to fetch weapon/mod data from tarkov.dev
+3. Run the evaluator to pre-compute optimal builds (this will take a long time!)
+4. Start the API server on `http://localhost:8080`
 
-```
+Note: The importer and evaluator run as one-time jobs. Once they complete, only PostgreSQL and the API will remain running.
+
+
+### Initial Setup
+
+Set up the development environment (installs dependencies, starts Docker containers, runs migrations):
+
+```bash
 task init
 ```
 
-alternatively if you don't have node installed:
+Or if you don't have Node.js installed:
 
-```
+```bash
 task init:go-only
 ```
 
-This will install all required dependencies, set up a postgres docker container for development & apply all migrations.
+### Running the System
 
-#### Migrations
-If you just want to run the migrations manually you can use the following. If it's your first time setting up the project, `task init` should've handled this for you.
-```
-task migrate:up
-task migrate:down
-```
+1. **Import weapon data:**
 
-#### Importer
-
-The importer pulls all weapons and weapon mods from tarkov.dev & stores them in the `tarkov-build-optimiser` database.
-
-```
+```bash
 task importer:start
 ```
 
-The importer by default populates a json file cache of weapons & mods. To save hammering tarkov.dev each time you need to repopulate the database, you can repopulate it from the file cache using:
+The importer caches data to `file-caches/*.json` by default. To use cached data instead of fetching from tarkov.dev:
 
-```
+```bash
 task importer:start:use-cache
 ```
 
-If you only want to cache the results from tarkov.dev, without repopulating the db:
-```
+To only cache without updating the database:
+
+```bash
 task importer:start:cache-only
 ```
 
-#### Syncing tarkov.dev GraphQL API schema
+2. **Compute optimal builds:**
 
-The GraphQL queries used by the project are can be found in `internal/tarkovdev/schemas/queries.graphql`, the rest of the GraphQl client code is auto-generated. We use `graphql-inspector` to generate `schema.graphql` through an introspection query to tarkov.dev, then `genqlient` to generate golang functions & types for each of these queries in `generated-queries.go`. This can be done using:
+```bash
+task evaluator:start
 ```
+
+For faster testing with limited weapons:
+
+```bash
+task evaluator:start:test-mode
+```
+
+3. **Start the API:**
+
+```bash
+task api:start
+```
+
+The API will be available at `http://localhost:8080`.
+
+### Using Docker Compose
+
+Start all services (database, migrations, importer, evaluator, API):
+
+```bash
+task compose:up
+```
+
+Stop all services:
+
+```bash
+task compose:down
+```
+
+## API Endpoints
+
+### `GET /api/items/weapons`
+Returns a list of all weapons in the database.
+
+### `GET /api/items/weapons/:item_id/calculate`
+Returns the pre-computed optimal build for a weapon.
+
+**Query Parameters:**
+- `build_type` - Type of optimization (currently only `recoil` is supported)
+- `jaeger_level`, `prapor_level`, `skier_level`, `peacekeeper_level`, `mechanic_level` - Trader levels (1-4, defaults to 4)
+
+**Example:**
+```bash
+curl "http://localhost:8080/api/items/weapons/5447a9cd4bdc2dbd208b4567/calculate?build_type=recoil&prapor_level=2&mechanic_level=3"
+```
+
+## Development
+
+### Running Tests
+
+All tests:
+```bash
+task test
+```
+
+Unit tests only (no database required):
+```bash
+task test:unit
+```
+
+Integration tests (requires database):
+```bash
+task test:integration
+```
+
+### Database Migrations
+
+Apply migrations:
+```bash
+task migrate:up
+```
+
+Rollback migrations:
+```bash
+task migrate:down
+```
+
+Create a new migration:
+```bash
+task migrate:create -- migration_name
+```
+
+### Updating tarkov.dev Schema
+
+The GraphQL queries are defined in `internal/tarkovdev/schemas/queries.graphql`. The client code is auto-generated using:
+- `graphql-inspector` - Introspects the tarkov.dev API to generate `schema.graphql`
+- `genqlient` - Generates Go functions and types from the schema and queries
+
+Update both schema and generated code:
+```bash
 task tarkovdev
 ```
 
-If you only need to rebuild the `schema.graphql`;
-
-```
+Only fetch the latest schema:
+```bash
 task tarkovdev:get-schema
 ```
 
-Or to only regenerate `generated-queries.go`;
-
-```
+Only regenerate Go code from existing schema:
+```bash
 task tarkovdev:regenerate
 ```
 
-### Useful Links
+### Available Tasks
 
-https://api.tarkov.dev/api/graphql
+View all available tasks:
+```bash
+task --list-all
+```
+
+## Project Structure
+
+```
+.
+├── cmd/                    # Entry points for binaries
+│   ├── api/               # REST API server
+│   ├── evaluator/         # Build optimization engine
+│   ├── importer/          # Data import from tarkov.dev
+│   └── migrations/        # Database migration runner
+├── internal/
+│   ├── candidate_tree/    # Core optimization algorithm
+│   ├── evaluator/         # Build evaluation logic
+│   ├── models/            # Database models
+│   ├── router/            # API routes and handlers
+│   ├── tarkovdev/         # GraphQL client for tarkov.dev
+│   ├── db/                # Database connection utilities
+│   ├── cache/             # Caching implementations
+│   └── importers/         # Import logic for weapons/mods
+├── migrations/            # Database migrations (goose)
+├── docker/                # Dockerfiles for each service
+└── file-caches/           # JSON caches for tarkov.dev data
+```
+
+## License
+
+Mozilla Public License Version 2.0 - See [LICENSE](LICENSE) for details.
+
+## External Resources
+
+- [tarkov.dev API Playground](https://api.tarkov.dev) - Source of weapon and modification data
+- [tarkov.dev](https://tarkov.dev) - Community-maintained Escape from Tarkov database
+- [genqlient](https://github.com/Khan/genqlient) - A type-safe GraphQL client for Go
+
