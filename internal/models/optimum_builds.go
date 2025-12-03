@@ -14,7 +14,8 @@ type EvaluationConstraints struct {
 	TraderLevels     []TraderLevel
 	IgnoredSlotNames []string
 	IgnoredItemIDs   []string
-	RubBudget        *int `json:"rub_budget,omitempty"`
+	RubBudget        *int   `json:"rub_budget,omitempty"`
+	FocusedStat      string `json:"focused_stat,omitempty"`
 }
 
 type ItemEvaluationResult struct {

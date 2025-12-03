@@ -83,8 +83,6 @@ func TestFindBestBuildDatabaseCacheIntegration(t *testing.T) {
 				return
 			}
 
-			weapon.SortAllowedItems("recoil-min")
-
 			// Use database cache for testing
 			cache := NewDatabaseCache(dbClient.Conn)
 			build := FindBestBuild(weapon, "recoil", map[string]bool{}, cache, dataService)

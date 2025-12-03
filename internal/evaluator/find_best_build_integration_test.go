@@ -83,8 +83,6 @@ func TestFindBestBuildIntegration(t *testing.T) {
 				return
 			}
 
-			weapon.SortAllowedItems("recoil-min")
-
 			// Use memory cache for testing
 			cache := NewMemoryCache()
 			build := FindBestBuild(weapon, "recoil", map[string]bool{}, cache, dataService)

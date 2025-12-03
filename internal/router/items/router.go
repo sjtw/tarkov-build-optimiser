@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"strconv"
 	"strings"
 	"tarkov-build-optimiser/internal/models"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/labstack/echo/v4"
 )

@@ -94,7 +94,7 @@ func (wt *CandidateTree) updateAllowedItemSlotsMap() {
 	wt.allowedItemSlotMap = slotMap
 }
 
-// pruneUselessAlowedItems removes alloweditems which definitely have no potential value improvement
+// pruneUselessAllowedItems removes allowed items which definitely have no potential value improvement
 func (wt *CandidateTree) pruneUselessAllowedItems() {
 	for _, slot := range wt.Item.Slots {
 		slot.pruneUselessAllowedItems()
@@ -128,9 +128,9 @@ func (wt *CandidateTree) GetAllowedItemSlot(id string) *ItemSlot {
 	return wt.allowedItemSlotMap[id]
 }
 
-func (wt *CandidateTree) SortAllowedItems(by string) {
+func (wt *CandidateTree) SortAllowedItems() {
 	for _, slot := range wt.Item.Slots {
-		slot.SortAllowedItems(by)
+		slot.SortAllowedItems()
 	}
 }
 
@@ -152,10 +152,13 @@ func CreateWeaponCandidateTree(id string, focusedStat string, constraints models
 		return nil, err
 	}
 
-	return constructCandidateTree(id, w.Name, w.RecoilModifier, w.ErgonomicsModifier, focusedStat, constraints, data)
+	// Bind focusedStat to constraints so it can be looked up from anywhere in the tree
+	constraints.FocusedStat = focusedStat
+
+	return constructCandidateTree(id, w.Name, w.RecoilModifier, w.ErgonomicsModifier, constraints, data)
 }
 
-func constructCandidateTree(id string, name string, recoilModifier int, ergoModifier int, focusedStat string, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {
+func constructCandidateTree(id string, name string, recoilModifier int, ergoModifier int, constraints models.EvaluationConstraints, data TreeDataProvider) (*CandidateTree, error) {
 	candidateTree := &CandidateTree{
 		dataService:          data,
 		AllowedItemConflicts: map[string]map[string]bool{},
@@ -186,12 +189,12 @@ func constructCandidateTree(id string, name string, recoilModifier int, ergoModi
 	}
 
 	item.CalculatePotentialValues()
-	candidateTree.SortAllowedItems(focusedStat)
 	candidateTree.pruneUselessAllowedItems()
+	candidateTree.SortAllowedItems()
 
 	// Hook: apply precomputed subtree pruning if dataService implements PrecomputedSubtreeProvider
 	if provider, ok := any(candidateTree.dataService).(PrecomputedSubtreeProvider); ok {
-		ApplyPrecomputedPruning(candidateTree, focusedStat, provider)
+		ApplyPrecomputedPruning(candidateTree, constraints.FocusedStat, provider)
 	}
 
 	candidateTree.UpdateAllowedItems()

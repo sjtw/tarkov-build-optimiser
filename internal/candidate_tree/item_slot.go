@@ -2,8 +2,9 @@ package candidate_tree
 
 import (
 	"errors"
-	"github.com/rs/zerolog/log"
 	"slices"
+
+	"github.com/rs/zerolog/log"
 )
 
 type ItemSlot struct {
@@ -57,7 +58,7 @@ func (slot *ItemSlot) AddAllowedItem(item *Item) {
 	slot.AllowedItems = append(slot.AllowedItems, item)
 }
 
-func (slot *ItemSlot) SortAllowedItems(by string) {
+func (slot *ItemSlot) SortAllowedItems() {
 	if slot.AllowedItems == nil || len(slot.AllowedItems) == 0 {
 		return
 	}
@@ -67,35 +68,26 @@ func (slot *ItemSlot) SortAllowedItems(by string) {
 			continue
 		}
 
-		for _, slot := range item.Slots {
-			slot.SortAllowedItems(by)
+		for _, childSlot := range item.Slots {
+			childSlot.SortAllowedItems()
 		}
 	}
 
+	focusedStat := slot.RootWeaponTree.Constraints.FocusedStat
 	slices.SortFunc(slot.AllowedItems, func(i, j *Item) int {
-		switch by {
-		case "recoil-min":
+		switch focusedStat {
+		case "recoil":
+			// For recoil optimization: lowest MinRecoil first (best candidates first)
 			if i.PotentialValues.MinRecoil < j.PotentialValues.MinRecoil {
 				return -1
 			} else if i.PotentialValues.MinRecoil > j.PotentialValues.MinRecoil {
 				return 1
 			}
-		case "recoil-max":
-			if i.PotentialValues.MaxRecoil < j.PotentialValues.MaxRecoil {
+		case "ergonomics":
+			// For ergonomics optimization: highest MaxErgonomics first (best candidates first)
+			if i.PotentialValues.MaxErgonomics > j.PotentialValues.MaxErgonomics {
 				return -1
-			} else if i.PotentialValues.MaxRecoil > j.PotentialValues.MaxRecoil {
-				return 1
-			}
-		case "ergonomics-min":
-			if i.PotentialValues.MinErgonomics < j.PotentialValues.MinErgonomics {
-				return -1
-			} else if i.PotentialValues.MinErgonomics > j.PotentialValues.MinErgonomics {
-				return 1
-			}
-		case "ergonomics-max":
-			if i.PotentialValues.MaxErgonomics < j.PotentialValues.MaxErgonomics {
-				return -1
-			} else if i.PotentialValues.MaxErgonomics > j.PotentialValues.MaxErgonomics {
+			} else if i.PotentialValues.MaxErgonomics < j.PotentialValues.MaxErgonomics {
 				return 1
 			}
 		}
@@ -161,24 +153,49 @@ func (slot *ItemSlot) pruneUselessAllowedItems() {
 		return
 	}
 
+	focusedStat := slot.RootWeaponTree.Constraints.FocusedStat
+
 	conflictingItems := make([]*Item, 0)
 	bestNonConflictingValue := 0
 	var bestNonConflicting *Item
 
+	// Helper to check if item is "better" based on focusedStat
+	isBetter := func(itemValue, bestValue int) bool {
+		if focusedStat == "ergonomics" {
+			return itemValue > bestValue // higher is better for ergonomics
+		}
+		return itemValue < bestValue // lower is better for recoil
+	}
+
+	// Helper to check if item has any positive contribution
+	hasPositiveContribution := func(item *Item) bool {
+		if focusedStat == "ergonomics" {
+			return item.PotentialValues.MaxErgonomics > 0
+		}
+		return item.PotentialValues.MinRecoil < 0
+	}
+
+	// Helper to get the relevant potential value
+	getPotentialValue := func(item *Item) int {
+		if focusedStat == "ergonomics" {
+			return item.PotentialValues.MaxErgonomics
+		}
+		return item.PotentialValues.MinRecoil
+	}
+
 	for _, item := range slot.AllowedItems {
 		item.pruneUselessAllowedItems()
 
-		// hardcode for recoil for now.
-		// TODO: use the roots constraints to determine which stat to use
 		if item.ConflictingItems == nil || len(item.ConflictingItems) == 0 {
 			// has no conflicts
-			if item.PotentialValues.MinRecoil < bestNonConflictingValue {
-				bestNonConflictingValue = item.PotentialValues.MinRecoil
+			itemValue := getPotentialValue(item)
+			if isBetter(itemValue, bestNonConflictingValue) {
+				bestNonConflictingValue = itemValue
 				bestNonConflicting = item
 			}
 		} else {
 			// has conflicts
-			if item.PotentialValues.MinRecoil < 0 {
+			if hasPositiveContribution(item) {
 				conflictingItems = append(conflictingItems, item)
 			}
 		}
@@ -186,14 +203,17 @@ func (slot *ItemSlot) pruneUselessAllowedItems() {
 
 	if len(conflictingItems) > 0 {
 		if bestNonConflicting != nil && len(conflictingItems) > 0 {
-			if bestNonConflicting.PotentialValues.MinRecoil < conflictingItems[0].PotentialValues.MinRecoil {
+			bestNonConflictingPotential := getPotentialValue(bestNonConflicting)
+			firstConflictingPotential := getPotentialValue(conflictingItems[0])
+			if isBetter(bestNonConflictingPotential, firstConflictingPotential) {
 				// best non conflicting item is better than any conflicting item
 				slot.AllowedItems = []*Item{bestNonConflicting}
 			} else {
-				//	it's not the best, but it might be better than some
+				// it's not the best, but it might be better than some
 				newAllowedItems := make([]*Item, 0)
 				for _, conflictingItem := range conflictingItems {
-					if conflictingItem.PotentialValues.MinRecoil < bestNonConflictingValue {
+					conflictingPotential := getPotentialValue(conflictingItem)
+					if isBetter(conflictingPotential, bestNonConflictingValue) {
 						newAllowedItems = append(newAllowedItems, conflictingItem)
 					} else {
 						newAllowedItems = append(newAllowedItems, bestNonConflicting)
@@ -216,7 +236,7 @@ func (slot *ItemSlot) pruneUselessAllowedItems() {
 	}
 
 	// now we're done, ensure the best item is at the front of allowed items, incase we changed the ordering
-	slot.SortAllowedItems("recoil-min")
+	slot.SortAllowedItems()
 }
 
 // GetAncestorItems - returns all ancestor AllowedItems only
