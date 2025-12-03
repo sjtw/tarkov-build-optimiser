@@ -292,7 +292,8 @@ func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 	var weaponBaseCost int
 	budget := weapon.Constraints.RubBudget
 
-	if dataService != nil {
+	// Only check weapon price if we're including it in the budget
+	if dataService != nil && weapon.Constraints.IncludeWeaponInBudget {
 		price, ok, err := dataService.GetItemPrice(ctx, weapon.Item.ID, weapon.Constraints.TraderLevels)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to fetch base weapon price for %s", weapon.Item.ID)
@@ -312,6 +313,7 @@ func FindBestBuild(weapon *candidate_tree.CandidateTree, focusedStat string,
 			}
 		}
 	}
+	// If IncludeWeaponInBudget is false, weaponBaseCost remains 0 (weapon is "free")
 
 	var cacheHits, cacheMisses, itemsEvaluated int64
 	build := processSlots(ctx, weapon, weapon.Item.Slots, []OptimalItem{}, focusedStat, 0, 0, weaponBaseCost, budget, excludedItems, nil, slotDescendantItemIDs, &cacheHits, &cacheMisses, &itemsEvaluated, cache, dataService)

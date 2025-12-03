@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"tarkov-build-optimiser/internal/candidate_tree"
+	"tarkov-build-optimiser/internal/evaluator"
 	"tarkov-build-optimiser/internal/models"
 
 	"github.com/rs/zerolog/log"
@@ -78,6 +80,8 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		}
 
 		constraints.TraderLevels = traderLevels
+		// Default to true for backward compatibility
+		constraints.IncludeWeaponInBudget = c.QueryParam("include_weapon_in_budget") != "false"
 
 		build, err := models.GetOptimumBuildByConstraints(db, itemId, buildType, constraints)
 		if err != nil {
@@ -86,15 +90,38 @@ func Bind(e *echo.Group, db *sql.DB) *echo.Group {
 		}
 
 		if build == nil {
-			if constraints.RubBudget != nil {
-				return c.JSON(404, map[string]interface{}{
-					"error":  "no_build_within_budget",
-					"budget": *constraints.RubBudget,
-					"message": fmt.Sprintf("No valid build available within %d RUB for trader levels %v",
-						*constraints.RubBudget, constraints.TraderLevels),
-				})
+			// Build not found in cache, calculate on the fly
+			log.Info().Msgf("Build not found for %s, calculating on the fly", itemId)
+
+			dataService := candidate_tree.CreateDataService(db)
+			weapon, err := candidate_tree.CreateWeaponCandidateTree(itemId, buildType, constraints, dataService)
+			if err != nil {
+				log.Error().Err(err).Msgf("Failed to create weapon tree for %s", itemId)
+				return c.String(500, "Failed to create weapon tree")
 			}
-			return c.String(404, "Build not found")
+
+			cache := evaluator.NewMemoryCache()
+			result := evaluator.FindBestBuild(weapon, buildType, map[string]bool{}, cache, dataService)
+			if result == nil {
+				if constraints.RubBudget != nil {
+					return c.JSON(404, map[string]interface{}{
+						"error":  "no_build_within_budget",
+						"budget": *constraints.RubBudget,
+						"message": fmt.Sprintf("No valid build available within %d RUB for trader levels %v",
+							*constraints.RubBudget, constraints.TraderLevels),
+					})
+				}
+				return c.String(404, "No valid build found")
+			}
+
+			evaledWeapon, err := result.ToEvaluatedWeapon()
+			if err != nil {
+				log.Error().Err(err).Msgf("Failed to convert result for %s", itemId)
+				return c.String(500, "Failed to convert build result")
+			}
+
+			evaluationResult := evaledWeapon.ToItemEvaluationResult()
+			return c.JSON(200, evaluationResult)
 		}
 
 		return c.JSON(200, build)

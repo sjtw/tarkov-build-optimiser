@@ -6,16 +6,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type EvaluationConstraints struct {
-	TraderLevels     []TraderLevel
-	IgnoredSlotNames []string
-	IgnoredItemIDs   []string
-	RubBudget        *int   `json:"rub_budget,omitempty"`
-	FocusedStat      string `json:"focused_stat,omitempty"`
+	TraderLevels          []TraderLevel
+	IgnoredSlotNames      []string
+	IgnoredItemIDs        []string
+	RubBudget             *int   `json:"rub_budget,omitempty"`
+	FocusedStat           string `json:"focused_stat,omitempty"`
+	IncludeWeaponInBudget bool   `json:"include_weapon_in_budget,omitempty"`
 }
 
 type ItemEvaluationResult struct {
