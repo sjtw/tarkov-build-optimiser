@@ -10,7 +10,7 @@ tasks:
 
   api:start:
     desc: start the api locally
-    deps: [api:build, compose:up]
+    deps: [api:build]
     cmds:
       - ./bin/api
 
