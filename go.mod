@@ -11,7 +11,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 )
 
-require github.com/jackc/pgx/v4 v4.12.1-0.20210724153913-640aa07df17c
+require github.com/jackc/pgx/v4 v4.18.2
 
 require (
 	github.com/agnivade/levenshtein v1.1.1 // indirect
