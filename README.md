@@ -1,5 +1,5 @@
 # Tarkov Build Optimiser
-
+sdfsdf
 A Go-based tool for pre-computing and serving optimal weapon builds in Escape from Tarkov. The system analyzes all possible weapon configurations with different trader level constraints to find builds that minimize recoil or maximise ergonomics (todo).
 
 ## Overview
