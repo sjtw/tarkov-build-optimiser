@@ -10,4 +10,4 @@ RUN ls -la
 
 RUN go build -o ./bin/evaluator ./cmd/evaluator/*.go
 
-CMD ["sh", "-c", "./bin/evaluator"]
+CMD ["./bin/evaluator", "--use-database-cache"]
