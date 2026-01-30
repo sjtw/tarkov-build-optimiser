@@ -33,8 +33,10 @@ func main() {
 	var cache evaluator.Cache
 	if flags.UseDatabaseCache {
 		cache = evaluator.NewDatabaseCache(dbClient.Conn)
+		log.Info().Msg("Using DATABASE cache for conflict-free items")
 	} else {
 		cache = evaluator.NewMemoryCache()
+		log.Info().Msg("Using MEMORY cache for conflict-free items")
 	}
 
 	log.Info().Msg("Creating evaluator status entry")
