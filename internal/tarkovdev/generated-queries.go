@@ -2263,7 +2263,7 @@ const (
 // The query or mutation executed by GetItemPrices.
 const GetItemPrices_Operation = `
 query GetItemPrices {
-	items(categoryNames: ["Weapon","WeaponMod"]) {
+	items(categoryNames: ["Weapon","Weapon mod"]) {
 		__typename
 		name
 		id
@@ -2311,7 +2311,7 @@ func GetItemPrices(
 // The query or mutation executed by GetWeaponMods.
 const GetWeaponMods_Operation = `
 query GetWeaponMods {
-	items(categoryNames: ["WeaponMod"]) {
+	items(categoryNames: ["Weapon mod"]) {
 		name
 		id
 		ergonomicsModifier

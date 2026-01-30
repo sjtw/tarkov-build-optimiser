@@ -1,5 +1,5 @@
 query GetWeaponMods {
-  items(categoryNames: ["WeaponMod"]) {
+  items(categoryNames: ["Weapon mod"]) {
     name
     id
     ergonomicsModifier
@@ -113,7 +113,7 @@ query GetWeapons {
 }
 
 query GetItemPrices {
-  items(categoryNames: ["Weapon", "WeaponMod"]) {
+  items(categoryNames: ["Weapon", "Weapon mod"]) {
     __typename
     name
     id
