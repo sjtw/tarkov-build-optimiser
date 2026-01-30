@@ -499,6 +499,34 @@ func processSlots(
 		// Check if this item is conflict-free (can be cached safely)
 		isConflictFree := len(item.ConflictingItems) == 0
 
+		// For conflict-free items with children, ensure we have a cached children contribution
+		// This allows pruning based on known optimal children values
+		if isConflictFree && cache != nil && len(item.Slots) > 0 {
+			cachedEntry, _ := cache.Get(context.Background(), item.ID, focusedStat, root.Constraints)
+			if cachedEntry == nil {
+				// Evaluate JUST this item's child slots to get clean children contribution
+				// This is safe because conflict-free items don't affect excluded items
+				newRecoilForCache := recoilStatSum + item.RecoilModifier
+				newErgoForCache := ergoStatSum + item.ErgonomicsModifier
+				newExcludedForCache := helpers.CloneMap(excludedItems)
+				newChosenForCache := append(chosenItems, OptimalItem{
+					Name:   item.Name,
+					ID:     item.ID,
+					SlotID: currentSlot.ID,
+				})
+				childrenResult := processSlots(root, item.Slots, newChosenForCache, focusedStat, newRecoilForCache, newErgoForCache, newExcludedForCache, visitedSlots, slotDescendantItemIDs, cacheHits, cacheMisses, itemsEvaluated, cache)
+				if childrenResult != nil {
+					// Store children contribution (subtract ancestors + item)
+					childrenRecoil := childrenResult.RecoilSum - newRecoilForCache
+					childrenErgo := childrenResult.ErgonomicsSum - newErgoForCache
+					_ = cache.Set(context.Background(), item.ID, focusedStat, root.Constraints, &CacheEntry{
+						RecoilSum:     childrenRecoil,
+						ErgonomicsSum: childrenErgo,
+					})
+				}
+			}
+		}
+
 		// Try conflict-free cache lookup for pruning
 		if isConflictFree && cache != nil {
 			cachedEntry, err := cache.Get(context.Background(), item.ID, focusedStat, root.Constraints)
@@ -506,16 +534,23 @@ func processSlots(
 				atomic.AddInt64(cacheHits, 1)
 
 				// Use cached stats for pruning - if we know the result won't be better, skip evaluation
+				// cachedEntry contains only children's contribution (not item or ancestors)
 				if best != nil {
-					potentialRecoil := (recoilStatSum + item.RecoilModifier) + cachedEntry.RecoilSum
-					potentialErgo := (ergoStatSum + item.ErgonomicsModifier) + cachedEntry.ErgonomicsSum
-
-					if focusedStat == "recoil" && potentialRecoil >= best.RecoilSum {
-						// Cached result won't be better, skip evaluation
-						continue
-					} else if focusedStat == "ergonomics" && potentialErgo <= best.ErgonomicsSum {
-						// Cached result won't be better, skip evaluation
-						continue
+					// Estimate: ancestors + item + cached children + best-case siblings
+					if focusedStat == "recoil" {
+						siblingsLowerBound := computeRecoilLowerBound(0, remainingSlots)
+						potentialRecoil := recoilStatSum + item.RecoilModifier + cachedEntry.RecoilSum + siblingsLowerBound
+						if potentialRecoil >= best.RecoilSum {
+							// Can't beat best even with optimal siblings
+							continue
+						}
+					} else if focusedStat == "ergonomics" {
+						siblingsUpperBound := computeErgoUpperBound(0, remainingSlots)
+						potentialErgo := ergoStatSum + item.ErgonomicsModifier + cachedEntry.ErgonomicsSum + siblingsUpperBound
+						if potentialErgo <= best.ErgonomicsSum {
+							// Can't beat best even with optimal siblings
+							continue
+						}
 					}
 				}
 			} else {
@@ -556,13 +591,13 @@ func processSlots(
 
 		candidate := processSlots(root, newSlotsToProcess, newChosen, focusedStat, newRecoil, newErgo, newExcluded, visitedSlots, slotDescendantItemIDs, cacheHits, cacheMisses, itemsEvaluated, cache)
 
-		// Cache conflict-free results
-		if isConflictFree && candidate != nil && cache != nil {
-			// For conflict-free items, we can cache the result
-			// since there are no conflicts to worry about
+		// Cache conflict-free leaf items (items without children) - only at leaf positions
+		// Items with children are cached earlier in the dedicated caching block
+		if isConflictFree && candidate != nil && cache != nil && len(item.Slots) == 0 && len(remainingSlots) == 0 {
+			// Leaf item: children contribution is 0
 			_ = cache.Set(context.Background(), item.ID, focusedStat, root.Constraints, &CacheEntry{
-				RecoilSum:     candidate.RecoilSum,
-				ErgonomicsSum: candidate.ErgonomicsSum,
+				RecoilSum:     0,
+				ErgonomicsSum: 0,
 			})
 		}
 
