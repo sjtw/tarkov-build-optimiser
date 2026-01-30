@@ -2231,37 +2231,39 @@ func (v *GetWeaponsResponse) GetItems() []GetWeaponsItemsItem { return v.Items }
 type ItemType string
 
 const (
-	ItemTypeAmmo       ItemType = "ammo"
-	ItemTypeAmmobox    ItemType = "ammoBox"
-	ItemTypeAny        ItemType = "any"
-	ItemTypeArmor      ItemType = "armor"
-	ItemTypeArmorplate ItemType = "armorPlate"
-	ItemTypeBackpack   ItemType = "backpack"
-	ItemTypeBarter     ItemType = "barter"
-	ItemTypeContainer  ItemType = "container"
-	ItemTypeGlasses    ItemType = "glasses"
-	ItemTypeGrenade    ItemType = "grenade"
-	ItemTypeGun        ItemType = "gun"
-	ItemTypeHeadphones ItemType = "headphones"
-	ItemTypeHelmet     ItemType = "helmet"
-	ItemTypeInjectors  ItemType = "injectors"
-	ItemTypeKeys       ItemType = "keys"
-	ItemTypeMarkedonly ItemType = "markedOnly"
-	ItemTypeMeds       ItemType = "meds"
-	ItemTypeMods       ItemType = "mods"
-	ItemTypeNoflea     ItemType = "noFlea"
-	ItemTypePistolgrip ItemType = "pistolGrip"
-	ItemTypePreset     ItemType = "preset"
-	ItemTypeProvisions ItemType = "provisions"
-	ItemTypeRig        ItemType = "rig"
-	ItemTypeSuppressor ItemType = "suppressor"
-	ItemTypeWearable   ItemType = "wearable"
+	ItemTypeAmmo        ItemType = "ammo"
+	ItemTypeAmmobox     ItemType = "ammoBox"
+	ItemTypeAny         ItemType = "any"
+	ItemTypeArmor       ItemType = "armor"
+	ItemTypeArmorplate  ItemType = "armorPlate"
+	ItemTypeBackpack    ItemType = "backpack"
+	ItemTypeBarter      ItemType = "barter"
+	ItemTypeContainer   ItemType = "container"
+	ItemTypeGlasses     ItemType = "glasses"
+	ItemTypeGrenade     ItemType = "grenade"
+	ItemTypeGun         ItemType = "gun"
+	ItemTypeHeadphones  ItemType = "headphones"
+	ItemTypeHelmet      ItemType = "helmet"
+	ItemTypeInjectors   ItemType = "injectors"
+	ItemTypeKeys        ItemType = "keys"
+	ItemTypeMarkedonly  ItemType = "markedOnly"
+	ItemTypeMeds        ItemType = "meds"
+	ItemTypeMods        ItemType = "mods"
+	ItemTypeNoflea      ItemType = "noFlea"
+	ItemTypePistolgrip  ItemType = "pistolGrip"
+	ItemTypePoster      ItemType = "poster"
+	ItemTypePreset      ItemType = "preset"
+	ItemTypeProvisions  ItemType = "provisions"
+	ItemTypeRig         ItemType = "rig"
+	ItemTypeSpecialslot ItemType = "specialSlot"
+	ItemTypeSuppressor  ItemType = "suppressor"
+	ItemTypeWearable    ItemType = "wearable"
 )
 
 // The query or mutation executed by GetItemPrices.
 const GetItemPrices_Operation = `
 query GetItemPrices {
-	items(categoryNames: [Weapon,WeaponMod]) {
+	items(categoryNames: ["Weapon","WeaponMod"]) {
 		__typename
 		name
 		id
@@ -2309,7 +2311,7 @@ func GetItemPrices(
 // The query or mutation executed by GetWeaponMods.
 const GetWeaponMods_Operation = `
 query GetWeaponMods {
-	items(categoryNames: [WeaponMod]) {
+	items(categoryNames: ["WeaponMod"]) {
 		name
 		id
 		ergonomicsModifier
@@ -2415,7 +2417,7 @@ func GetWeaponMods(
 // The query or mutation executed by GetWeapons.
 const GetWeapons_Operation = `
 query GetWeapons {
-	items(categoryNames: [Weapon], types: gun) {
+	items(categoryNames: ["Weapon"], types: gun) {
 		__typename
 		name
 		id

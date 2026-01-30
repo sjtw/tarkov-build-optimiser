@@ -1,13 +1,58 @@
+"""
+**In-game achievements players can earn by completing specific objectives.**
+"""
 type Achievement {
+  """
+  Statistically adjusted percentage that accounts for active players, providing a more representative completion rate. Uses the percentage completion of Welcome to Tarkov as the baseline under the assumption that all active accounts have died once.
+  """
   adjustedPlayersCompletedPercent: Float
+
+  """
+  Text describing the conditions required to unlock the achievement (e.g., "Neutralize Killa 15 times while playing as a PMC").
+  """
   description: String
+
+  """
+  Whether the achievement is hidden from players until unlocked (true) or visible from the start (false).
+  """
   hidden: Boolean!
+
+  """
+  A unique 24-character hexadecimal identifier for the achievement. Follows a consistent format across all achievements.
+  """
   id: ID!
+
+  """URL to the achievement's image."""
+  imageLink: String
+
+  """
+  The display name of the achievement (e.g., "Welcome to Tarkov", "The Kappa Path").
+  """
   name: String!
+
+  """
+  Lowercase, standardized version of the rarity field used for consistent sorting and filtering (e.g., "common", "rare", "legendary").
+  """
   normalizedRarity: String
+
+  """
+  Lowercase, standardized version of the side field used for consistent sorting and filtering (e.g., "pmc", "all", "scavs").
+  """
   normalizedSide: String
+
+  """
+  Raw percentage of all players who have completed this achievement (e.g., 0.06, 43.48).
+  """
   playersCompletedPercent: Float!
+
+  """
+  The difficulty/rarity tier of the achievement. Values include "Common", "Rare", or "Legendary".
+  """
   rarity: String
+
+  """
+  The game faction or player type this achievement is associated with. Values include "PMC", "All", or "Scavs".
+  """
   side: String
 }
 
@@ -122,6 +167,31 @@ type Craft {
   taskUnlock: Task
 }
 
+interface CustomizationItem {
+  customizationType: String!
+  customizationTypeName: String!
+  id: ID!
+  imageLink: String
+  name: String!
+}
+
+type CustomizationItemBasic implements CustomizationItem {
+  customizationType: String!
+  customizationTypeName: String!
+  id: ID!
+  imageLink: String
+  name: String!
+}
+
+type CustomizationItems implements CustomizationItem {
+  customizationType: String!
+  customizationTypeName: String!
+  id: ID!
+  imageLink: String
+  items: [Item]!
+  name: String!
+}
+
 type FleaMarket implements Vendor {
   enabled: Boolean!
   foundInRaidRequired: Boolean
@@ -156,94 +226,6 @@ type GameProperty {
 type GoonReport {
   map: Map
   timestamp: String
-}
-
-enum HandbookCategoryName {
-  Ammo
-  AmmoPacks
-  AssaultCarbines
-  AssaultRifles
-  AssaultScopes
-  AuxiliaryParts
-  Backpacks
-  Barrels
-  BarterItems
-  Bipods
-  BodyArmor
-  BoltActionRifles
-  BuildingMaterials
-  ChargingHandles
-  Collimators
-  CompactCollimators
-  Drinks
-  ElectronicKeys
-  Electronics
-  EnergyElements
-  Eyewear
-  Facecovers
-  FlammableMaterials
-  FlashhidersBrakes
-  Flashlights
-  Food
-  Foregrips
-  FunctionalMods
-  GasBlocks
-  Gear
-  GearComponents
-  GearMods
-  GrenadeLaunchers
-  Handguards
-  Headgear
-  Headsets
-  HouseholdMaterials
-  InfoItems
-  Injectors
-  InjuryTreatment
-  IronSights
-  Keys
-  LaserTargetPointers
-  Launchers
-  LightLaserDevices
-  MachineGuns
-  Magazines
-  Maps
-  MarksmanRifles
-  MechanicalKeys
-  MedicalSupplies
-  Medication
-  Medkits
-  MeleeWeapons
-  Money
-  Mounts
-  MuzzleAdapters
-  MuzzleDevices
-  Optics
-  Others
-  Pills
-  PistolGrips
-  Pistols
-  Provisions
-  QuestItems
-  ReceiversSlides
-  Rounds
-  SMGs
-  SecureContainers
-  Shotguns
-  Sights
-  SpecialEquipment
-  SpecialPurposeSights
-  SpecialWeapons
-  StocksChassis
-  StorageContainers
-  Suppressors
-  TacticalComboDevices
-  TacticalRigs
-  Throwables
-  Tools
-  Valuables
-  VitalParts
-  WeaponPartsMods
-  Weapons
 }
 
 type HealthEffect {
@@ -351,6 +333,7 @@ type Item {
   link: String
   loudness: Int
   low24hPrice: Int
+  minLevelForFlea: Int
   name: String
   normalizedName: String
   properties: ItemProperties
@@ -385,6 +368,9 @@ type ItemArmorSlotLocked implements ItemArmorSlot {
   name: String
   nameId: String
   repairCost: Int
+  ricochetX: Float
+  ricochetY: Float
+  ricochetZ: Float
   speedPenalty: Float
   turnPenalty: Float
   zones: [String]
@@ -406,115 +392,15 @@ type ItemAttribute {
 type ItemCategory {
   children: [ItemCategory]
   id: ID!
+
+  """Only Handbook categories have image links"""
+  imageLink: String
+
+  """Only Handbook categories have minLevelForFlea"""
+  minLevelForFlea: Int
   name: String!
   normalizedName: String!
   parent: ItemCategory
-}
-
-enum ItemCategoryName {
-  Ammo
-  AmmoContainer
-  ArmBand
-  Armor
-  ArmorPlate
-  ArmoredEquipment
-  AssaultCarbine
-  AssaultRifle
-  AssaultScope
-  AuxiliaryMod
-  Backpack
-  Barrel
-  BarterItem
-  Battery
-  Bipod
-  BuildingMaterial
-  ChargingHandle
-  ChestRig
-  CombMuzzleDevice
-  CombTactDevice
-  CommonContainer
-  CompactReflexSight
-  Compass
-  CompoundItem
-  CultistAmulet
-  CylinderMagazine
-  Drink
-  Drug
-  Electronics
-  Equipment
-  EssentialMod
-  FaceCover
-  Flashhider
-  Flashlight
-  Flyer
-  Food
-  FoodAndDrink
-  Foregrip
-  Fuel
-  FunctionalMod
-  GasBlock
-  GearMod
-  GrenadeLauncher
-  Handguard
-  Handgun
-  Headphones
-  Headwear
-  HouseholdGoods
-  Info
-  Ironsight
-  Item
-  Jewelry
-  Key
-  Keycard
-  Knife
-  LockingContainer
-  Lubricant
-  Machinegun
-  Magazine
-  Map
-  MarkOfTheUnheard
-  MarksmanRifle
-  MechanicalKey
-  MedicalItem
-  MedicalSupplies
-  Medikit
-  Meds
-  Money
-  Mount
-  Multitools
-  MuzzleDevice
-  NightVision
-  Other
-  PistolGrip
-  PlantingKits
-  PortContainer
-  PortableRangeFinder
-  RadioTransmitter
-  RandomLootContainer
-  Receiver
-  ReflexSight
-  RepairKits
-  Revolver
-  SMG
-  Scope
-  SearchableItem
-  Shotgun
-  Sights
-  Silencer
-  SniperRifle
-  SpecialItem
-  SpecialScope
-  SpringDrivenCylinder
-  StackableItem
-  Stimulant
-  Stock
-  ThermalVision
-  ThrowableWeapon
-  Tool
-  UBGL
-  VisObservDevice
-  Weapon
-  WeaponMod
 }
 
 type ItemFilters {
@@ -651,6 +537,7 @@ type ItemPropertiesGlasses {
   bluntThroughput: Float
   class: Int
   durability: Int
+  ergoPenalty: Float
   material: ArmorMaterial
   repairCost: Int
 }
@@ -892,9 +779,11 @@ enum ItemType {
   mods
   noFlea
   pistolGrip
+  poster
   preset
   provisions
   rig
+  specialSlot
   suppressor
   wearable
 }
@@ -939,11 +828,17 @@ type LootContainerPosition {
   position: MapPosition
 }
 
+type LootLoosePosition {
+  items: [Item]
+  position: MapPosition
+}
+
 type Map {
   accessKeys: [Item]!
   accessKeysMinPlayerLevel: Int
   artillery: MapArtillerySettings
   bosses: [BossSpawn]!
+  btrStops: [MapPositionNamed]
   description: String
   enemies: [String]
   extracts: [MapExtract]
@@ -951,6 +846,7 @@ type Map {
   id: ID!
   locks: [Lock]
   lootContainers: [LootContainerPosition]
+  lootLoose: [LootLoosePosition]
   maxPlayerLevel: Int
   minPlayerLevel: Int
   name: String!
@@ -987,6 +883,7 @@ type MapExtract {
   position: MapPosition
   switches: [MapSwitch]
   top: Float
+  transferItem: ContainedItem
 }
 
 type MapHazard {
@@ -999,6 +896,13 @@ type MapHazard {
 }
 
 type MapPosition {
+  x: Float!
+  y: Float!
+  z: Float!
+}
+
+type MapPositionNamed {
+  name: String
   x: Float!
   y: Float!
   z: Float!
@@ -1077,6 +981,32 @@ type OfferUnlock {
 type PlayerLevel {
   exp: Int!
   level: Int!
+  levelBadgeImageLink: String
+}
+
+type Prestige {
+  conditions: [TaskObjective]
+  iconLink: String
+  id: ID!
+  imageLink: String
+  name: String
+  prestigeLevel: Int
+  rewards: TaskRewards
+  transferSettings: [PrestigeTransferSettings]
+}
+
+union PrestigeTransferSettings = PrestigeTransferSettingsSkill | PrestigeTransferSettingsStash
+
+type PrestigeTransferSettingsSkill {
+  name: String
+  skillType: String
+  transferRate: Float
+}
+
+type PrestigeTransferSettingsStash {
+  gridHeight: Int
+  gridWidth: Int
+  itemFilters: ItemFilters
 }
 
 type PriceRequirement {
@@ -1102,8 +1032,8 @@ type Query {
   item(gameMode: GameMode, id: ID, lang: LanguageCode, normalizedName: String): Item
   itemByNormalizedName(normalizedName: String!): Item @deprecated(reason: "Use item instead.")
   itemCategories(lang: LanguageCode, limit: Int, offset: Int): [ItemCategory]!
-  itemPrices(id: ID!, limit: Int, offset: Int): [historicalPricePoint]!
-  items(bsgCategory: String, bsgCategoryId: String, bsgCategoryIds: [String], categoryNames: [ItemCategoryName], gameMode: GameMode, handbookCategoryNames: [HandbookCategoryName], ids: [ID], lang: LanguageCode, limit: Int, name: String, names: [String], offset: Int, type: ItemType, types: [ItemType]): [Item]!
+  itemPrices(gameMode: GameMode, id: ID!, limit: Int, offset: Int): [historicalPricePoint]!
+  items(bsgCategory: String, bsgCategoryId: String, bsgCategoryIds: [String], categoryNames: [String], gameMode: GameMode, handbookCategoryNames: [String], ids: [ID], lang: LanguageCode, limit: Int, name: String, names: [String], offset: Int, type: ItemType, types: [ItemType]): [Item]!
   itemsByBsgCategoryId(bsgCategoryId: String!): [Item]! @deprecated(reason: "Use items instead.")
   itemsByIDs(ids: [ID]!): [Item] @deprecated(reason: "Use items instead.")
   itemsByName(name: String!): [Item]! @deprecated(reason: "Use items instead.")
@@ -1112,6 +1042,7 @@ type Query {
   maps(enemies: [String!], gameMode: GameMode, lang: LanguageCode, limit: Int, name: [String!], offset: Int): [Map]!
   mastering(lang: LanguageCode): [Mastering]!
   playerLevels: [PlayerLevel]!
+  prestige(gameMode: GameMode, lang: LanguageCode): [Prestige]!
   questItems(lang: LanguageCode): [QuestItem]
   quests: [Quest] @deprecated(reason: "Use tasks instead.")
   skills(lang: LanguageCode): [Skill]!
@@ -1225,6 +1156,7 @@ type ServerStatus {
 
 type Skill {
   id: ID
+  imageLink: String
   name: String
 }
 
@@ -1297,6 +1229,7 @@ type Task {
   neededKeys: [TaskKey] @deprecated(reason: "Use requiredKeys on objectives instead.")
   normalizedName: String!
   objectives: [TaskObjective]!
+  requiredPrestige: Prestige
   restartable: Boolean
   startMessageId: String
   startRewards: TaskRewards
@@ -1367,6 +1300,16 @@ type TaskObjectiveExtract implements TaskObjective {
   requiredKeys: [[Item]]
   type: String!
   zoneNames: [String]!
+}
+
+type TaskObjectiveHideoutStation implements TaskObjective {
+  description: String!
+  hideoutStation: HideoutStation
+  id: ID
+  maps: [Map]!
+  optional: Boolean!
+  stationLevel: Int
+  type: String!
 }
 
 type TaskObjectiveItem implements TaskObjective {
@@ -1499,7 +1442,9 @@ type TaskObjectiveUseItem implements TaskObjective {
 }
 
 type TaskRewards {
+  achievement: [Achievement]!
   craftUnlock: [Craft]!
+  customization: [CustomizationItem]
   items: [ContainedItem]!
   offerUnlock: [OfferUnlock]!
   skillLevelReward: [SkillLevel]!
@@ -1543,6 +1488,7 @@ type TraderCashOffer {
   buyLimit: Int
   currency: String
   currencyItem: Item
+  id: ID
   item: Item!
   minTraderLevel: Int
   price: Int
