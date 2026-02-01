@@ -41,14 +41,21 @@ func main() {
 
 	log.Info().Msg("Creating evaluator status entry")
 
-	log.Info().Msg("Purging optimum builds.")
-	err = models.PurgeOptimumBuilds(dbClient.Conn)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to purge optimum builds.")
-		return
+	if flags.Fresh || flags.PurgeOptimumBuilds {
+		log.Info().Msg("Purging optimum builds (Fresh run requested).")
+		err = models.PurgeOptimumBuilds(dbClient.Conn)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to purge optimum builds.")
+			return
+		}
+		log.Info().Msg("Models purged.")
+	} else {
+		log.Info().Msg("Resuming evaluator. Resetting stale InProgress builds to Pending.")
+		err = models.ResetInProgressBuilds(dbClient.Conn)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to reset in-progress builds.")
+		}
 	}
-
-	log.Info().Msg("Models purged.")
 
 	traderLevels := evaluator.GenerateTraderLevelVariations(models.TraderNames)
 	traderLevels = evaluator.SortTraderLevelsByAvg(traderLevels)
@@ -220,10 +227,28 @@ func evaluate(weaponIds []string, dataProvider candidate_tree.TreeDataProvider, 
 				IgnoredItemIDs:   []string{},
 			}
 
-			buildID, err := models.CreatePendingOptimumBuild(db, weaponIds[i], "recoil", constraints)
+			// Check if build already exists and is completed
+			existingBuild, err := models.GetOptimumBuildByConstraints(db, weaponIds[i], "recoil", constraints)
 			if err != nil {
-				log.Error().Err(err).Msgf("Failed to create evaluator status for weapon %s", weaponIds[i])
-				return
+				log.Error().Err(err).Msgf("Failed to check existing build for weapon %s", weaponIds[i])
+				continue
+			}
+
+			var buildID int
+			if existingBuild != nil {
+				if existingBuild.Status == models.EvaluationCompleted.ToString() {
+					log.Debug().Msgf("Skipping completed build for weapon %s with constraints %v", weaponIds[i], traderLevels[j])
+					continue
+				}
+				buildID = existingBuild.BuildID
+				log.Debug().Msgf("Resuming build %d for weapon %s with constraints %v (status: %s)", buildID, weaponIds[i], traderLevels[j], existingBuild.Status)
+			} else {
+				log.Debug().Msgf("Creating new pending build for weapon %s with constraints %v", weaponIds[i], traderLevels[j])
+				buildID, err = models.CreatePendingOptimumBuild(db, weaponIds[i], "recoil", constraints)
+				if err != nil {
+					log.Error().Err(err).Msgf("Failed to create evaluator status for weapon %s", weaponIds[i])
+					return
+				}
 			}
 
 			log.Debug().Msgf("Sending to input %s, %v", weaponIds[i], constraints)

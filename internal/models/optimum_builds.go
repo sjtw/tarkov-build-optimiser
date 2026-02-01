@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type EvaluationConstraints struct {
@@ -96,6 +97,12 @@ func (s EvaluatorStatus) ToString() string {
 func CreatePendingOptimumBuild(db *sql.DB, id string, evaluationType string, constraints EvaluationConstraints) (int, error) {
 	tradersMap := constraintsToTraderMap(constraints)
 
+	tx, err := db.Begin()
+	if err != nil {
+		return -1, err
+	}
+	defer tx.Rollback()
+
 	query := `INSERT INTO optimum_builds (
 			item_id,
 			build_type,
@@ -103,14 +110,12 @@ func CreatePendingOptimumBuild(db *sql.DB, id string, evaluationType string, con
 			prapor_level,
 			peacekeeper_level,
 			mechanic_level,
-			skier_level,
-			evaluation_start,
-			status
+			skier_level
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		returning build_id;`
 	var buildID int
-	err := db.QueryRow(
+	err = tx.QueryRow(
 		query,
 		id,
 		evaluationType,
@@ -119,21 +124,36 @@ func CreatePendingOptimumBuild(db *sql.DB, id string, evaluationType string, con
 		tradersMap["Peacekeeper"],
 		tradersMap["Mechanic"],
 		tradersMap["Skier"],
-		time.Now(),
-		EvaluationPending.ToString(),
 	).Scan(&buildID)
 	if err != nil {
 		return -1, err
 	}
 
-	return buildID, nil
+	queryStatus := `INSERT INTO optimal_build_status (
+			build_id,
+			status,
+			evaluation_start
+		)
+		VALUES ($1, $2, $3);`
+	_, err = tx.Exec(
+		queryStatus,
+		buildID,
+		EvaluationPending.ToString(),
+		time.Now(),
+	)
+	if err != nil {
+		return -1, err
+	}
+
+	return buildID, tx.Commit()
 }
 
 func SetBuildInProgress(db *sql.DB, buildID int) error {
-	query := `UPDATE optimum_builds
-		SET status = $1
-		WHERE build_id = $2;`
-	_, err := db.Exec(query, EvaluationInProgress.ToString(), buildID)
+	query := `UPDATE optimal_build_status
+		SET status = $1,
+		    evaluation_start = $2
+		WHERE build_id = $3;`
+	_, err := db.Exec(query, EvaluationInProgress.ToString(), time.Now(), buildID)
 	if err != nil {
 		return err
 	}
@@ -142,10 +162,11 @@ func SetBuildInProgress(db *sql.DB, buildID int) error {
 }
 
 func SetBuildFailed(db *sql.DB, buildID int) error {
-	query := `UPDATE optimum_builds
-		SET status = $1
-		WHERE build_id = $2;`
-	_, err := db.Exec(query, EvaluationFailed.ToString(), buildID)
+	query := `UPDATE optimal_build_status
+		SET status = $1,
+		    evaluation_end = $2
+		WHERE build_id = $3;`
+	_, err := db.Exec(query, EvaluationFailed.ToString(), time.Now(), buildID)
 	if err != nil {
 		return err
 	}
@@ -160,20 +181,35 @@ func SetBuildCompleted(db *sql.DB, buildID int, build *ItemEvaluationResult) err
 		return err
 	}
 
-	query := `update optimum_builds set
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	queryBuild := `update optimum_builds set
 			build = $1,
 			is_subtree = $2,
             recoil_sum = $3,
-			ergonomics_sum = $4,
-			status = $5,
-			evaluation_end = $6
-		where build_id = $7;`
-	_, err = db.Exec(
-		query,
+			ergonomics_sum = $4
+		where build_id = $5;`
+	_, err = tx.Exec(
+		queryBuild,
 		serialisedBuild,
 		build.IsSubtree,
 		build.RecoilSum,
 		build.ErgonomicsSum,
+		buildID)
+	if err != nil {
+		return err
+	}
+
+	queryStatus := `update optimal_build_status set
+			status = $1,
+			evaluation_end = $2
+		where build_id = $3;`
+	_, err = tx.Exec(
+		queryStatus,
 		EvaluationCompleted.ToString(),
 		time.Now(),
 		buildID)
@@ -181,7 +217,7 @@ func SetBuildCompleted(db *sql.DB, buildID int, build *ItemEvaluationResult) err
 		return err
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 func GetEvaluatedSubtree(ctx context.Context, db *sql.DB, itemId string, buildType string, constraints EvaluationConstraints) (*ItemEvaluationResult, error) {
@@ -247,18 +283,19 @@ func GetOptimumBuildByConstraints(db *sql.DB, itemId string, buildType string, c
 
 	query := `
 		SELECT
-		    build_id,
-			build,
-			status
-		FROM optimum_builds
+		    ob.build_id,
+			ob.build,
+			obs.status
+		FROM optimum_builds ob
+		JOIN optimal_build_status obs ON ob.build_id = obs.build_id
 		WHERE
-		    item_id = $1
-			AND build_type = $2
-			AND jaeger_level = $3
-			AND prapor_level = $4
-			AND peacekeeper_level = $5
-			AND mechanic_level = $6
-			AND skier_level = $7;`
+		    ob.item_id = $1
+			AND ob.build_type = $2
+			AND ob.jaeger_level = $3
+			AND ob.prapor_level = $4
+			AND ob.peacekeeper_level = $5
+			AND ob.mechanic_level = $6
+			AND ob.skier_level = $7;`
 	rows, err := db.Query(
 		query,
 		itemId,
@@ -309,11 +346,15 @@ func GetOptimumBuildByConstraints(db *sql.DB, itemId string, buildType string, c
 	return &results[0], nil
 }
 
-func PurgeOptimumBuilds(db *sql.DB) error {
-	_, err := db.Exec("TRUNCATE optimum_builds;")
-	if err != nil {
-		return err
-	}
+func ResetInProgressBuilds(db *sql.DB) error {
+	query := `UPDATE optimal_build_status
+		SET status = $1
+		WHERE status = $2;`
+	_, err := db.Exec(query, EvaluationPending.ToString(), EvaluationInProgress.ToString())
+	return err
+}
 
-	return nil
+func PurgeOptimumBuilds(db *sql.DB) error {
+	_, err := db.Exec("TRUNCATE optimum_builds CASCADE;")
+	return err
 }

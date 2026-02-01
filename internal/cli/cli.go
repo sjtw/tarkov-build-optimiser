@@ -13,6 +13,7 @@ type Flags struct {
 	UseCache           bool
 	CacheOnly          bool
 	PurgeOptimumBuilds bool
+	Fresh              bool
 	TestRun            bool
 	UseDatabaseCache   bool
 	LogLevel           string
@@ -31,6 +32,9 @@ func GetFlags() Flags {
 	}
 	if helpers.ContainsStr(os.Args, "--purge-optimum-builds") {
 		flags.PurgeOptimumBuilds = true
+	}
+	if helpers.ContainsStr(os.Args, "--fresh") {
+		flags.Fresh = true
 	}
 	if helpers.ContainsStr(os.Args, "--test-run") {
 		// makes evaluator only use a few weapons for testing
