@@ -3,34 +3,43 @@ name: data-access-patterns
 description: Guidelines for database interactions using raw SQL and idiomatic Go patterns
 ---
 
-# Data Access Patterns
+# Data Access Patterns Skill
 
-This project follows a strict pattern for database access, prioritizing explicit SQL over ORMs for performance and clarity.
+Use this skill when writing or modifying database access code in `internal/models/`.
+
+This project uses explicit SQL over ORMs for performance, readability, and fine-grained control.
+
+---
 
 ## Core Principles
 
-- **No ORM**: Use `database/sql` directly.
-- **Raw SQL**: Write explicit, readable SQL queries.
-- **Idiomatic Naming**: Follow consistent naming for repository functions.
-- **Transactions for Writes**: Always use `*sql.Tx` for operations that modify data.
-- **Package Location**: Keep database models and access logic in `internal/models/`.
+- **No ORM**: Use `database/sql` directly. Do NOT introduce or use any ORM.
+- **PostgreSQL Driver**: The project uses `github.com/lib/pq` (imported in `internal/db/db.go`).
+- **Raw SQL**: Write explicit, readable SQL queries. Use PostgreSQL-specific features (JSONB, ON CONFLICT) and `$1, $2` placeholders.
+- **Transactional Integrity**: Use `*sql.Tx` when multiple operations must complete together or fail (atomicity).
+- **Separation of Concerns**: Keep database models and access logic in `internal/models/`. Repository functions should focus on data retrieval and persistence.
 
-## Function Naming Conventions
+---
 
-| Pattern | Purpose | Example |
-|---------|---------|---------|
-| `Get[Entity]ById` | Retrieve a single entity by its primary key | `GetWeaponById(db *sql.DB, id string) (*Weapon, error)` |
-| `Get[Entities]By[Field]` | Retrieve multiple entities by a specific field | `GetTraderOffersByItemID(db *sql.DB, itemID string) ([]TraderOffer, error)` |
-| `Upsert[Entity]` | Insert or update a single entity | `UpsertWeapon(tx *sql.Tx, weapon Weapon) error` |
-| `UpsertMany[Entity]` | Insert or update a slice of entities | `UpsertManyWeapon(tx *sql.Tx, weapons []Weapon) error` |
-| `Purge[Entity]` | Delete all records of an entity | `PurgeOptimumBuilds(db *sql.DB) error` |
+## Repository Function Naming
 
-## Writing Queries
+| Pattern | Purpose | Example Signature |
+|---------|---------|-------------------|
+| `Get[Entity]ById` | Retrieve a single entity | `GetWeaponById(db *sql.DB, id string) (*Weapon, error)` |
+| `Get[Entities]By[Field]` | Filtered retrieval | `GetTraderOffersByItemID(db *sql.DB, itemID string) ([]TraderOffer, error)` |
+| `Upsert[Entity]` | Insert or update one record | `UpsertWeapon(tx *sql.Tx, weapon Weapon) error` |
+| `UpsertMany[Entity]` | Batch insert/update | `UpsertManyWeapon(tx *sql.Tx, weapons []Weapon) error` |
+| `Purge[Entity]` | Clean up records | `PurgeOptimumBuilds(db *sql.DB) error` |
 
-### Select with Joins and JSON
-For complex nested objects, use PostgreSQL's JSON functions to retrieve structured data in a single query.
+---
+
+## Writing Efficient Queries
+
+### JSONB for Complex Trees
+When fetching an entity with nested children (e.g., a weapon with many slots), use `jsonb_agg` and `jsonb_build_object` to minimize round-trips and simplify Go-side scanning.
 
 ```go
+// Example: Single query to fetch weapon and all its slots
 query := `
     SELECT w.name,
            w.item_id,
@@ -44,8 +53,8 @@ query := `
     GROUP BY w.name, w.item_id;`
 ```
 
-### Upsert with ON CONFLICT
-Always handle potential conflicts explicitly.
+### Idempotent Writes (`ON CONFLICT`)
+Prefer `ON CONFLICT` for upsert operations to ensure idempotency and handle existing records gracefully.
 
 ```go
 query := `
@@ -55,34 +64,37 @@ query := `
         name = EXCLUDED.name;`
 ```
 
-## Implementation Example
+---
 
-### Model Structs
-Use JSON tags that match the database column names or API response keys.
+## Transaction Management Checklist
 
-```go
-type Weapon struct {
-    ID   string `json:"item_id"`
-    Name string `json:"name"`
-}
-```
+When implementing writes:
 
-### Repository Function
-Notice the use of `tx *sql.Tx` for writes and `db *sql.DB` for reads.
+1.  **Composite Writes**: If a function calls multiple other write functions (e.g., `UpsertWeapon` calling `upsertManySlot`), it MUST accept a `*sql.Tx`.
+2.  **Top-Level Orchestration**: Start the transaction at the highest possible level (usually in the importer or service layer).
+3.  **Defer Rollback**: Defer a rollback immediately after starting a transaction to prevent leaks on error.
 
 ```go
-func UpsertWeapon(tx *sql.Tx, weapon Weapon) error {
-    query := `INSERT INTO weapons (item_id, name) VALUES ($1, $2) ON CONFLICT (item_id) DO UPDATE SET name = $2;`
-    _, err := tx.Exec(query, weapon.ID, weapon.Name)
+tx, err := db.Begin()
+if err != nil {
     return err
 }
+defer tx.Rollback() // Safe: does nothing if committed
+
+if err := UpsertManyWeapon(tx, weapons); err != nil {
+    return err
+}
+
+return tx.Commit()
 ```
 
-## Best Practices
+---
 
-- ✅ **Explicit Scanning**: Scan rows into structs carefully.
-- ✅ **Deferred Closing**: Always `defer rows.Close()` after a query.
-- ✅ **Error Handling**: Check errors after `rows.Scan()` and `rows.Err()`.
-- ✅ **Use EXCLUDED**: In `ON CONFLICT` clauses, use `EXCLUDED.column_name` for clarity when updating.
-- ❌ **Avoid SELECT ***: Always list the columns you need.
-- ❌ **Avoid Global State**: Pass the `*sql.DB` or `*sql.Tx` as a parameter.
+## Developer Best Practices
+
+- ✅ **Explicit Scanning**: Scan rows into structs carefully; match types exactly with the DB schema.
+- ✅ **Resource Management**: `defer rows.Close()` immediately after a `Query` call.
+- ✅ **Strict Errors**: Check errors after `rows.Scan()` AND after the loop with `rows.Err()`.
+- ✅ **Clean Signatures**: Pass `*sql.DB` for read-only operations and `*sql.Tx` for multi-step write operations.
+- ❌ **Avoid SELECT ***: Explicitly list required columns to prevent breakage from schema changes.
+- ❌ **No Global DB**: Pass the database handle as an argument.

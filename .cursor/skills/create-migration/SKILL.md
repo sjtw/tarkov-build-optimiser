@@ -3,17 +3,18 @@ name: create-migration
 description: Create, apply, and rollback database migrations using goose
 ---
 
-# Create Migration
+# Create Migration Skill
 
-Create and manage database schema changes using goose migrations.
+Use this skill when making database schema changes.
 
-## When to Use
+---
+
+## Scope
 
 - Adding new tables
-- Modifying existing columns
+- Modifying columns or constraints
 - Creating or dropping indexes
-- Adding constraints
-- Any database schema change
+- Any DDL operation
 
 ## Creating a New Migration
 
@@ -145,9 +146,9 @@ task migrate:up
 
 ### DO:
 - ✅ Keep migrations small and focused (one logical change per migration)
-- ✅ Always provide a `down` function that reverses the change
-- ✅ Test both `up` and `down` migrations
-- ✅ Use transactions (they're automatic with goose)
+- ✅ Provide a `down` function that reverses the change when feasible
+- ✅ Test both `up` and `down` migrations before merging
+- ✅ goose wraps migrations in transactions automatically
 - ✅ Add indexes for foreign keys and frequently queried columns
 - ✅ Use `IF NOT EXISTS` / `IF EXISTS` for safety when appropriate
 

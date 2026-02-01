@@ -3,9 +3,11 @@ name: setup-dev-environment
 description: Set up or reset the local development environment with database, migrations, and dependencies
 ---
 
-# Setup Dev Environment
+# Setup Dev Environment Skill
 
-Initialize the Tarkov Build Optimiser development environment from scratch or reset it to a clean state.
+Use this skill when initializing or resetting the development environment.
+
+---
 
 ## When to Use
 
@@ -18,7 +20,7 @@ Initialize the Tarkov Build Optimiser development environment from scratch or re
 
 - Docker and Docker Compose installed
 - Go toolchain installed
-- `.env` file configured (copy from `.env.example` if it exists, or ask for required values)
+- `.env` file configured (see README for required values)
 
 ## Initialization Options
 

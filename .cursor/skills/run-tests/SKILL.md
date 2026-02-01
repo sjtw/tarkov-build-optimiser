@@ -3,17 +3,19 @@ name: run-tests
 description: Run the appropriate test suite based on what you're testing and whether you need database access
 ---
 
-# Run Tests
+# Run Tests Skill
 
-Execute the right test suite for your changes, from fast unit tests to comprehensive integration tests.
+Use this skill when running or writing tests for this project.
+
+---
 
 ## Test Types
 
-This project uses filename-based test categorization:
+This project uses filename and function name conventions for test categorization:
 
-- **Unit tests**: `*_unit_test.go` - No external dependencies, fast
-- **Integration tests**: `*_integration_test.go` - Requires database, slower
-- **Benchmark tests**: `*_benchmark_test.go` - Performance measurements
+- **Unit tests**: Files without "Integration" in test function names. No external dependencies, fast.
+- **Integration tests**: `*_integration_test.go` files with "Integration" in function names. Requires database, slower.
+- **Benchmarks**: Standard Go benchmarks (`func Benchmark...`). See `internal/evaluator/evaluator_benchmark_test.go` for an example.
 
 ## When to Use Each
 
@@ -101,8 +103,8 @@ Runs everything: unit, integration, and any other tests.
 ### During Active Development (TDD)
 
 ```bash
-# Run unit tests in watch mode (using your editor or entr)
-ls **/*_unit_test.go | entr -c task test:unit
+# Run unit tests repeatedly after changes
+task test:unit
 ```
 
 ### Before Committing

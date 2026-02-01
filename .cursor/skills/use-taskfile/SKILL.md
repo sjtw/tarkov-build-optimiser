@@ -3,9 +3,11 @@ name: use-taskfile
 description: Run common project operations using the Taskfile. Use when building, testing, starting services, running migrations, or any project operation. Run `task` to discover available tasks.
 ---
 
-# Use Taskfile
+# Use Taskfile Skill
 
-This project uses [Task](https://taskfile.dev/) for common operations. Always prefer Taskfile tasks over manual commands.
+Use this skill when running project operations. Prefer Taskfile tasks over manual commands.
+
+---
 
 ## Discover Available Tasks
 

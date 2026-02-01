@@ -3,7 +3,11 @@ name: internal-package-building
 description: Guides adding and structuring internal Go packages: when to create a new package, import paths, cmd vs internal boundaries, and domain layout. Use when creating or refactoring code under internal/, adding a new domain, or when the user asks about internal package structure.
 ---
 
-# Internal Package Building
+# Internal Package Building Skill
+
+Use this skill when creating or refactoring internal Go packages.
+
+---
 
 ## When to create a new package
 

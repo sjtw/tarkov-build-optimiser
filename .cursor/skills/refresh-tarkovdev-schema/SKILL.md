@@ -3,9 +3,11 @@ name: refresh-tarkovdev-schema
 description: Update the tarkov.dev GraphQL schema and regenerate the Go client code
 ---
 
-# Refresh Tarkov.dev Schema
+# Refresh Tarkov.dev Schema Skill
 
-Update the GraphQL schema and client code for the tarkov.dev API.
+Use this skill when updating the tarkov.dev GraphQL schema or regenerating the Go client.
+
+---
 
 ## When to Use
 
