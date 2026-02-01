@@ -1,0 +1,71 @@
+---
+description: Go testing practices (naming, structure, assertions, boundaries)
+globs: "**/*_test.go"
+alwaysApply: false
+---
+
+# Go Testing Baseline
+
+## File naming and boundaries
+
+- **Unit tests**: `*_unit_test.go` — no network, no database, no external I/O.
+- **Integration tests**: `*_integration_test.go` — may use DB; name must include "Integration" (e.g. `TestFindBestBuildIntegration`).
+- Keep tests in the same package as the code under test (white-box) unless you need to test only the public API (use `_test` package for black-box).
+
+## Test names and structure
+
+- Aim to **reduce duplication**: share setup via helpers or table-driven cases; avoid copy-pasted test bodies.
+- Name tests after behavior: `TestFindBestBuild_RespectsExcludedItems`, `TestParse_InvalidInput_ReturnsError`.
+- One logical behavior per test; split or merge when tests grow or duplicate.
+- **Duplicate test cases present?** Ask the user: "Should we consolidate these into a table-driven test (or shared helper)?"
+- **Unit tests too wide in scope?** Ask the user: "Should we split this test into smaller, focused tests?"
+- Prefer **table-driven tests** when you have multiple inputs/expectations:
+
+```go
+// ✅ GOOD
+func TestValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"valid", "ok", false},
+		{"empty", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := Validate(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+```
+
+## Assertions and errors
+
+- Use the **package’s existing style**: either `testing` only (`t.Fatalf`, `t.Errorf`) or `testify` (`assert`, `require`) — stay consistent within a package.
+- Fail fast on setup or preconditions with `t.Fatal`/`require`; use `t.Error`/`assert` when you want to collect multiple failures in one test.
+- Always check errors and include context in messages:
+
+```go
+// ❌ BAD
+result, _ := DoThing()
+
+// ✅ GOOD
+result, err := DoThing()
+if err != nil {
+	t.Fatalf("DoThing: %v", err)
+}
+```
+
+## Goroutines and cleanup
+
+- Tests that start goroutines must ensure they exit (e.g. cancel context, close channel, or wait with a timeout). Use `t.Cleanup()` to register cleanup so it runs even on failure.
+
+## What to avoid in unit tests
+
+- No real HTTP, DB, or filesystem in `*_unit_test.go`.
+- No `time.Sleep` for synchronization; use channels, sync primitives, or test helpers with timeouts.
+- No global mutable state that could make tests order-dependent; keep tests isolated.
