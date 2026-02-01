@@ -10,9 +10,13 @@ tasks:
 
   api:start:
     desc: start the api locally
-    deps: [api:build, compose:up]
+    deps: [api:build]
     cmds:
       - ./bin/api
+
+  api:start:docker:
+    desc: start the api locally (with docker compose)
+    deps: [compose:up, api:start]
 
   docker:build:
     desc: Build Docker image
@@ -88,13 +92,21 @@ tasks:
 
   migrate:down:
     desc: Rollback migrations
-    deps: [compose:postgres:up, migrate:build]
+    deps: [migrate:build]
     cmd: ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" down
+
+  migrate:down:docker:
+    desc: Rollback migrations (with docker compose)
+    deps: [compose:postgres:up, migrate:down]
 
   migrate:up:
     desc: Apply migrations
-    deps: [compose:postgres:up, migrate:build]
+    deps: [migrate:build]
     cmd: ./bin/migrate postgres "host=$POSTGRES_HOST user=$POSTGRES_USER password=$POSTGRES_PASSWORD dbname=$POSTGRES_DB port=$POSTGRES_PORT sslmode=disable" up
+
+  migrate:up:docker:
+    desc: Apply migrations (with docker compose)
+    deps: [compose:postgres:up, migrate:up]
 
   migrate:ci:
     desc: Apply migrations in CI
@@ -102,7 +114,11 @@ tasks:
 
   start:local:
     desc: Start full local environment
-    deps: [compose:start, api:start]
+    deps: [api:start]
+
+  start:docker:
+    desc: Start full environment with Docker
+    deps: [compose:up, api:start]
 
   test:
     desc: Run tests
@@ -114,8 +130,11 @@ tasks:
 
   test:integration:
     desc: Run integration tests (requires database)
-    deps: [compose:up]
     cmd: go test ./... -run ".*Integration.*"
+
+  test:integration:docker:
+    desc: Run integration tests (with docker compose)
+    deps: [compose:up, test:integration]
 
   tarkovdev:get-schema:
     desc: Retrieve the latest schema from the tarkov.dev API
@@ -139,11 +158,11 @@ tasks:
 
   init:go-only:
     desc: Initialise the project for development (without nodejs/tarkovdev schema dependencies)
-    deps: [deps:install:go, compose:up, migrate:up]
+    deps: [deps:install:go, migrate:up]
 
   init:
     desc: Initialise the project for development
-    deps: [deps:install:node, compose:up, migrate:up]
+    deps: [init:go-only, deps:install:node]
 
   env:
     desc: Print the environment variables

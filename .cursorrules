@@ -1,0 +1,68 @@
+---
+description: 
+alwaysApply: true
+---
+
+# Cursor Rules (Go)
+
+These rules apply to this repo. Follow them strictly.
+
+## General
+- Keep changes minimal, readable, and idiomatic.
+- Avoid complexity and unnecessary indirection; prefer simple, explicit code.
+- Prefer the standard library; add deps only when clearly justified.
+- Avoid refactors or style-only edits unless requested or necessary for the change.
+- Use Taskfile tasks for running apps/services/common dev tasks. If a useful task is missing, ask: "Add a Taskfile task for <task>? (yes/no)". If yes, add it.
+- Only add comments when they explain *why* and the reason is not obvious from nearby code.
+- Only log when it provides meaningful feedback that helps resolve issues.
+
+## Go
+- Format with gofmt; use goimports if imports change.
+- Handle errors explicitly; wrap with %w; use errors.Is/As where relevant.
+- Avoid panic in production code; return errors.
+- Use context.Context as the first param when needed; do not store it in structs.
+- Keep interfaces small and only when multiple concrete types are expected.
+- Accept interfaces, return concrete types; avoid returning interfaces unless multiple implementations are required.
+- Avoid init() side effects unless unavoidable; keep initialization explicit.
+- Avoid any/interface{} unless required for interop or generics.
+- Avoid reflection or generics unless they materially reduce duplication or clarify intent.
+- Prefer explicit types and behavior; avoid global mutable state.
+- Keep functions small and focused; prefer pure functions when feasible.
+- Ensure goroutines have cancellation/cleanup and do not leak.
+
+## Testing
+- Add tests for behavioral changes.
+- If there is no coverage or only implicit coverage, add unit tests.
+- Unit tests must not use network or database connections.
+- Integration tests may use database connections.
+- Mark tests by filename:
+  - Unit: *_unit_test.go
+  - Integration: *_integration_test.go
+- Ensure integration test names include "Integration" to match Taskfile patterns.
+- When creating or editing tests, check for consolidation or overgrown tests; merge or split appropriately.
+- Prefer table-driven tests when multiple cases are needed.
+
+## Project structure
+- Follow the existing project structure and package boundaries.
+- Keep entrypoints in cmd/<app> only; keep shared code in internal/.
+- If a completely new domain is introduced, create a new package directory for it.
+
+## Existing repo patterns (keep)
+- Import internal packages via module path (tarkov-build-optimiser/internal/...).
+- Use internal/db for database connections and internal/models for SQL access.
+- Use database/sql with explicit SQL (no ORM).
+- Use naming conventions for data access: UpsertX, UpsertManyX, GetXById, PurgeX.
+- Use github.com/rs/zerolog/log for logging in app code.
+- Keep tests consistent with the package’s existing assertion style.
+
+## Autonomous mode
+- Only when the user explicitly requests "autonomous mode".
+- Work end-to-end: inspect, implement, update tests, and verify.
+- Assess impact: list behavior changes, affected components, risks, and follow-ups.
+- Run or recommend the most relevant Taskfile tasks; note if not run.
+- If integration coverage is missing, identify the most sensible place to run it (e.g., Taskfile target or environment).
+- Ask questions only when blocked (except the Taskfile yes/no question above).
+
+## Refactors
+- If a large refactor opportunity is identified, ask whether to create a plan prompt.
+- If yes, save a markdown file containing a prompt suitable for Cursor plan mode with all required context.

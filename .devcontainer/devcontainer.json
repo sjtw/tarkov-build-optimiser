@@ -1,0 +1,27 @@
+{
+  "name": "tarkov-build-optimiser",
+  "dockerComposeFile": [
+    "docker-compose.yml"
+  ],
+  "service": "app",
+  "workspaceFolder": "/workspaces/tarkov-build-optimiser",
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [8080],
+  "postCreateCommand": "./scripts/install-go-deps.sh && go mod download",
+  "remoteEnv": {
+    "POSTGRES_HOST": "postgres",
+    "POSTGRES_PORT": "5432",
+    "POSTGRES_USER": "postgres",
+    "POSTGRES_PASSWORD": "postgres",
+    "POSTGRES_DB": "tarkov-build-optimiser",
+    "ENVIRONMENT": "development"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
+}
