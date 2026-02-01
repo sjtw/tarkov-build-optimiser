@@ -1,14 +1,15 @@
 package env
 
 import (
-	"github.com/rs/zerolog/log"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"tarkov-build-optimiser/internal/helpers"
 
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog/log"
 )
 
 type Env struct {
@@ -21,6 +22,8 @@ type Env struct {
 	// cpu-core multiplier for the number of evaluator workers to create
 	// e.g. given 4 cores & POOL_SIZE_MULTIPLIER=2, 8 evaluator workers will be created
 	EvaluatorPoolSizeFactor int
+	// EvaluatorFresh when true causes optimum builds to be purged before evaluation (same as --fresh)
+	EvaluatorFresh bool
 }
 
 var (
@@ -36,6 +39,11 @@ func getInt(key string, def int) int {
 		return def
 	}
 	return value
+}
+
+func getBoolTruthy(key string) bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
+	return v == "1" || v == "true" || v == "yes"
 }
 
 func load() {
@@ -58,6 +66,7 @@ func load() {
 		PgName:                  os.Getenv("POSTGRES_DB"),
 		Environment:             os.Getenv("ENVIRONMENT"),
 		EvaluatorPoolSizeFactor: getInt("POOL_SIZE_MULTIPLIER", 2),
+		EvaluatorFresh:          getBoolTruthy("EVALUATOR_FRESH"),
 	}
 
 	log.Debug().

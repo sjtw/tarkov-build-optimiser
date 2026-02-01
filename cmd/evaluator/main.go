@@ -23,6 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to get environment variables")
 	}
+	flags.Fresh = flags.Fresh || environment.EvaluatorFresh
 
 	dbClient, err := db.CreateBuildOptimiserDBClient(environment)
 	if err != nil {
